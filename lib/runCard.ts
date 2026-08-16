@@ -75,6 +75,17 @@ function drawRoute(
     ctx.fillText("No GPS route recorded", box.x + box.w / 2, box.y + box.h / 2);
     return;
   }
+  // Fit the path inside an inset area so the stroke, its glow and the end
+  // markers all stay within `box` — no bleed into the header or stats row,
+  // however tall or wide the route happens to be.
+  const INK = 34; // half stroke (6) + shadow blur (28); dots need only 17.5
+  const fit = {
+    x: box.x + INK,
+    y: box.y + INK,
+    w: Math.max(1, box.w - INK * 2),
+    h: Math.max(1, box.h - INK * 2),
+  };
+
   const midLat = (route[0].lat + route[route.length - 1].lat) / 2;
   const cosLat = Math.cos((midLat * Math.PI) / 180);
   const xs = route.map((p) => p.lon * cosLat);
@@ -84,13 +95,13 @@ function drawRoute(
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
   const scale = Math.min(
-    box.w / Math.max(maxX - minX, 1e-9),
-    box.h / Math.max(maxY - minY, 1e-9)
+    fit.w / Math.max(maxX - minX, 1e-9),
+    fit.h / Math.max(maxY - minY, 1e-9)
   );
   const usedW = (maxX - minX) * scale;
   const usedH = (maxY - minY) * scale;
-  const ox = box.x + (box.w - usedW) / 2;
-  const oy = box.y + (box.h - usedH) / 2;
+  const ox = fit.x + (fit.w - usedW) / 2;
+  const oy = fit.y + (fit.h - usedH) / 2;
   const pts = route.map((p, i) => ({
     x: ox + (xs[i] - minX) * scale,
     y: oy + usedH - (ys[i] - minY) * scale, // invert so north is up
@@ -152,20 +163,35 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
   ctx.font = `400 54px ${FONT}`;
+  ctx.fillStyle = "#ffffff";
   ctx.fillText(persona.emoji, PAD, PAD + 26);
+
+  const date = opts.date ?? new Date();
+  const dateText = date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  ctx.font = `600 28px ${FONT}`;
+  const dateW = ctx.measureText(dateText).width;
+  ctx.textAlign = "right";
+  ctx.fillStyle = "rgba(235,235,245,0.6)";
+  ctx.fillText(dateText, S - PAD, PAD + 22);
+
+  // Trim the name if it would run into the date
+  const nameX = PAD + 76;
+  const nameMax = S - PAD - dateW - 32 - nameX;
   ctx.font = `700 34px ${FONT}`;
   ctx.fillStyle = "#ffffff";
-  ctx.fillText(persona.name, PAD + 76, PAD + 22);
-
-  ctx.textAlign = "right";
-  ctx.font = `600 28px ${FONT}`;
-  ctx.fillStyle = "rgba(235,235,245,0.6)";
-  const date = opts.date ?? new Date();
-  ctx.fillText(
-    date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }),
-    S - PAD,
-    PAD + 22
-  );
+  ctx.textAlign = "left";
+  let name = persona.name;
+  if (ctx.measureText(name).width > nameMax) {
+    while (name.length > 1 && ctx.measureText(`${name}…`).width > nameMax) {
+      name = name.slice(0, -1);
+    }
+    name = `${name.trimEnd()}…`;
+  }
+  ctx.fillText(name, nameX, PAD + 22);
 
   // ---- route ----
   drawRoute(ctx, stats.route, persona.accent, {
@@ -190,29 +216,46 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
 
   const rowY = 712;
   const colW = (S - PAD * 2) / 3;
+  const cellMax = colW - 24; // keep a gutter between columns
   ctx.textBaseline = "alphabetic";
   cells.forEach((cell, i) => {
     const cx = PAD + colW * i + colW / 2;
-    ctx.textAlign = "center";
 
-    ctx.font = `700 72px ${FONT}`;
+    // Shrink the value (and its unit) until the pair fits its column, so an
+    // ultra distance or an hours-long time can never run into its neighbour.
+    let valueSize = 72;
+    let unitSize = 30;
+    let valueW = 0;
+    let unitW = 0;
+    for (;;) {
+      ctx.font = `700 ${valueSize}px ${FONT}`;
+      valueW = ctx.measureText(cell.value).width;
+      unitW = 0;
+      if (cell.unit) {
+        ctx.font = `600 ${unitSize}px ${FONT}`;
+        unitW = ctx.measureText(` ${cell.unit}`).width;
+      }
+      if (valueW + unitW <= cellMax || valueSize <= 34) break;
+      valueSize -= 2;
+      unitSize = Math.max(20, Math.round(valueSize * 0.42));
+    }
+
     ctx.fillStyle = "#ffffff";
-    const valueW = ctx.measureText(cell.value).width;
     if (cell.unit) {
-      ctx.font = `600 30px ${FONT}`;
-      const unitW = ctx.measureText(` ${cell.unit}`).width;
       const startX = cx - (valueW + unitW) / 2;
       ctx.textAlign = "left";
-      ctx.font = `700 72px ${FONT}`;
+      ctx.font = `700 ${valueSize}px ${FONT}`;
       ctx.fillText(cell.value, startX, rowY);
-      ctx.font = `600 30px ${FONT}`;
+      ctx.font = `600 ${unitSize}px ${FONT}`;
       ctx.fillStyle = "rgba(235,235,245,0.6)";
       ctx.fillText(` ${cell.unit}`, startX + valueW, rowY);
-      ctx.textAlign = "center";
     } else {
+      ctx.textAlign = "center";
+      ctx.font = `700 ${valueSize}px ${FONT}`;
       ctx.fillText(cell.value, cx, rowY);
     }
 
+    ctx.textAlign = "center";
     ctx.font = `700 24px ${FONT}`;
     ctx.fillStyle = "rgba(235,235,245,0.5)";
     ctx.fillText(cell.label, cx, rowY + 44);
