@@ -7,6 +7,7 @@ import {
   allPhrasesFor,
   expandLibrary,
   getPhraseUrl,
+  getVoiceSpeed,
   libraryFlags,
   lifetimeStats,
   loadLibraryState,
@@ -14,6 +15,7 @@ import {
   reRenderPersona,
   renderMissingPhrases,
   renderedCount,
+  saveVoiceSpeed,
   storeAdminPin,
   type GenerationProgress,
 } from "@/lib/voiceLibrary";
@@ -49,6 +51,8 @@ export default function AdminScreen({ onBack }: Props) {
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [expanding, setExpanding] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [speeds, setSpeeds] = useState<Record<PersonaId, number>>({ ahbeng: 1.2, coach: 1.0 });
+  const [savingSpeed, setSavingSpeed] = useState<PersonaId | null>(null);
   const [, bump] = useState(0); // re-render as the registry mutates
   const refresh = () => bump((n) => n + 1);
 
@@ -76,9 +80,26 @@ export default function AdminScreen({ onBack }: Props) {
     })();
     void loadLibraryState(true).then(() => {
       setReady(true);
+      setSpeeds({ ahbeng: getVoiceSpeed("ahbeng"), coach: getVoiceSpeed("coach") });
       refresh();
     });
   }, []);
+
+  const onSaveSpeed = async (id: PersonaId) => {
+    setSavingSpeed(id);
+    setNotice(null);
+    try {
+      await saveVoiceSpeed(id, speeds[id]);
+      setNotice(
+        `✓ ${PERSONAS[id].name} voice speed saved (${speeds[id].toFixed(2)}×). ` +
+          "Re-render to apply it to existing audio."
+      );
+    } catch (err) {
+      setNotice(`⚠ ${err instanceof Error ? err.message : "save failed"}`);
+    } finally {
+      setSavingSpeed(null);
+    }
+  };
 
   const submitPin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,6 +276,39 @@ export default function AdminScreen({ onBack }: Props) {
         {notice && (
           <div className={`admin-notice ${notice.startsWith("✓") ? "ok" : "bad"}`}>{notice}</div>
         )}
+      </div>
+
+      <div className="section-header">Voice Speed</div>
+      <div className="card" style={{ padding: "6px 14px" }}>
+        {PERSONA_LIST.map((p) => (
+          <div className="speed-row" key={p.id}>
+            <span className="speed-name">
+              {p.emoji} {p.name}
+            </span>
+            <input
+              type="range"
+              min={0.7}
+              max={1.2}
+              step={0.05}
+              value={speeds[p.id]}
+              onChange={(e) =>
+                setSpeeds((s) => ({ ...s, [p.id]: Number(e.target.value) }))
+              }
+            />
+            <span className="speed-value">{speeds[p.id].toFixed(2)}×</span>
+            <button
+              className="open-pill"
+              disabled={savingSpeed !== null || speeds[p.id] === getVoiceSpeed(p.id)}
+              onClick={() => onSaveSpeed(p.id)}
+            >
+              {savingSpeed === p.id ? "…" : "Save"}
+            </button>
+          </div>
+        ))}
+        <div className="gen-hint" style={{ padding: "2px 0 10px" }}>
+          1.00× is the voice&apos;s natural pace; 1.20× is ElevenLabs&apos; max. Saved speed
+          applies to live phrases immediately — hit Re-render to redo existing audio.
+        </div>
       </div>
 
       <div className="section-header">Lifetime Stats</div>

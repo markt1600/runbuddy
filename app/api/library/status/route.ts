@@ -5,6 +5,7 @@ import {
   listRendered,
   readExtras,
 } from "@/lib/server/library";
+import { readVoiceSettings } from "@/lib/server/voiceSettings";
 
 export const dynamic = "force-dynamic";
 
@@ -14,13 +15,18 @@ export async function GET() {
   try {
     const canRender = blobConfigured() && elevenLabsConfigured();
     const rendered = blobConfigured() ? await listRendered() : {};
-    const [ahbeng, coach] = await Promise.all([readExtras("ahbeng"), readExtras("coach")]);
+    const [ahbeng, coach, voiceSettings] = await Promise.all([
+      readExtras("ahbeng"),
+      readExtras("coach"),
+      readVoiceSettings(),
+    ]);
     return NextResponse.json({
       elevenlabs: elevenLabsConfigured(),
       blob: blobConfigured(),
       canRender,
       rendered, // { "<persona>/<id>": url }
       extras: { ahbeng, coach },
+      voiceSettings,
     });
   } catch {
     return NextResponse.json({ error: "status unavailable" }, { status: 503 });

@@ -9,6 +9,7 @@ import type { Persona, Phrase, PersonaId, PhraseCategory } from "./types";
 const urls = new Map<string, string>(); // "<persona>/<id>" → audio url
 const extras: Record<PersonaId, Phrase[]> = { ahbeng: [], coach: [] };
 let flags = { blob: false, elevenlabs: false, canRender: false, statusReached: false };
+let voiceSpeeds: Record<PersonaId, number> = { ahbeng: 1.2, coach: 1.0 };
 let stateLoaded = false;
 
 const key = (persona: PersonaId, id: string) => `${persona}/${id}`;
@@ -104,6 +105,7 @@ export async function loadLibraryState(force = false): Promise<void> {
         canRender: boolean;
         rendered: Record<string, string>;
         extras: Record<string, Phrase[]>;
+        voiceSettings?: Record<PersonaId, { speed: number }>;
       } = await res.json();
       flags = { ...data, statusReached: true };
       for (const [k, url] of Object.entries(data.rendered)) {
@@ -111,6 +113,8 @@ export async function loadLibraryState(force = false): Promise<void> {
       }
       for (const persona of Object.keys(extras) as PersonaId[]) {
         extras[persona] = data.extras?.[persona] ?? [];
+        const speed = data.voiceSettings?.[persona]?.speed;
+        if (typeof speed === "number") voiceSpeeds[persona] = speed;
       }
     }
   } catch {
@@ -160,6 +164,24 @@ export async function renderMissingPhrases(
     }
   }
   report("done");
+}
+
+export function getVoiceSpeed(persona: PersonaId): number {
+  return voiceSpeeds[persona];
+}
+
+/** Admin: persist a new voice speed server-side. Takes effect on future renders. */
+export async function saveVoiceSpeed(persona: PersonaId, speed: number): Promise<void> {
+  const res = await fetch("/api/library/voice-settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...adminPinHeaders() },
+    body: JSON.stringify({ persona, speed }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? `save failed (${res.status})`);
+  }
+  voiceSpeeds[persona] = speed;
 }
 
 /**

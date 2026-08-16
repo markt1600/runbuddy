@@ -2,7 +2,6 @@
 
 import { PERSONA_LIST, PERSONAS } from "@/lib/personas";
 import { phrasesFor } from "@/lib/phrases";
-import type { GenerationProgress } from "@/lib/voiceLibrary";
 import type { SpeedUnit } from "@/lib/units";
 import type { MusicSource, PersonaId } from "@/lib/types";
 
@@ -33,66 +32,8 @@ interface Props {
   onMusicChange: (m: MusicSource) => void;
   onStart: () => void;
   onAdmin: () => void;
-  genProgress: GenerationProgress | null;
   speedUnit: SpeedUnit;
   onSpeedUnitChange: (u: SpeedUnit) => void;
-}
-
-function VoiceLibraryBanner({ progress }: { progress: GenerationProgress | null }) {
-  if (!progress) return null;
-  if (progress.state === "generating" || progress.state === "checking") {
-    const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
-    return (
-      <div className="gen-banner">
-        <div className="gen-row">
-          <span className="gen-spinner" />
-          <span className="gen-text">
-            {progress.state === "checking"
-              ? "Checking voice library…"
-              : `Generating voice library… ${progress.done}/${progress.total}`}
-          </span>
-          <span className="gen-pct">{progress.state === "generating" ? `${pct}%` : ""}</span>
-        </div>
-        <div className="gen-bar">
-          <div className="gen-bar-fill" style={{ width: `${pct}%` }} />
-        </div>
-        <div className="gen-hint">
-          One-time setup — voices are rendered with ElevenLabs and saved forever.
-          You can start running now; phrases upgrade from robo-voice as they finish.
-        </div>
-      </div>
-    );
-  }
-  if (progress.state === "done") {
-    return (
-      <div className="gen-banner gen-done">
-        <div className="gen-row">
-          <span className="gen-text">
-            ✓ Voice library ready — {progress.total} phrases rendered
-          </span>
-        </div>
-      </div>
-    );
-  }
-  if (progress.state === "error") {
-    return (
-      <div className="gen-banner gen-error">
-        <div className="gen-row">
-          <span className="gen-text">⚠ {progress.message}</span>
-        </div>
-      </div>
-    );
-  }
-  if (progress.state === "unavailable" && progress.message) {
-    return (
-      <div className="gen-banner gen-error">
-        <div className="gen-row">
-          <span className="gen-text">🔇 {progress.message}</span>
-        </div>
-      </div>
-    );
-  }
-  return null;
 }
 
 export default function SetupScreen({
@@ -102,7 +43,6 @@ export default function SetupScreen({
   onMusicChange,
   onStart,
   onAdmin,
-  genProgress,
   speedUnit,
   onSpeedUnitChange,
 }: Props) {
@@ -126,8 +66,6 @@ export default function SetupScreen({
     <div className="fade-in">
       <h1 className="large-title">Run Buddy</h1>
       <p className="subtitle">Pick your trainer. Press start. Get talked at.</p>
-
-      <VoiceLibraryBanner progress={genProgress} />
 
       <div className="section-header">Your Run Buddy</div>
       {PERSONA_LIST.map((p) => (

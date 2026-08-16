@@ -727,6 +727,40 @@ body {
   color: var(--label-2);
 }
 
+.speed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.speed-row + .speed-row { border-top: 0.5px solid var(--separator); }
+
+.speed-name {
+  font-size: 13px;
+  font-weight: 700;
+  width: 108px;
+  flex-shrink: 0;
+}
+
+.speed-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--blue);
+}
+
+.speed-value {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  width: 44px;
+  text-align: right;
+}
+
+.speed-row .open-pill:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .admin-lib-stats {
   display: flex;
   justify-content: space-around;

@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { PERSONAS } from "../personas";
+import { readVoiceSettings } from "./voiceSettings";
 import type { PersonaId } from "../types";
 
 // Server-side helpers: write a line in-persona with Claude (Sonnet 5), voice it
@@ -89,6 +90,7 @@ export async function renderVoiceBuffer(
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) return null;
   const voiceId = voiceIdFor(persona);
+  const settings = await readVoiceSettings();
   const res = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_64`,
     {
@@ -101,7 +103,7 @@ export async function renderVoiceBuffer(
           stability: 0.4,
           similarity_boost: 0.8,
           style: 0.6,
-          speed: PERSONAS[persona].elevenLabsSpeed,
+          speed: settings[persona].speed,
         },
       }),
     }
