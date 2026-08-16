@@ -451,6 +451,14 @@ body {
   margin-top: 18px;
 }
 
+.stat-grid.tappable {
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.stat-grid.tappable:active .stat-cell { background: var(--bg-elevated-2); }
+
 .stat-cell {
   background: var(--bg-elevated);
   border-radius: var(--radius);

@@ -3,6 +3,7 @@
 import { PERSONA_LIST, PERSONAS } from "@/lib/personas";
 import { phrasesFor } from "@/lib/phrases";
 import type { GenerationProgress } from "@/lib/voiceLibrary";
+import type { SpeedUnit } from "@/lib/units";
 import type { MusicSource, PersonaId } from "@/lib/types";
 
 const MUSIC_META: Record<
@@ -33,6 +34,8 @@ interface Props {
   onStart: () => void;
   onAdmin: () => void;
   genProgress: GenerationProgress | null;
+  speedUnit: SpeedUnit;
+  onSpeedUnitChange: (u: SpeedUnit) => void;
 }
 
 function VoiceLibraryBanner({ progress }: { progress: GenerationProgress | null }) {
@@ -100,6 +103,8 @@ export default function SetupScreen({
   onStart,
   onAdmin,
   genProgress,
+  speedUnit,
+  onSpeedUnitChange,
 }: Props) {
   const previewVoice = (id: PersonaId, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -175,6 +180,22 @@ export default function SetupScreen({
           </a>
         </div>
       )}
+
+      <div className="section-header">Speed Display</div>
+      <div className="segmented">
+        <button
+          className={speedUnit === "kmh" ? "active" : ""}
+          onClick={() => onSpeedUnitChange("kmh")}
+        >
+          km/h
+        </button>
+        <button
+          className={speedUnit === "minkm" ? "active" : ""}
+          onClick={() => onSpeedUnitChange("minkm")}
+        >
+          min/km
+        </button>
+      </div>
 
       <div className="section-header">Before You Go</div>
       <div className="card" style={{ padding: "12px 16px", fontSize: 13, color: "var(--label-2)", lineHeight: 1.5 }}>

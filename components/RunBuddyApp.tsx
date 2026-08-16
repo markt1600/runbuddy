@@ -7,6 +7,7 @@ import SummaryScreen from "./SummaryScreen";
 import AdminScreen from "./AdminScreen";
 import { PERSONAS } from "@/lib/personas";
 import { ensureVoiceLibrary, type GenerationProgress } from "@/lib/voiceLibrary";
+import { loadSpeedUnit, saveSpeedUnit, type SpeedUnit } from "@/lib/units";
 import type { MusicSource, PersonaId, RunStats } from "@/lib/types";
 
 type Screen = "setup" | "run" | "summary" | "admin";
@@ -17,6 +18,16 @@ export default function RunBuddyApp() {
   const [music, setMusic] = useState<MusicSource>("spotify");
   const [finalStats, setFinalStats] = useState<RunStats | null>(null);
   const [genProgress, setGenProgress] = useState<GenerationProgress | null>(null);
+  const [speedUnit, setSpeedUnitState] = useState<SpeedUnit>("kmh");
+
+  useEffect(() => {
+    setSpeedUnitState(loadSpeedUnit());
+  }, []);
+
+  const setSpeedUnit = (unit: SpeedUnit) => {
+    setSpeedUnitState(unit);
+    saveSpeedUnit(unit);
+  };
 
   // First launch after deploy: top up the voice library through the server's
   // ElevenLabs key, one phrase at a time, with visible progress. No-ops when
@@ -38,6 +49,8 @@ export default function RunBuddyApp() {
           onStart={() => setScreen("run")}
           onAdmin={() => setScreen("admin")}
           genProgress={genProgress}
+          speedUnit={speedUnit}
+          onSpeedUnitChange={setSpeedUnit}
         />
       )}
       {screen === "admin" && <AdminScreen onBack={() => setScreen("setup")} />}
@@ -45,6 +58,8 @@ export default function RunBuddyApp() {
         <RunScreen
           persona={persona}
           music={music}
+          speedUnit={speedUnit}
+          onSpeedUnitChange={setSpeedUnit}
           onFinish={(stats) => {
             setFinalStats(stats);
             setScreen("summary");

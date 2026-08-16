@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GeoTracker, formatElapsed, formatSpeed, type GpsSignal } from "@/lib/geo";
+import { GeoTracker, formatElapsed, type GpsSignal } from "@/lib/geo";
+import { formatInUnit, unitSuffix, type SpeedUnit } from "@/lib/units";
 import { VoiceEngine, WakeLockManager } from "@/lib/audio";
 import { CoachEngine } from "@/lib/coach";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
@@ -10,10 +11,18 @@ import type { MusicSource, Persona, RunStats } from "@/lib/types";
 interface Props {
   persona: Persona;
   music: MusicSource;
+  speedUnit: SpeedUnit;
+  onSpeedUnitChange: (u: SpeedUnit) => void;
   onFinish: (stats: RunStats) => void;
 }
 
-export default function RunScreen({ persona, music, onFinish }: Props) {
+export default function RunScreen({
+  persona,
+  music,
+  speedUnit,
+  onSpeedUnitChange,
+  onFinish,
+}: Props) {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [paused, setPaused] = useState(false);
   const [distanceKm, setDistanceKm] = useState(0);
@@ -259,7 +268,12 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
       <div className="big-timer">{formatElapsed(elapsedMs)}</div>
       <div className="timer-label">{paused ? "Paused" : "Elapsed"}</div>
 
-      <div className="stat-grid">
+      <div
+        className="stat-grid tappable"
+        role="button"
+        aria-label="Toggle between km/h and min/km"
+        onClick={() => onSpeedUnitChange(speedUnit === "kmh" ? "minkm" : "kmh")}
+      >
         <div className="stat-cell">
           <div className="stat-value">
             {distanceKm.toFixed(2)} <span className="stat-unit">km</span>
@@ -268,21 +282,24 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
         </div>
         <div className="stat-cell">
           <div className="stat-value">
-            {formatSpeed(speeds.now)} <span className="stat-unit">km/h</span>
+            {formatInUnit(speeds.now, speedUnit)}{" "}
+            <span className="stat-unit">{unitSuffix(speedUnit)}</span>
           </div>
           <div className="stat-label">Current (10s)</div>
         </div>
         <div className="stat-cell">
           <div className="stat-value">
-            {formatSpeed(speeds.lastKm)} <span className="stat-unit">km/h</span>
+            {formatInUnit(speeds.lastKm, speedUnit)}{" "}
+            <span className="stat-unit">{unitSuffix(speedUnit)}</span>
           </div>
           <div className="stat-label">Last km</div>
         </div>
         <div className="stat-cell">
           <div className="stat-value">
-            {formatSpeed(speeds.avg)} <span className="stat-unit">km/h</span>
+            {formatInUnit(speeds.avg, speedUnit)}{" "}
+            <span className="stat-unit">{unitSuffix(speedUnit)}</span>
           </div>
-          <div className="stat-label">Run average</div>
+          <div className="stat-label">Run average · tap to switch</div>
         </div>
       </div>
 
@@ -347,7 +364,9 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
           <div className="aod-time">{formatElapsed(elapsedMs)}</div>
           <div className="aod-stats">
             <span>{distanceKm.toFixed(2)} km</span>
-            <span>{formatSpeed(speeds.now)} km/h</span>
+            <span>
+              {formatInUnit(speeds.now, speedUnit)} {unitSuffix(speedUnit)}
+            </span>
             <span>{clock}</span>
           </div>
           {gpsTrouble && <div className="aod-gps">⚠ {gps.label}</div>}
