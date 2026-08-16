@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GeoTracker, formatElapsed, formatPace, type GpsSignal } from "@/lib/geo";
+import { GeoTracker, formatElapsed, formatSpeed, type GpsSignal } from "@/lib/geo";
 import { VoiceEngine, WakeLockManager } from "@/lib/audio";
 import { CoachEngine } from "@/lib/coach";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
@@ -17,7 +17,11 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [paused, setPaused] = useState(false);
   const [distanceKm, setDistanceKm] = useState(0);
-  const [pace, setPace] = useState<number | null>(null);
+  const [speeds, setSpeeds] = useState<{
+    now: number | null;
+    lastKm: number | null;
+    avg: number | null;
+  }>({ now: null, lastKm: null, avg: null });
   const [coachText, setCoachText] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
   const [aod, setAod] = useState(false);
@@ -49,6 +53,9 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
     distanceKm: 0,
     paceSecPerKm: null,
     avgPaceSecPerKm: null,
+    speedNowKmh: null,
+    lastKmSpeedKmh: null,
+    avgSpeedKmh: null,
     splits: [],
     route: [],
   });
@@ -65,6 +72,9 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
       distanceKm: dist,
       paceSecPerKm: geo.rollingPaceSecPerKm(),
       avgPaceSecPerKm: avg,
+      speedNowKmh: geo.speedKmhLastSeconds(10),
+      lastKmSpeedKmh: geo.lastKmSpeedKmh(),
+      avgSpeedKmh: dist > 0.05 && elapsed > 0 ? dist / (elapsed / 3_600_000) : null,
       splits: splitsRef.current,
       route: geo.route,
     };
@@ -109,7 +119,11 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
     const interval = setInterval(() => {
       const stats = computeStats();
       setElapsedMs(stats.elapsedMs);
-      setPace(stats.paceSecPerKm);
+      setSpeeds({
+        now: stats.speedNowKmh,
+        lastKm: stats.lastKmSpeedKmh,
+        avg: stats.avgSpeedKmh,
+      });
       setClock(
         new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
       );
@@ -253,8 +267,22 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
           <div className="stat-label">Distance</div>
         </div>
         <div className="stat-cell">
-          <div className="stat-value">{formatPace(pace)}</div>
-          <div className="stat-label">Pace / km</div>
+          <div className="stat-value">
+            {formatSpeed(speeds.now)} <span className="stat-unit">km/h</span>
+          </div>
+          <div className="stat-label">Current (10s)</div>
+        </div>
+        <div className="stat-cell">
+          <div className="stat-value">
+            {formatSpeed(speeds.lastKm)} <span className="stat-unit">km/h</span>
+          </div>
+          <div className="stat-label">Last km</div>
+        </div>
+        <div className="stat-cell">
+          <div className="stat-value">
+            {formatSpeed(speeds.avg)} <span className="stat-unit">km/h</span>
+          </div>
+          <div className="stat-label">Run average</div>
         </div>
       </div>
 
@@ -319,7 +347,7 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
           <div className="aod-time">{formatElapsed(elapsedMs)}</div>
           <div className="aod-stats">
             <span>{distanceKm.toFixed(2)} km</span>
-            <span>{formatPace(pace)}</span>
+            <span>{formatSpeed(speeds.now)} km/h</span>
             <span>{clock}</span>
           </div>
           {gpsTrouble && <div className="aod-gps">⚠ {gps.label}</div>}

@@ -24,6 +24,7 @@ export class GeoTracker {
   private watchId: number | null = null;
   private last: GeoSample | null = null;
   private recent: { t: number; km: number }[] = []; // cumulative distance samples for rolling pace
+  private history: { t: number; km: number }[] = []; // full-run samples for last-km moving average
   private lastFixAt = 0; // any fix, even a rejected low-accuracy one
   private lastGoodFixAt = 0; // fix accurate enough to count toward distance
   private lastAccuracy: number | null = null;
@@ -77,7 +78,9 @@ export class GeoTracker {
           this.last = s;
           this.pushRoutePoint(s);
         }
-        this.recent.push({ t: Date.now(), km: this.distanceKm });
+        const sample = { t: Date.now(), km: this.distanceKm };
+        this.recent.push(sample);
+        this.history.push(sample);
         const cutoff = Date.now() - 60_000;
         while (this.recent.length > 2 && this.recent[0].t < cutoff) this.recent.shift();
         this.lastError = null;
@@ -122,6 +125,41 @@ export class GeoTracker {
     return "lost";
   }
 
+  /** Current speed in km/h, averaged over roughly the last `seconds`. */
+  speedKmhLastSeconds(seconds: number): number | null {
+    if (this.recent.length < 2) return null;
+    const now = this.recent[this.recent.length - 1];
+    const targetT = now.t - seconds * 1000;
+    // Most recent sample at or before the window start
+    let then = this.recent[0];
+    for (let i = this.recent.length - 1; i >= 0; i--) {
+      if (this.recent[i].t <= targetT) {
+        then = this.recent[i];
+        break;
+      }
+    }
+    const dtHrs = (now.t - then.t) / 3_600_000;
+    if (dtHrs * 3600 < seconds * 0.5) return null; // window not filled yet
+    return (now.km - then.km) / dtHrs;
+  }
+
+  /** Moving average speed over the last kilometre. Null until 1 km is run. */
+  lastKmSpeedKmh(): number | null {
+    if (this.distanceKm < 1 || this.history.length < 2) return null;
+    const now = this.history[this.history.length - 1];
+    const targetKm = now.km - 1;
+    // Most recent sample at or before one kilometre ago
+    for (let i = this.history.length - 1; i >= 0; i--) {
+      if (this.history[i].km <= targetKm) {
+        const then = this.history[i];
+        const dtHrs = (now.t - then.t) / 3_600_000;
+        if (dtHrs <= 0) return null;
+        return (now.km - then.km) / dtHrs;
+      }
+    }
+    return null;
+  }
+
   /** Rolling pace over the last minute, in seconds per km. Null until enough movement. */
   rollingPaceSecPerKm(): number | null {
     if (this.recent.length < 2) return null;
@@ -132,6 +170,11 @@ export class GeoTracker {
     if (dKm < 0.02 || dSec < 15) return null; // not enough signal
     return dSec / dKm;
   }
+}
+
+export function formatSpeed(kmh: number | null): string {
+  if (kmh === null || !isFinite(kmh) || kmh < 0) return "--";
+  return kmh.toFixed(1);
 }
 
 export function formatPace(secPerKm: number | null): string {

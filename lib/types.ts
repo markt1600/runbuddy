@@ -43,6 +43,9 @@ export interface RunStats {
   distanceKm: number;
   paceSecPerKm: number | null; // current rolling pace
   avgPaceSecPerKm: number | null;
+  speedNowKmh: number | null; // averaged over the last ~10s
+  lastKmSpeedKmh: number | null; // moving average over the last full km
+  avgSpeedKmh: number | null; // whole run
   splits: number[]; // ms per completed km
   route: { lat: number; lon: number }[]; // GPS path of the run
 }

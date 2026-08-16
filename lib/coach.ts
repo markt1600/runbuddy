@@ -61,7 +61,12 @@ export class CoachEngine {
       localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       paceMinPerKm: formatPaceShort(pace),
       avgPaceMinPerKm: formatPaceShort(stats.avgPaceSecPerKm),
-      speedKmh: pace ? Number((3600 / pace).toFixed(1)) : undefined,
+      speedKmh:
+        stats.speedNowKmh !== null
+          ? Number(stats.speedNowKmh.toFixed(1))
+          : pace
+            ? Number((3600 / pace).toFixed(1))
+            : undefined,
       locality: this.env?.locality ?? undefined,
       weather: this.env?.tempC
         ? `${this.env.weatherDesc ?? "unknown"}, ${this.env.tempC}°C` +
@@ -105,6 +110,9 @@ export class CoachEngine {
       distanceKm: 0,
       paceSecPerKm: null,
       avgPaceSecPerKm: null,
+      speedNowKmh: null,
+      lastKmSpeedKmh: null,
+      avgSpeedKmh: null,
       splits: [],
       route: [],
     };
