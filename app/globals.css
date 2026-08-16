@@ -416,6 +416,15 @@ body {
   margin-top: 8px;
 }
 
+.env-line {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--label-2);
+  min-height: 16px;
+  margin-top: 8px;
+}
+
 /* ---------- Coach bubble ---------- */
 
 .coach-bubble {

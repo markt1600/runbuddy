@@ -14,8 +14,12 @@ encouragement) — press Start, and get coached over your own music.
 - **Pre-rendered voice library** — phrases rendered with ElevenLabs, served as
   static MP3s. Falls back to on-device speech synthesis when a phrase isn't
   rendered yet, so the app works with zero API keys.
-- **Live phrase generation** — mid-run, the coach occasionally asks the server
-  for brand-new material (Claude writes the line in-persona, ElevenLabs voices it).
+- **Live phrase generation** — mid-run, the coach asks the server for brand-new
+  material (Claude Sonnet 5 writes the line in-persona, ElevenLabs voices it),
+  fed with live context: current weather, the neighbourhood you're running
+  through, your pace and speed, distance, km markers, elapsed time, and time
+  of day. Half of km-marker callouts and anecdotes, and a quarter of
+  encouragements, are generated live when keys are configured.
 - **Music over-dub** — deep-links into Spotify or Apple Podcasts; the trainer's
   voice mixes *over* the music using Safari's Audio Session API (music ducks
   while the coach speaks, then comes back).
@@ -39,8 +43,13 @@ The app is fully functional with no API keys (library phrases + on-device TTS).
 
 | Variable | Purpose |
 | --- | --- |
-| `ANTHROPIC_API_KEY` | Live phrase generation + push-to-talk replies (Claude) |
+| `ANTHROPIC_API_KEY` | Live phrase generation + push-to-talk replies (Claude Sonnet 5) |
 | `ELEVENLABS_API_KEY` | Voicing generated phrases, and batch-rendering the library |
+| `ELEVENLABS_VOICE_AHBENG` | ElevenLabs voice ID for Angry Ah Beng (falls back to a stock voice) |
+| `ELEVENLABS_VOICE_COACH` | ElevenLabs voice ID for Coach Christine (falls back to a stock voice) |
+
+Weather (Open-Meteo) and reverse geocoding (BigDataCloud) are keyless — the
+location/weather-aware phrases need no configuration.
 
 ## Rendering the voice library
 
@@ -77,5 +86,8 @@ routes run as serverless functions.
   ducking), keep-alive loop, MP3 playback with TTS fallback, wake lock.
 - `lib/geo.ts` — `watchPosition` + haversine with jitter/teleport filtering,
   rolling 60s pace.
-- `app/api/phrase` / `app/api/chat` — Claude (claude-opus-5) writes one line
-  in-persona; ElevenLabs voices it; both degrade gracefully.
+- `lib/enviro.ts` — keyless weather (Open-Meteo) + reverse geocoding
+  (BigDataCloud), fetched from the first GPS fix, refreshed every 30 min.
+- `app/api/phrase` / `app/api/chat` — Claude (claude-sonnet-5) writes one line
+  in-persona from the live run stats; ElevenLabs voices it; both degrade
+  gracefully.

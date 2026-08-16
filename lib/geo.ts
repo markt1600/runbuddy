@@ -31,6 +31,8 @@ export class GeoTracker {
   private unavailable = false;
   distanceKm = 0;
   lastError: string | null = null;
+  /** Most recent fix of any accuracy — good enough for weather / geocoding. */
+  lastPosition: { lat: number; lon: number } | null = null;
 
   start(onUpdate: () => void) {
     if (!("geolocation" in navigator)) {
@@ -49,6 +51,7 @@ export class GeoTracker {
         this.denied = false;
         this.lastFixAt = Date.now();
         this.lastAccuracy = s.accuracy;
+        this.lastPosition = { lat: s.lat, lon: s.lon };
         // Drop wildly inaccurate fixes (indoors, cold start) — they still count
         // as "the GPS is alive", just not toward distance.
         if (s.accuracy > 50) {

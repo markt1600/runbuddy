@@ -34,11 +34,12 @@ function extractPhrases(source) {
 const phrasesSrc = readFileSync(join(root, "lib/phrases.ts"), "utf8");
 const personasSrc = readFileSync(join(root, "lib/personas.ts"), "utf8");
 
+// Voice IDs: ELEVENLABS_VOICE_<PERSONA> env vars win, else lib/personas.ts defaults.
 const voiceIds = {};
 for (const m of personasSrc.matchAll(
   /id:\s*"(\w+)",[\s\S]*?elevenLabsVoiceId:\s*"([^"]+)"/g
 )) {
-  voiceIds[m[1]] = m[2];
+  voiceIds[m[1]] = process.env[`ELEVENLABS_VOICE_${m[1].toUpperCase()}`] || m[2];
 }
 
 const sections = phrasesSrc.split(/const (\w+): Phrase\[\] = \[/).slice(1);

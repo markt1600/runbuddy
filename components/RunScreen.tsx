@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { GeoTracker, formatElapsed, formatPace, type GpsSignal } from "@/lib/geo";
 import { VoiceEngine, WakeLockManager } from "@/lib/audio";
 import { CoachEngine } from "@/lib/coach";
+import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
 import type { MusicSource, Persona, RunStats } from "@/lib/types";
 
 interface Props {
@@ -24,6 +25,8 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
   const [gpsNote, setGpsNote] = useState<string | null>(null);
   const [gpsSignal, setGpsSignal] = useState<GpsSignal>("acquiring");
   const [clock, setClock] = useState("");
+  const [envLine, setEnvLine] = useState<string | null>(null);
+  const envFetchStateRef = useRef<{ fetching: boolean; at: number }>({ fetching: false, at: 0 });
 
   const voiceRef = useRef<VoiceEngine | null>(null);
   const coachRef = useRef<CoachEngine | null>(null);
@@ -102,6 +105,27 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
         new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
       );
       setGpsSignal(geo.signal()); // staleness-based, so re-check every second
+
+      // Weather + locality: fetch on first fix, refresh every 30 minutes
+      const envState = envFetchStateRef.current;
+      if (
+        geo.lastPosition &&
+        !envState.fetching &&
+        Date.now() - envState.at > 30 * 60_000
+      ) {
+        envState.fetching = true;
+        const { lat, lon } = geo.lastPosition;
+        void fetchRunEnvironment(lat, lon)
+          .then((env) => {
+            envState.at = Date.now();
+            coach.setEnvironment(env);
+            setEnvLine(describeEnvironment(env));
+          })
+          .finally(() => {
+            envState.fetching = false;
+          });
+      }
+
       if (!pausedRef.current) coach.tick(stats);
     }, 1000);
 
@@ -222,11 +246,17 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
         </div>
       </div>
 
-      <div className="gps-note">
-        {gpsSignal === "lost"
-          ? "GPS signal lost — distance is paused until it comes back"
-          : gpsNote ?? (musicLabel ? `Mixing over ${musicLabel} · ringer on 🔔` : "")}
-      </div>
+      {gpsSignal === "lost" || gpsNote ? (
+        <div className="gps-note">
+          {gpsSignal === "lost"
+            ? "GPS signal lost — distance is paused until it comes back"
+            : gpsNote}
+        </div>
+      ) : (
+        <div className="env-line">
+          {envLine ?? (musicLabel ? `Mixing over ${musicLabel} · ringer on 🔔` : "")}
+        </div>
+      )}
 
       <div className="coach-bubble">
         <div className={`eq${speaking ? " speaking" : ""}`}>
