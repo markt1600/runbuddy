@@ -26,6 +26,13 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
   const [gpsSignal, setGpsSignal] = useState<GpsSignal>("acquiring");
   const [clock, setClock] = useState("");
   const [envLine, setEnvLine] = useState<string | null>(null);
+  const [phraseStats, setPhraseStats] = useState({
+    total: 0,
+    rendered: 0,
+    prerendered: 0,
+    live: 0,
+    synth: 0,
+  });
   const envFetchStateRef = useRef<{ fetching: boolean; at: number }>({ fetching: false, at: 0 });
 
   const voiceRef = useRef<VoiceEngine | null>(null);
@@ -125,6 +132,9 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
             envState.fetching = false;
           });
       }
+
+      const lib = coach.libraryStats();
+      setPhraseStats({ ...lib, ...voice.counts });
 
       if (!pausedRef.current) coach.tick(stats);
     }, 1000);
@@ -281,6 +291,25 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
         <button className="control-btn end" onClick={endRun}>
           End
         </button>
+      </div>
+
+      <div className="phrase-stats">
+        {(() => {
+          const spoken = phraseStats.prerendered + phraseStats.live + phraseStats.synth;
+          const hit =
+            spoken > 0 ? Math.round((phraseStats.prerendered / spoken) * 100) : null;
+          return (
+            <>
+              📚 {phraseStats.rendered}/{phraseStats.total} phrases pre-rendered
+              {" · "}
+              {hit === null
+                ? "no lines spoken yet"
+                : `hit rate ${hit}% (${phraseStats.prerendered}/${spoken}${
+                    phraseStats.live ? `, ${phraseStats.live} improvised` : ""
+                  })`}
+            </>
+          );
+        })()}
       </div>
 
       {aod && (

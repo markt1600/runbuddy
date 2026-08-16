@@ -1,4 +1,4 @@
-import { phrasesFor } from "./phrases";
+import { PHRASE_LIBRARY, phrasesFor } from "./phrases";
 import type { Persona, Phrase, PhraseCategory, RunStats } from "./types";
 import type { VoiceEngine } from "./audio";
 import type { RunEnvironment } from "./enviro";
@@ -10,7 +10,6 @@ const ENCOURAGE_GAP_MS: [number, number] = [50_000, 95_000];
 const ANECDOTE_GAP_MS: [number, number] = [180_000, 300_000];
 const PACE_COOLDOWN_MS = 120_000;
 const FRESH_ANECDOTE_CHANCE = 0.5; // odds an anecdote slot asks the API for new material
-const FRESH_MILESTONE_CHANCE = 0.5; // odds a km marker gets a live stat-aware callout
 const FRESH_ENCOURAGE_CHANCE = 0.25; // odds regular encouragement is freshly generated
 
 function formatPaceShort(secPerKm: number | null): string | undefined {
@@ -45,6 +44,11 @@ export class CoachEngine {
   /** Weather + locality, fetched by the run screen once GPS locks on. */
   setEnvironment(env: RunEnvironment) {
     this.env = env;
+  }
+
+  /** Library size + how much of it has pre-rendered ElevenLabs audio. */
+  libraryStats() {
+    return { total: PHRASE_LIBRARY[this.persona.id].length, rendered: this.rendered.size };
   }
 
   /** Everything the generator might want to weave into a line. */
@@ -168,25 +172,25 @@ export class CoachEngine {
     if (this.disposed || this.voice.speaking) return;
     const now = Date.now();
 
-    // 1. Kilometre milestones (highest priority). Half the time we ask the
-    // server for a live, stat-aware callout ("4K down in Bishan, 6:10 pace,
-    // in this rain somemore…"); otherwise library phrase + spoken stats.
+    // 1. Kilometre milestones (highest priority). The callout itself is
+    // library-only so it lands instantly; improvised colour commentary
+    // ("4K down in Bishan, in this rain somemore…") is layered on top when
+    // the API answers, and stays silent when it doesn't.
     const km = Math.floor(stats.distanceKm);
     if (km > this.lastKmAnnounced) {
       this.lastKmAnnounced = km;
-      if (Math.random() < FRESH_MILESTONE_CHANCE) {
-        void this.sayFresh("milestone", stats, { kmMarker: km });
-      } else {
-        this.sayFromLibrary("milestone");
-        const pace = stats.avgPaceSecPerKm;
-        if (pace) {
-          const m = Math.floor(pace / 60);
-          const s = Math.round(pace % 60);
-          this.voice.say(
-            `That's ${km} kilometre${km > 1 ? "s" : ""}. Average pace ${m} ${s} per kilometre.`
-          );
-        }
+      this.sayFromLibrary("milestone");
+      const pace = stats.avgPaceSecPerKm;
+      if (pace) {
+        const m = Math.floor(pace / 60);
+        const s = Math.round(pace % 60);
+        this.voice.say(
+          `That's ${km} kilometre${km > 1 ? "s" : ""}. Average pace ${m} ${s} per kilometre.`
+        );
       }
+      void this.fetchFresh("milestone", stats, { kmMarker: km }).then((color) => {
+        if (color && !this.disposed) this.voice.say(color.text, color.url);
+      });
       this.nextEncourageAt = now + between(ENCOURAGE_GAP_MS);
       return;
     }

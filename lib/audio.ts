@@ -55,6 +55,8 @@ export class VoiceEngine {
   private persona: Persona;
   speaking = false;
   onSpeakingChange: (speaking: boolean, text: string | null) => void = () => {};
+  /** How each spoken line was served this run. */
+  counts = { prerendered: 0, live: 0, synth: 0 };
 
   constructor(persona: Persona) {
     this.persona = persona;
@@ -105,6 +107,11 @@ export class VoiceEngine {
       const item = this.queue.shift()!;
       setAudioSession("transient"); // duck the music under the voice
       this.setSpeaking(true, item.text);
+      let served: keyof typeof this.counts = !item.audioUrl
+        ? "synth"
+        : item.audioUrl.startsWith("data:")
+          ? "live"
+          : "prerendered";
       try {
         if (item.audioUrl) {
           await this.playFile(item.audioUrl);
@@ -114,6 +121,7 @@ export class VoiceEngine {
       } catch {
         // If the rendered file 404s or fails, fall back to synthesis once.
         if (item.audioUrl) {
+          served = "synth";
           try {
             await this.speakSynth(item.text);
           } catch {
@@ -121,6 +129,7 @@ export class VoiceEngine {
           }
         }
       }
+      this.counts[served]++;
       this.setSpeaking(false, null);
       setAudioSession("ambient"); // un-duck the music
       await new Promise((r) => setTimeout(r, 400));

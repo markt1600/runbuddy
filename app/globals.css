@@ -517,6 +517,14 @@ body {
   box-shadow: 0 0 0 8px rgba(255, 69, 58, 0.25);
 }
 
+.phrase-stats {
+  text-align: center;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--label-3);
+  padding-top: 12px;
+}
+
 /* ---------- Always-on display ---------- */
 
 .aod {

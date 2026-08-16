@@ -15,7 +15,10 @@ const INSTRUCTIONS: Partial<Record<PhraseCategory, string>> = {
     "Share one surprising, true-flavoured fact, anecdote or nugget of wisdom about running, " +
     "fitness, food or life — delivered fully in your persona.",
   encourage: "Give the runner one line of motivation in your persona.",
-  milestone: "React to the runner completing another kilometre, in your persona.",
+  milestone:
+    "The runner just completed another kilometre and you already announced the number and " +
+    "average pace. Add ONE line of improvised colour commentary on top — react to their pace, " +
+    "the weather, where they are, or the time of day. Don't repeat the kilometre count.",
 };
 
 export async function POST(req: NextRequest) {
