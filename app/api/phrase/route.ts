@@ -6,6 +6,11 @@ import type { PersonaId, PhraseCategory } from "@/lib/types";
 export const maxDuration = 30;
 
 const INSTRUCTIONS: Partial<Record<PhraseCategory, string>> = {
+  intro:
+    "The runner just pressed start and is standing at the start line. Deliver an opening " +
+    "pep talk of about 10 seconds — 30 to 45 words. Greet them, work in the time of day, " +
+    "weather or location if provided, set the tone for the run, and launch them into it. " +
+    "Make it feel different every time.",
   anecdote:
     "Share one surprising, true-flavoured fact, anecdote or nugget of wisdom about running, " +
     "fitness, food or life — delivered fully in your persona.",

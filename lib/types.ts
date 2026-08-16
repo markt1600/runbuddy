@@ -1,6 +1,7 @@
 export type PersonaId = "ahbeng" | "coach";
 
 export type PhraseCategory =
+  | "intro" // ~10s opening monologue at the start line
   | "start"
   | "encourage" // periodic motivation (positive or negative depending on persona)
   | "pace_up" // runner slowed down

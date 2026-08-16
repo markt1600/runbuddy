@@ -6,6 +6,13 @@ import type { Phrase, PersonaId, PhraseCategory } from "./types";
 // so the app is fully usable before any ElevenLabs rendering.
 
 const ahbeng: Phrase[] = [
+  // ---- intro (~10s opening monologue, rotated between runs) ----
+  { id: "ab-intro-1", category: "intro", text: "Oi, look who show up! Listen ah chee bye — today no stopping, no whining, no checking your phone every two minutes. You give me your best, or kan ni na, tomorrow I make it double. Ready or not, GO!" },
+  { id: "ab-intro-2", category: "intro", text: "Wah lan eh, you actually came back for more scolding ah? Good, means still got hope for you. Warm up those lan jiao legs, breathe in, breathe out, and MOVE before I change my mind!" },
+  { id: "ab-intro-3", category: "intro", text: "Okay okay, gather round. Today's plan sibei simple one: you run, I scold, you run faster. Kan ni na, don't embarrass me in front of the aunties. Legs up, chest out, GO lah!" },
+  { id: "ab-intro-4", category: "intro", text: "Eh, before we start ah — whatever excuse you're thinking right now, swallow it. No time for that, chee bye. Every step today is one step further from your soft sofa life. RUN!" },
+  { id: "ab-intro-5", category: "intro", text: "You know what time it is? Time to suffer lah! Kan ni na, don't look at me like that. You chose this, I just provide the scolding service. Free somemore, sibei value. Now GO GO GO!" },
+  { id: "ab-intro-6", category: "intro", text: "Alright alright, stretching done? Shoes tied? Excuses thrown in the dustbin? Good. Today we chiong until your legs write complaint letter, chee bye. Three, two, one — RUN!" },
   // ---- start ----
   { id: "ab-start-1", category: "start", text: "Oi chee bye! Finally you decide to run ah? I wait until my hair turn white, kan ni na. Go lah, GO!" },
   { id: "ab-start-2", category: "start", text: "Wah lan eh, look who finally come out to exercise. Okay okay, don't just stand there like a lan jiao. RUN!" },
@@ -68,6 +75,13 @@ const ahbeng: Phrase[] = [
 ];
 
 const coach: Phrase[] = [
+  // ---- intro (~10s opening monologue, rotated between runs) ----
+  { id: "co-intro-1", category: "intro", text: "Welcome back, superstar! Take one deep breath with me... and here we go. Today isn't about being fast, it's about showing up — and look at you, already here. Let's make every one of these minutes count together!" },
+  { id: "co-intro-2", category: "intro", text: "Hey you! I'm so glad we're doing this. Start easy, find your breath, let your shoulders relax. The first few minutes are always the hardest, and then — magic. Ready? Off we go!" },
+  { id: "co-intro-3", category: "intro", text: "It's run o'clock, my friend! Whatever kind of day you've had, the next stretch of road belongs entirely to you. Nice tall posture, soft easy strides. Let's write a great chapter today!" },
+  { id: "co-intro-4", category: "intro", text: "Here we go again — and can I just say, showing up over and over is literally how champions are made. Ease in gently, we'll build as you warm up. I'm with you every single step!" },
+  { id: "co-intro-5", category: "intro", text: "Deep breath in... long breath out. Beautiful. Your only job today is forward, at any speed you like. My job is reminding you how amazing you are. We're both going to crush our jobs. Let's go!" },
+  { id: "co-intro-6", category: "intro", text: "Ready, runner? Today's forecast: one hundred percent chance of you being awesome. Start slow, smile a little, and remember — every step is a vote for the person you're becoming. Off we go!" },
   // ---- start ----
   { id: "co-start-1", category: "start", text: "Here we go! You showed up, and that's already the hardest part. Let's make today amazing!" },
   { id: "co-start-2", category: "start", text: "I'm so glad you're here! Nice and easy to start — we'll find your rhythm together." },

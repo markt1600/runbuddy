@@ -104,7 +104,47 @@ export class CoachEngine {
     const now = Date.now();
     this.nextEncourageAt = now + between(ENCOURAGE_GAP_MS);
     this.nextAnecdoteAt = now + between(ANECDOTE_GAP_MS);
-    this.sayFromLibrary("start");
+
+    // ~10s intro at the start line. Prefer a freshly generated one (never the
+    // same twice), but don't leave the runner in silence: if the API hasn't
+    // answered within 2.5s, fall back to the library rotation and let the
+    // stale response die quietly.
+    const zeroStats: RunStats = {
+      elapsedMs: 0,
+      distanceKm: 0,
+      paceSecPerKm: null,
+      avgPaceSecPerKm: null,
+      splits: [],
+    };
+    const fresh = this.fetchFresh("intro", zeroStats);
+    const timeout = new Promise<null>((r) => setTimeout(() => r(null), 2500));
+    void Promise.race([fresh, timeout]).then((winner) => {
+      if (this.disposed) return;
+      if (winner) this.voice.say(winner.text, winner.url);
+      else this.sayIntroFromLibrary();
+    });
+  }
+
+  /** Round-robin through the intro monologues, persisted across runs. */
+  private sayIntroFromLibrary() {
+    const pool = phrasesFor(this.persona.id, "intro");
+    if (pool.length === 0) {
+      this.sayFromLibrary("start");
+      return;
+    }
+    const key = `runbuddy-intro-${this.persona.id}`;
+    let idx = 0;
+    try {
+      idx = (parseInt(localStorage.getItem(key) ?? "0", 10) || 0) % pool.length;
+      localStorage.setItem(key, String((idx + 1) % pool.length));
+    } catch {
+      idx = Math.floor(Math.random() * pool.length);
+    }
+    const phrase = pool[idx];
+    const url = this.rendered.has(phrase.id)
+      ? `/audio/${this.persona.id}/${phrase.id}.mp3`
+      : undefined;
+    this.voice.say(phrase.text, url);
   }
 
   onPause() {
@@ -193,12 +233,12 @@ export class CoachEngine {
     }
   }
 
-  /** Ask the server for a freshly generated phrase (Claude + ElevenLabs). Silent on failure. */
-  private async sayFresh(
+  /** Fetch a freshly generated phrase (Claude + ElevenLabs). Null on any failure. */
+  private async fetchFresh(
     category: PhraseCategory,
     stats: RunStats,
     extra: Record<string, unknown> = {}
-  ) {
+  ): Promise<{ text: string; url?: string } | null> {
     try {
       const res = await fetch("/api/phrase", {
         method: "POST",
@@ -209,13 +249,27 @@ export class CoachEngine {
           context: this.buildContext(stats, extra),
         }),
       });
-      if (!res.ok) throw new Error(String(res.status));
+      if (!res.ok) return null;
       const data: { text: string; audioBase64?: string } = await res.json();
-      const url = data.audioBase64 ? `data:audio/mpeg;base64,${data.audioBase64}` : undefined;
-      this.voice.say(data.text, url);
+      return {
+        text: data.text,
+        url: data.audioBase64 ? `data:audio/mpeg;base64,${data.audioBase64}` : undefined,
+      };
     } catch {
-      this.sayFromLibrary(category); // library always has our back
+      return null;
     }
+  }
+
+  /** Speak a freshly generated phrase, falling back to the library. */
+  private async sayFresh(
+    category: PhraseCategory,
+    stats: RunStats,
+    extra: Record<string, unknown> = {}
+  ) {
+    const fresh = await this.fetchFresh(category, stats, extra);
+    if (this.disposed) return;
+    if (fresh) this.voice.say(fresh.text, fresh.url);
+    else this.sayFromLibrary(category); // library always has our back
   }
 
   /** Push-to-talk: send what the runner said, speak the reply. */
