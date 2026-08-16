@@ -82,7 +82,10 @@ export function voiceIdFor(persona: PersonaId): string {
   return process.env[envName] || PERSONAS[persona].elevenLabsVoiceId;
 }
 
-export async function renderVoice(persona: PersonaId, text: string): Promise<string | null> {
+export async function renderVoiceBuffer(
+  persona: PersonaId,
+  text: string
+): Promise<Buffer | null> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) return null;
   const voiceId = voiceIdFor(persona);
@@ -99,6 +102,10 @@ export async function renderVoice(persona: PersonaId, text: string): Promise<str
     }
   );
   if (!res.ok) return null;
-  const buf = Buffer.from(await res.arrayBuffer());
-  return buf.toString("base64");
+  return Buffer.from(await res.arrayBuffer());
+}
+
+export async function renderVoice(persona: PersonaId, text: string): Promise<string | null> {
+  const buf = await renderVoiceBuffer(persona, text);
+  return buf ? buf.toString("base64") : null;
 }

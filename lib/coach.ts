@@ -1,4 +1,5 @@
 import { PHRASE_LIBRARY, phrasesFor } from "./phrases";
+import { getPhraseUrl, renderedCount } from "./voiceLibrary";
 import type { Persona, Phrase, PhraseCategory, RunStats } from "./types";
 import type { VoiceEngine } from "./audio";
 import type { RunEnvironment } from "./enviro";
@@ -27,7 +28,6 @@ export class CoachEngine {
   private persona: Persona;
   private voice: VoiceEngine;
   private used = new Set<string>();
-  private rendered = new Set<string>(); // phrase ids with a pre-rendered mp3
   private nextEncourageAt = 0;
   private nextAnecdoteAt = 0;
   private lastPaceEventAt = 0;
@@ -38,7 +38,6 @@ export class CoachEngine {
   constructor(persona: Persona, voice: VoiceEngine) {
     this.persona = persona;
     this.voice = voice;
-    void this.loadManifest();
   }
 
   /** Weather + locality, fetched by the run screen once GPS locks on. */
@@ -48,7 +47,10 @@ export class CoachEngine {
 
   /** Library size + how much of it has pre-rendered ElevenLabs audio. */
   libraryStats() {
-    return { total: PHRASE_LIBRARY[this.persona.id].length, rendered: this.rendered.size };
+    return {
+      total: PHRASE_LIBRARY[this.persona.id].length,
+      rendered: renderedCount(this.persona.id),
+    };
   }
 
   /** Everything the generator might want to weave into a line. */
@@ -72,17 +74,6 @@ export class CoachEngine {
     };
   }
 
-  private async loadManifest() {
-    try {
-      const res = await fetch(`/audio/${this.persona.id}/manifest.json`);
-      if (res.ok) {
-        const ids: string[] = await res.json();
-        ids.forEach((id) => this.rendered.add(id));
-      }
-    } catch {
-      // No rendered library yet — speech synthesis carries the whole show.
-    }
-  }
 
   private pick(category: PhraseCategory): Phrase | null {
     const pool = phrasesFor(this.persona.id, category);
@@ -98,10 +89,7 @@ export class CoachEngine {
   private sayFromLibrary(category: PhraseCategory) {
     const phrase = this.pick(category);
     if (!phrase) return;
-    const url = this.rendered.has(phrase.id)
-      ? `/audio/${this.persona.id}/${phrase.id}.mp3`
-      : undefined;
-    this.voice.say(phrase.text, url);
+    this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
   }
 
   onRunStart() {
@@ -145,10 +133,7 @@ export class CoachEngine {
       idx = Math.floor(Math.random() * pool.length);
     }
     const phrase = pool[idx];
-    const url = this.rendered.has(phrase.id)
-      ? `/audio/${this.persona.id}/${phrase.id}.mp3`
-      : undefined;
-    this.voice.say(phrase.text, url);
+    this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
   }
 
   onPause() {

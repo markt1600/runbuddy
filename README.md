@@ -15,9 +15,11 @@ encouragement) — press Start, and get coached over your own music.
 - **Coach engine** — encouragement (positive or abusive, per persona), pace
   reactions when you slow down or speed up, km milestone callouts, and random
   anecdotes / facts / nuggets on a schedule.
-- **Pre-rendered voice library** — phrases rendered with ElevenLabs, served as
-  static MP3s. Falls back to on-device speech synthesis when a phrase isn't
-  rendered yet, so the app works with zero API keys.
+- **Pre-rendered voice library** — phrases rendered with ElevenLabs. On first
+  launch after deploy, the app renders any missing phrases itself through the
+  server's ElevenLabs key into Vercel Blob, with an on-screen progress bar —
+  no manual step needed. Falls back to on-device speech synthesis for phrases
+  not yet rendered, so the app works with zero API keys.
 - **Live phrase generation** — mid-run, the coach asks the server for brand-new
   material (Claude Sonnet 5 writes the line in-persona, ElevenLabs voices it),
   fed with live context: current weather, the neighbourhood you're running
@@ -51,6 +53,7 @@ The app is fully functional with no API keys (library phrases + on-device TTS).
 | `ELEVENLABS_API_KEY` | Voicing generated phrases, and batch-rendering the library |
 | `ELEVENLABS_VOICE_AHBENG` | ElevenLabs voice ID for Angry Ah Beng (falls back to a stock voice) |
 | `ELEVENLABS_VOICE_COACH` | ElevenLabs voice ID for Coach Christine (falls back to a stock voice) |
+| `BLOB_READ_WRITE_TOKEN` | Auto-injected when you add a Vercel Blob store — enables first-launch in-app library rendering |
 
 Weather (Open-Meteo) and reverse geocoding (BigDataCloud) are keyless — the
 location/weather-aware phrases need no configuration.
