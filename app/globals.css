@@ -258,6 +258,12 @@ body {
   color: #fff;
 }
 
+.segmented.compact button {
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 6px 2px;
+}
+
 /* ---------- Coach chatter slider ---------- */
 
 .chatter-row {
@@ -769,7 +775,7 @@ body {
 .speed-name {
   font-size: 13px;
   font-weight: 700;
-  width: 108px;
+  width: 96px;
   flex-shrink: 0;
 }
 
@@ -794,10 +800,15 @@ body {
 .admin-lib-stats {
   display: flex;
   justify-content: space-around;
-  font-size: 14px;
+  gap: 4px;
+  font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  color: var(--label-2);
 }
+
+.admin-lib-stats .full { color: var(--green); }
+.admin-lib-stats .empty { color: var(--orange); }
 
 .cta.secondary {
   background: var(--bg-elevated-2);

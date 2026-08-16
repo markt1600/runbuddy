@@ -16,10 +16,11 @@ export const SPEED_MIN = 0.7;
 export const SPEED_MAX = 1.2;
 
 function defaults(): Record<PersonaId, VoiceSettings> {
-  return {
-    ahbeng: { speed: PERSONAS.ahbeng.elevenLabsSpeed },
-    coach: { speed: PERSONAS.coach.elevenLabsSpeed },
-  };
+  const out = {} as Record<PersonaId, VoiceSettings>;
+  for (const persona of Object.keys(PERSONAS) as PersonaId[]) {
+    out[persona] = { speed: PERSONAS[persona].elevenLabsSpeed };
+  }
+  return out;
 }
 
 export async function readVoiceSettings(): Promise<Record<PersonaId, VoiceSettings>> {

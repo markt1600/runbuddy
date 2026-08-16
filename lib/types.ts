@@ -1,4 +1,4 @@
-export type PersonaId = "ahbeng" | "coach";
+export type PersonaId = "ahbeng" | "coach" | "flirty" | "loanshark";
 
 export type PhraseCategory =
   | "intro" // ~10s opening monologue at the start line
@@ -23,6 +23,7 @@ export interface Phrase {
 export interface Persona {
   id: PersonaId;
   name: string;
+  shortName: string; // for tight spaces (admin pickers)
   tagline: string;
   emoji: string;
   accent: string; // theme color

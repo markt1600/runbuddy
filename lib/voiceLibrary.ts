@@ -1,4 +1,5 @@
 import { PHRASE_LIBRARY } from "./phrases";
+import { PERSONAS } from "./personas";
 import type { Persona, Phrase, PersonaId, PhraseCategory } from "./types";
 
 // Client-side registry of the full phrase library — static phrases shipped in
@@ -7,9 +8,16 @@ import type { Persona, Phrase, PersonaId, PhraseCategory } from "./types";
 // The coach reads it live, so phrases become available the moment they render.
 
 const urls = new Map<string, string>(); // "<persona>/<id>" → audio url
-const extras: Record<PersonaId, Phrase[]> = { ahbeng: [], coach: [] };
+const PERSONA_IDS = Object.keys(PERSONAS) as PersonaId[];
+
+const extras = Object.fromEntries(PERSONA_IDS.map((p) => [p, [] as Phrase[]])) as Record<
+  PersonaId,
+  Phrase[]
+>;
 let flags = { blob: false, elevenlabs: false, canRender: false, statusReached: false };
-let voiceSpeeds: Record<PersonaId, number> = { ahbeng: 1.2, coach: 1.0 };
+const voiceSpeeds = Object.fromEntries(
+  PERSONA_IDS.map((p) => [p, PERSONAS[p].elevenLabsSpeed])
+) as Record<PersonaId, number>;
 let stateLoaded = false;
 
 const key = (persona: PersonaId, id: string) => `${persona}/${id}`;
@@ -59,14 +67,16 @@ export interface GenerationProgress {
   message?: string;
 }
 
-function allPhrasesAllPersonas(): { persona: PersonaId; id: string }[] {
-  return (Object.keys(PHRASE_LIBRARY) as PersonaId[]).flatMap((persona) =>
+function allPhrasesAllPersonas(only?: PersonaId): { persona: PersonaId; id: string }[] {
+  const ids = only ? [only] : PERSONA_IDS;
+  return ids.flatMap((persona) =>
     allPhrasesFor(persona).map((p) => ({ persona, id: p.id }))
   );
 }
 
-function countKnown(): number {
-  return allPhrasesAllPersonas().filter(({ persona, id }) => urls.has(key(persona, id))).length;
+function countKnown(only?: PersonaId): number {
+  return allPhrasesAllPersonas(only).filter(({ persona, id }) => urls.has(key(persona, id)))
+    .length;
 }
 
 function unavailableReason(): string {
@@ -122,14 +132,26 @@ export async function loadLibraryState(force = false): Promise<void> {
   }
 }
 
-/** Render every phrase that lacks audio, one at a time. Reports progress. */
+/**
+ * Render every phrase that lacks audio, one at a time. Reports progress.
+ * Pass a persona to fill only that persona's gaps (e.g. a newly added coach)
+ * without touching anything already rendered.
+ */
 export async function renderMissingPhrases(
-  onProgress: (p: GenerationProgress) => void
+  onProgress: (p: GenerationProgress) => void,
+  only?: PersonaId
 ): Promise<void> {
   const report = (state: GenerationProgress["state"], message?: string) =>
-    onProgress({ state, done: countKnown(), total: allPhrasesAllPersonas().length, message });
+    onProgress({
+      state,
+      done: countKnown(only),
+      total: allPhrasesAllPersonas(only).length,
+      message,
+    });
 
-  const missing = allPhrasesAllPersonas().filter(({ persona, id }) => !urls.has(key(persona, id)));
+  const missing = allPhrasesAllPersonas(only).filter(
+    ({ persona, id }) => !urls.has(key(persona, id))
+  );
   if (missing.length === 0) {
     report("done");
     return;

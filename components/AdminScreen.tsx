@@ -51,7 +51,12 @@ export default function AdminScreen({ onBack }: Props) {
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [expanding, setExpanding] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [speeds, setSpeeds] = useState<Record<PersonaId, number>>({ ahbeng: 1.2, coach: 1.0 });
+  const [speeds, setSpeeds] = useState<Record<PersonaId, number>>(
+    () =>
+      Object.fromEntries(
+        PERSONA_LIST.map((p) => [p.id, p.elevenLabsSpeed])
+      ) as Record<PersonaId, number>
+  );
   const [savingSpeed, setSavingSpeed] = useState<PersonaId | null>(null);
   const [, bump] = useState(0); // re-render as the registry mutates
   const refresh = () => bump((n) => n + 1);
@@ -80,7 +85,12 @@ export default function AdminScreen({ onBack }: Props) {
     })();
     void loadLibraryState(true).then(() => {
       setReady(true);
-      setSpeeds({ ahbeng: getVoiceSpeed("ahbeng"), coach: getVoiceSpeed("coach") });
+      setSpeeds(
+        Object.fromEntries(PERSONA_LIST.map((p) => [p.id, getVoiceSpeed(p.id)])) as Record<
+          PersonaId,
+          number
+        >
+      );
       refresh();
     });
   }, []);
@@ -126,12 +136,13 @@ export default function AdminScreen({ onBack }: Props) {
   const hitRate = lifeTotal > 0 ? Math.round((life.prerendered / lifeTotal) * 100) : null;
   const busy = expanding || progress?.state === "generating" || progress?.state === "checking";
 
-  const onRenderMissing = async () => {
+  const onRenderMissing = async (only?: PersonaId) => {
     setNotice(null);
     await renderMissingPhrases((p) => {
       setProgress(p);
       refresh();
-    });
+    }, only);
+    refresh();
   };
 
   const onReRender = async () => {
@@ -227,19 +238,51 @@ export default function AdminScreen({ onBack }: Props) {
         )}
       </div>
 
+      <div className="section-header">Persona</div>
+      <div className="segmented compact">
+        {PERSONA_LIST.map((p) => (
+          <button
+            key={p.id}
+            className={personaId === p.id ? "active" : ""}
+            onClick={() => setPersonaId(p.id)}
+          >
+            {p.emoji}
+            <br />
+            {p.shortName}
+          </button>
+        ))}
+      </div>
+
       <div className="section-header">Voice Library</div>
       <div className="card" style={{ padding: 14 }}>
         <div className="admin-lib-stats">
-          {PERSONA_LIST.map((p) => (
-            <span key={p.id}>
-              {p.emoji} {renderedCount(p.id)}/{allPhrasesFor(p.id).length} rendered
-            </span>
-          ))}
+          {PERSONA_LIST.map((p) => {
+            const done = renderedCount(p.id);
+            const total = allPhrasesFor(p.id).length;
+            return (
+              <span key={p.id} className={done === total ? "full" : done === 0 ? "empty" : ""}>
+                {p.emoji} {done}/{total}
+              </span>
+            );
+          })}
         </div>
-        <button className="cta" style={{ marginTop: 12 }} disabled={busy} onClick={onRenderMissing}>
+        <button
+          className="cta"
+          style={{ marginTop: 12 }}
+          disabled={busy}
+          onClick={() => onRenderMissing(personaId)}
+        >
           {progress?.state === "generating"
             ? `Rendering… ${progress.done}/${progress.total}`
-            : "Render missing phrases"}
+            : `Render missing ${persona.shortName} phrases`}
+        </button>
+        <button
+          className="cta secondary"
+          style={{ marginTop: 10 }}
+          disabled={busy}
+          onClick={() => onRenderMissing()}
+        >
+          Render missing — all personas
         </button>
         <button
           className="cta secondary"
@@ -247,7 +290,7 @@ export default function AdminScreen({ onBack }: Props) {
           disabled={busy}
           onClick={onExpand}
         >
-          {expanding ? "Writing fresh phrases…" : `Generate 10 fresh ${persona.name} phrases`}
+          {expanding ? "Writing fresh phrases…" : `Generate 10 fresh ${persona.shortName} phrases`}
         </button>
         <button
           className="cta secondary"
@@ -255,7 +298,7 @@ export default function AdminScreen({ onBack }: Props) {
           disabled={busy}
           onClick={onReRender}
         >
-          Re-render all {persona.name} phrases (voice changed)
+          Re-render ALL {persona.shortName} phrases (voice changed)
         </button>
         {progress?.state === "generating" && (
           <div className="gen-bar" style={{ marginTop: 12 }}>
@@ -283,7 +326,7 @@ export default function AdminScreen({ onBack }: Props) {
         {PERSONA_LIST.map((p) => (
           <div className="speed-row" key={p.id}>
             <span className="speed-name">
-              {p.emoji} {p.name}
+              {p.emoji} {p.shortName}
             </span>
             <input
               type="range"
@@ -331,17 +374,8 @@ export default function AdminScreen({ onBack }: Props) {
         </div>
       </div>
 
-      <div className="section-header">Phrases</div>
-      <div className="segmented">
-        {PERSONA_LIST.map((p) => (
-          <button
-            key={p.id}
-            className={personaId === p.id ? "active" : ""}
-            onClick={() => setPersonaId(p.id)}
-          >
-            {p.emoji} {p.name}
-          </button>
-        ))}
+      <div className="section-header">
+        {persona.emoji} {persona.name} — {phrases.length} phrases
       </div>
 
       {!ready && <div className="admin-notice">Loading library…</div>}

@@ -53,6 +53,8 @@ The app is fully functional with no API keys (library phrases + on-device TTS).
 | `ELEVENLABS_API_KEY` | Voicing generated phrases, and batch-rendering the library |
 | `ELEVENLABS_VOICE_AHBENG` | ElevenLabs voice ID for Angry Ah Beng (falls back to a stock voice) |
 | `ELEVENLABS_VOICE_COACH` | ElevenLabs voice ID for Coach Christine (falls back to a stock voice) |
+| `ELEVENLABS_VOICE_FLIRTY` | ElevenLabs voice ID for Coach Cassie (falls back to a stock voice) |
+| `ELEVENLABS_VOICE_LOANSHARK` | ElevenLabs voice ID for Ah Long (falls back to a stock voice) |
 | `BLOB_READ_WRITE_TOKEN` | Auto-injected when you add a Vercel Blob store — enables first-launch in-app library rendering |
 | `ADMIN_PIN` | Protects the admin page and credit-spending endpoints (unset = open, for local dev) |
 

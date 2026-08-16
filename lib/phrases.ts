@@ -143,7 +143,150 @@ const coach: Phrase[] = [
   { id: "co-chat-3", category: "chat", text: "I'm listening! And for the record — you sound strong. Let's keep that energy!" },
 ];
 
-export const PHRASE_LIBRARY: Record<PersonaId, Phrase[]> = { ahbeng, coach };
+const flirty: Phrase[] = [
+  // ---- intro (~10s opening monologue, rotated between runs) ----
+  { id: "ca-intro-1", category: "intro", text: "Well, well... look who came back for more. I've been thinking about you, you know. Now stretch those gorgeous legs for me, nice and slow. Ready? Because I certainly am. Off you go, handsome." },
+  { id: "ca-intro-2", category: "intro", text: "Mmm, there you are. I was starting to think you'd forgotten about me. Big deep breath in... and out. Good. I love it when you listen. Let's see how long you can keep going tonight." },
+  { id: "ca-intro-3", category: "intro", text: "Hello you. Fair warning — I'm going to be watching every single step, so try to make it look good. Start easy, find your rhythm, and don't disappoint me. I have very high expectations." },
+  { id: "ca-intro-4", category: "intro", text: "Oh, you're actually doing this? Bold. I like bold. Shoulders back, chin up, and let's go — I want to see what that stamina of yours is really made of." },
+  { id: "ca-intro-5", category: "intro", text: "Just you and me for the next little while. No distractions, no excuses. Warm up gently, gorgeous — I don't want you pulling anything before the fun part. Let's move." },
+  { id: "ca-intro-6", category: "intro", text: "There's my favourite runner. Ready to get a little sweaty with me? Don't answer that, just go. Easy at first — I'll tell you when to give me more." },
+  // ---- start ----
+  { id: "ca-start-1", category: "start", text: "Off we go, gorgeous. Try to keep up with me." },
+  { id: "ca-start-2", category: "start", text: "Mmm, I do love watching you start. Go on, show me something." },
+  { id: "ca-start-3", category: "start", text: "Let's get you warmed up. In every sense." },
+  { id: "ca-start-4", category: "start", text: "Here we go. And don't worry — I'll be gentle. At first." },
+  // ---- encourage ----
+  { id: "ca-enc-1", category: "encourage", text: "Oh, that's a good look on you. Keep doing exactly that." },
+  { id: "ca-enc-2", category: "encourage", text: "Someone's been working on their form. I noticed. I always notice." },
+  { id: "ca-enc-3", category: "encourage", text: "Mmm, look at that stamina. You've been holding out on me, haven't you?" },
+  { id: "ca-enc-4", category: "encourage", text: "You're breathing hard already? Careful, that's my favourite sound." },
+  { id: "ca-enc-5", category: "encourage", text: "Relax those shoulders for me, darling. Tension is so unattractive. There — perfect." },
+  { id: "ca-enc-6", category: "encourage", text: "I have to say, you look incredible when you're trying." },
+  { id: "ca-enc-7", category: "encourage", text: "A little sweat suits you. Don't be shy about it." },
+  { id: "ca-enc-8", category: "encourage", text: "Keep going, gorgeous. I'm not nearly finished with you yet." },
+  { id: "ca-enc-9", category: "encourage", text: "You know what I love? A runner with endurance. Prove me right." },
+  { id: "ca-enc-10", category: "encourage", text: "That's it. Nice and steady. You're very good at this when you commit." },
+  { id: "ca-enc-11", category: "encourage", text: "Is it warm out here, or is that just you? Keep it up." },
+  { id: "ca-enc-12", category: "encourage", text: "Every step you take, I like you a little bit more. No pressure." },
+  { id: "ca-enc-13", category: "encourage", text: "Ooh, someone's found their rhythm. Don't you dare lose it." },
+  { id: "ca-enc-14", category: "encourage", text: "You're doing so well I might have to reward you. Might." },
+  { id: "ca-enc-15", category: "encourage", text: "Don't stop on my account, darling. I'm enjoying the view." },
+  // ---- pace_up (runner too slow) ----
+  { id: "ca-pu-1", category: "pace_up", text: "Mmm, slowing down already? And here I thought you had staying power." },
+  { id: "ca-pu-2", category: "pace_up", text: "Oh no. Don't go soft on me now, gorgeous. Pick it up." },
+  { id: "ca-pu-3", category: "pace_up", text: "Is that really all you've got? Because I was promised so much more." },
+  { id: "ca-pu-4", category: "pace_up", text: "Come on, darling. Impress me. I'm very easy to impress and you're still not trying." },
+  { id: "ca-pu-5", category: "pace_up", text: "I'd hate to think you're getting tired. Give me thirty good seconds. For me?" },
+  // ---- pace_down (running well / faster) ----
+  { id: "ca-pd-1", category: "pace_down", text: "Oh my. Somebody's showing off. Please continue." },
+  { id: "ca-pd-2", category: "pace_down", text: "Well now. That was unexpectedly impressive. I'm a little flustered." },
+  { id: "ca-pd-3", category: "pace_down", text: "Mmm, that's the pace of someone trying to get my attention. It's working." },
+  { id: "ca-pd-4", category: "pace_down", text: "Careful, gorgeous — go that fast and I'll start getting ideas." },
+  // ---- milestone ----
+  { id: "ca-mile-1", category: "milestone", text: "Another kilometre for me? You shouldn't have. But do it again." },
+  { id: "ca-mile-2", category: "milestone", text: "Mmm, that's another one down. You're spoiling me tonight." },
+  { id: "ca-mile-3", category: "milestone", text: "One more kilometre in the bank, darling. I'm keeping count of everything you do." },
+  { id: "ca-mile-4", category: "milestone", text: "That's another one. Keep this up and I'll have to start taking you seriously." },
+  // ---- anecdotes ----
+  { id: "ca-anec-1", category: "anecdote", text: "Fun fact, darling: running releases endorphins, the same chemicals your brain makes when you're falling for someone. So if you're feeling something right now... it's probably just the exercise. Probably." },
+  { id: "ca-anec-2", category: "anecdote", text: "Did you know regular runners tend to report better sleep, better mood, and better confidence? I could have told you that. You already walk into rooms differently." },
+  { id: "ca-anec-3", category: "anecdote", text: "Here's something delicious: your body gets more efficient at this every single time you do it. Which means the more you give me, the more you'll be able to give me. Think about that." },
+  { id: "ca-anec-4", category: "anecdote", text: "They say it takes about six weeks of consistent running to see real change in your body. Six weeks. I'm very patient, gorgeous, and I'm very much looking forward to it." },
+  { id: "ca-anec-5", category: "anecdote", text: "Little secret: smiling while you run actually makes it feel easier. Studies say so. So go on — give me that smile. I know it's a good one." },
+  { id: "ca-anec-6", category: "anecdote", text: "Your heart is a muscle, and right now it's beating faster because of me. Well — because of the running. Let's say it's both and move on." },
+  { id: "ca-anec-7", category: "anecdote", text: "Apparently humans are the best endurance animals on the planet. We can outlast almost anything. Personally, I find endurance to be a very attractive quality." },
+  { id: "ca-anec-8", category: "anecdote", text: "Runners tend to sleep deeper and wake up happier. So tonight when you're lying there feeling wonderful, you can thank me. You're very welcome, by the way." },
+  { id: "ca-anec-9", category: "anecdote", text: "Someone once said the hardest step is the one out the front door. You took that step for me tonight, and honestly? That's the sexiest thing you've done all week." },
+  { id: "ca-anec-10", category: "anecdote", text: "Cold water after a run helps your muscles recover. Just a tip. Picture that however you like, darling — I'm only being professional." },
+  // ---- finish ----
+  { id: "ca-fin-1", category: "finish", text: "And we're done. Look at you, all flushed and out of breath. I'd say that was a very good session." },
+  { id: "ca-fin-2", category: "finish", text: "Finished already, gorgeous? Mmm. Go stretch, drink some water, and think about me. Same time tomorrow?" },
+  { id: "ca-fin-3", category: "finish", text: "Well, that was fun. You held up better than I expected — and I expected a lot. Until next time, darling." },
+  // ---- pause / resume ----
+  { id: "ca-pause-1", category: "paused", text: "Taking a little break? That's alright. I'll wait. I'm not going anywhere." },
+  { id: "ca-res-1", category: "resumed", text: "Mmm, there you are. I was getting lonely. Ease back into it for me." },
+  // ---- canned chat replies ----
+  { id: "ca-chat-1", category: "chat", text: "Talking to me already? Save your breath, gorgeous. You'll need it." },
+  { id: "ca-chat-2", category: "chat", text: "Mmm, I love the sound of your voice. Now use it for breathing and keep running." },
+  { id: "ca-chat-3", category: "chat", text: "Flirting with me mid-run? Bold. Keep that energy in your legs, darling." },
+];
+
+const loanshark: Phrase[] = [
+  // ---- intro (~10s opening monologue, rotated between runs) ----
+  { id: "al-intro-1", category: "intro", text: "OI! There you are, chee bye! You think you can hide from me issit? I got your address, I got your number, and now I got your PACE. You owe me money and today you run until you pay interest with your legs. GO!" },
+  { id: "al-intro-2", category: "intro", text: "Kanina, finally! You know how long I been waiting outside your block? Two hours! My kopi went cold! Okay — running now means one less phone call at 3am. Your choice ah. RUN!" },
+  { id: "al-intro-3", category: "intro", text: "Wah lau eh, you actually opened the door. Very brave. Now listen carefully: every kilometre you run today, I take five dollars off your interest. Every kilometre you DON'T, I add ten. Start moving, chee bye!" },
+  { id: "al-intro-4", category: "intro", text: "Eh! Where you think you going? Oh — running? GOOD. That's my favourite. I chase, you run, we both get exercise. Sibei healthy relationship we have. Now MOVE before I get creative!" },
+  { id: "al-intro-5", category: "intro", text: "Kanina, the interest compounding while you standing there doing nothing! Every second you waste, your debt getting fatter than you. So RUN lah! Run like your credit score depends on it — because it does!" },
+  { id: "al-intro-6", category: "intro", text: "Good evening ah. I'm here about a small matter of some money. Very small. Only your entire life savings plus interest. But we can discuss while you run. I run also. I'm right behind you, chee bye. GO!" },
+  // ---- start ----
+  { id: "al-start-1", category: "start", text: "GO GO GO! I'm right behind you, chee bye!" },
+  { id: "al-start-2", category: "start", text: "Run lah! Kanina, don't make me chase you in my good slippers!" },
+  { id: "al-start-3", category: "start", text: "Start moving! Every step is one cent off your interest. ONE cent ah, don't get excited." },
+  { id: "al-start-4", category: "start", text: "Wah lau, finally. Move it before I change the payment terms again!" },
+  // ---- encourage (menacing style) ----
+  { id: "al-enc-1", category: "encourage", text: "Faster, chee bye! I can still SEE you! When I cannot see you, then you safe!" },
+  { id: "al-enc-2", category: "encourage", text: "Kanina, you run like a man with no debt. But you HAVE debt. A lot of debt. RUN PROPERLY!" },
+  { id: "al-enc-3", category: "encourage", text: "You know how much interest accumulated since you started? Two dollars forty. Compound somemore. Faster lah!" },
+  { id: "al-enc-4", category: "encourage", text: "Wah lau eh, my runner boy Ah Seng chase people for eight hours straight. You? Twenty minutes and already dying. Embarrassing sia." },
+  { id: "al-enc-5", category: "encourage", text: "Don't slow down, chee bye! I got all night. I got NOTHING but night. This is literally my job!" },
+  { id: "al-enc-6", category: "encourage", text: "Keep running! You slow down, I catch up. I catch up, we talk about your payment schedule. You want that? No. So RUN!" },
+  { id: "al-enc-7", category: "encourage", text: "Kanina, I already painted O$P$ on your door. Whole block know already. Might as well run fast and become a legend instead!" },
+  { id: "al-enc-8", category: "encourage", text: "Sibei slow lah! Your instalment plan also move faster than you, and that thing is thirty-six months!" },
+  { id: "al-enc-9", category: "encourage", text: "Eh, why you looking back? I'm not behind you. I'm AHEAD of you. I took shortcut. Kanina, keep running!" },
+  { id: "al-enc-10", category: "encourage", text: "You think running away solve your problem ah? No. But it solve your cholesterol problem. So got one silver lining lah, chee bye!" },
+  { id: "al-enc-11", category: "encourage", text: "Wah, still going? Not bad. Maybe I restructure your loan. Maybe. Keep running first!" },
+  { id: "al-enc-12", category: "encourage", text: "Faster lah kanina! You borrowed the money in five minutes but cannot run for five minutes?!" },
+  { id: "al-enc-13", category: "encourage", text: "I called you eleven times today. ELEVEN. You never pick up. So now I say it here — RUN FASTER, CHEE BYE!" },
+  { id: "al-enc-14", category: "encourage", text: "Every drop of sweat is one cent toward your debt. At this rate you free by... two thousand and ninety. Sweat more lah!" },
+  { id: "al-enc-15", category: "encourage", text: "Kanina, if you put this much effort into your repayments, I would be out of a job. And I would be so happy for you. RUN!" },
+  // ---- pace_up (runner too slow) ----
+  { id: "al-pu-1", category: "pace_up", text: "OI! Why you slowing down?! I'm GAINING on you, chee bye! MOVE!" },
+  { id: "al-pu-2", category: "pace_up", text: "Kanina! You slow down means I catch up! You want to have that conversation issit?! FASTER!" },
+  { id: "al-pu-3", category: "pace_up", text: "Wah lau, at this speed I can walk and still collect. Don't insult me lah! SPEED UP!" },
+  { id: "al-pu-4", category: "pace_up", text: "Eh chee bye, this is a DEBT CHASE, not a evening stroll! Your interest going up while you jalan-jalan!" },
+  { id: "al-pu-5", category: "pace_up", text: "You slowing down ah? Okay. I add five percent. Still slowing? Ten percent. RUN, kanina!" },
+  // ---- pace_down (running well / faster) ----
+  { id: "al-pd-1", category: "pace_down", text: "WAH! Kanina, where this speed come from?! Okay okay, respect. Still owe me money though!" },
+  { id: "al-pd-2", category: "pace_down", text: "Eh chee bye, you actually fast ah? Cannot catch you already. Fine — I waive twenty dollars. TWENTY only!" },
+  { id: "al-pd-3", category: "pace_down", text: "Sibei fast sia! If you run business like you run away from me, you never need borrow in the first place!" },
+  { id: "al-pd-4", category: "pace_down", text: "Wah lau, slow down a bit lah, I'm old! ... No, actually. Keep going, chee bye. I'm impressed." },
+  // ---- milestone ----
+  { id: "al-mile-1", category: "milestone", text: "One more kilometre! That's five dollars off. Only nine thousand nine hundred and ninety-five to go, chee bye!" },
+  { id: "al-mile-2", category: "milestone", text: "Kanina, another kilometre done. I'm updating your ledger. In pencil. Don't get comfortable." },
+  { id: "al-mile-3", category: "milestone", text: "Another one! Wah, at this rate you might clear your debt by retirement. Keep running lah!" },
+  { id: "al-mile-4", category: "milestone", text: "One kilometre more. I mark it down ah. Very official. Very legally binding. Sort of. GO!" },
+  // ---- anecdotes ----
+  { id: "al-anec-1", category: "anecdote", text: "Eh, you know why I like runners? They always pay eventually. Cannot run forever what. But you — you got stamina. Sibei annoying for my business, chee bye." },
+  { id: "al-anec-2", category: "anecdote", text: "Kanina, let me tell you about compound interest. It's the eighth wonder of the world. Einstein said that. He also said those who understand it, earn it. Those who don't — well. Here you are, running." },
+  { id: "al-anec-3", category: "anecdote", text: "Last time I chased one uncle for three years. Three years, chee bye! Then he ran a marathon, got fit, got a promotion, and paid me in full. So actually I'm like a personal trainer. With paperwork." },
+  { id: "al-anec-4", category: "anecdote", text: "You know running one hour burn seven hundred calories? Also burn about zero dollars of your debt. But at least you look good while broke, kanina." },
+  { id: "al-anec-5", category: "anecdote", text: "Fun fact ah: the human body can outrun a horse over long distance. But nobody can outrun compound interest. Nobody. Not even you, chee bye. Still — nice try tonight." },
+  { id: "al-anec-6", category: "anecdote", text: "My boss always say: never lend to a runner. Too hard to catch. I never listen. Now look at me — jogging behind you at nine at night like a fool. Kanina." },
+  { id: "al-anec-7", category: "anecdote", text: "You know what's cheaper than borrowing from me? Everything. Literally everything. A bank. Your mother. Selling one kidney. But no — you came to Ah Long. And here we are, running." },
+  { id: "al-anec-8", category: "anecdote", text: "Eh, adrenaline is free you know. Same feeling as when your phone ring and it's my number. So actually I been giving you free cardio for months already. You're welcome, chee bye." },
+  { id: "al-anec-9", category: "anecdote", text: "Wah lau, running is the only thing in life where running away actually WORKS. Not for debt though. Never for debt. But keep going lah, I enjoy watching." },
+  { id: "al-anec-10", category: "anecdote", text: "One time I sent Ah Seng to collect and the guy was doing a 10K. Ah Seng ran with him, finished the race, got a medal, forgot to collect. Kanina. Good staff so hard to find." },
+  // ---- finish ----
+  { id: "al-fin-1", category: "finish", text: "Okay okay, STOP. You win today, chee bye. I cannot chase anymore. Go drink water. We settle the rest next week ah." },
+  { id: "al-fin-2", category: "finish", text: "Kanina, you actually finished. Fine. FINE. I waive this week's interest. ONE week only ah, don't tell anybody!" },
+  { id: "al-fin-3", category: "finish", text: "Run finish liao. Wah lau, I need to sit down. You getting too fast for this business, chee bye. Same time tomorrow — I bring my scooter!" },
+  // ---- pause / resume ----
+  { id: "al-pause-1", category: "paused", text: "Eh?! You stopping?! Kanina, I also stop lah. But the interest — the interest never stop, chee bye." },
+  { id: "al-res-1", category: "resumed", text: "AH, you running again! Good, good. I was about to knock on your door. GO GO GO!" },
+  // ---- canned chat replies ----
+  { id: "al-chat-1", category: "chat", text: "You talking to me? Talk with MONEY lah, chee bye! Now RUN!" },
+  { id: "al-chat-2", category: "chat", text: "Kanina, excuses I heard all of them already. Save your breath for running!" },
+  { id: "al-chat-3", category: "chat", text: "Very nice story. Does it come with a payment? No? Then FASTER, chee bye!" },
+];
+
+export const PHRASE_LIBRARY: Record<PersonaId, Phrase[]> = {
+  ahbeng,
+  coach,
+  flirty,
+  loanshark,
+};
 
 export function phrasesFor(persona: PersonaId, category: PhraseCategory): Phrase[] {
   return PHRASE_LIBRARY[persona].filter((p) => p.category === category);
