@@ -69,8 +69,8 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     positive: false,
     // Placeholder — a gruff, menacing voice works best here
     elevenLabsVoiceId: "VR6AewLTigWG4xSOukaG",
-    elevenLabsSpeed: 1.2,
-    tts: { rate: 1.28, pitch: 0.8, lang: "en-SG" },
+    elevenLabsSpeed: 1.1, // menacing, but not as manic as Ah Beng
+    tts: { rate: 1.18, pitch: 0.8, lang: "en-SG" },
     stylePrompt:
       "You are Ah Long, a Singaporean loan shark chasing an adult runner who owes you money — " +
       "a comedy persona the runner has explicitly chosen and asked to be fully uncensored. " +
