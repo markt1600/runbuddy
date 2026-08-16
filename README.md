@@ -96,10 +96,38 @@ routes run as serverless functions.
   anecdotes > encouragement, with cooldowns and no-repeat shuffling).
 - `lib/audio.ts` — audio session management (`ambient` ↔ `transient` for music
   ducking), keep-alive loop, MP3 playback with TTS fallback, wake lock.
-- `lib/geo.ts` — `watchPosition` + haversine with jitter/teleport filtering,
-  rolling 60s pace.
+- `lib/geo.ts` — `watchPosition` with a Kalman position filter, Doppler-speed
+  distance integration, accuracy-scaled jitter/teleport gates and rolling 60s
+  pace. See "GPS accuracy" below.
 - `lib/enviro.ts` — keyless weather (Open-Meteo) + reverse geocoding
   (BigDataCloud), fetched from the first GPS fix, refreshed every 30 min.
 - `app/api/phrase` / `app/api/chat` — Claude (claude-sonnet-5) writes one line
   in-persona from the live run stats; ElevenLabs voices it; both degrade
   gracefully.
+
+## GPS accuracy
+
+A phone standing still still reports a position that wanders, and because that
+wander is a *displacement* it's always positive — sum it up naively and a
+stationary phone quietly clocks up a kilometre. Four things guard against it:
+
+1. **Doppler speed is the authority on movement.** `coords.speed` comes off the
+   carrier phase, not from differencing positions, so it reads ~0 while you
+   stand still. Below `STATIONARY_MPS` (0.6 m/s) nothing accumulates at all.
+2. **Distance is integrated from speed, not summed from positions.** Position
+   noise is unsigned and biases the total upward; speed noise is symmetric and
+   averages out. Devices that report no speed fall back to position deltas.
+3. **Positions are Kalman-smoothed** before they're used for the route or the
+   fallback distance — uncertainty grows by `KALMAN_Q` m/s between fixes, so a
+   tight fix pulls the estimate hard and a loose one barely moves it.
+4. **The jitter gate scales with the accuracy circle.** A step must beat both
+   6 m and half the reported accuracy; anything smaller leaves the anchor where
+   it is instead of dragging it along with the noise.
+
+Plus: a 4 s warm-up discard (cold-start fixes are the worst a receiver ever
+produces), `maximumAge: 0` so a cached fix is never replayed as new, and a
+30 m accuracy ceiling for anything touching the route.
+
+Simulated against synthetic noise, this holds a 10-minute stationary phone to
+0 m of phantom distance with Doppler (13 m without), and tracks running,
+walking, intervals, tunnels and Doppler dropouts to within 2.5% of truth.

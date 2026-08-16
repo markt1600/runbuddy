@@ -197,11 +197,13 @@ export default function RunScreen({
       startAtRef.current = Date.now();
       pausedRef.current = false;
       setPaused(false);
+      if (geoRef.current) geoRef.current.paused = false;
       coachRef.current?.onResume();
     } else {
       accumulatedRef.current += Date.now() - startAtRef.current;
       pausedRef.current = true;
       setPaused(true);
+      if (geoRef.current) geoRef.current.paused = true;
       coachRef.current?.onPause();
     }
   };
@@ -408,7 +410,7 @@ export default function RunScreen({
             {formatInUnit(speeds.now, speedUnit)}{" "}
             <span className="stat-unit">{unitSuffix(speedUnit)}</span>
           </div>
-          <div className="stat-label">Current (10s)</div>
+          <div className="stat-label">Current</div>
         </div>
         <div className="stat-cell">
           <div className="stat-value">
