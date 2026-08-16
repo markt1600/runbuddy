@@ -79,6 +79,7 @@ export default function RunBuddyApp() {
         <SummaryScreen
           persona={persona}
           stats={finalStats}
+          speedUnit={speedUnit}
           onDone={() => {
             setFinalStats(null);
             setScreen("setup");

@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatElapsed, formatPace } from "@/lib/geo";
+import type { SpeedUnit } from "@/lib/units";
+import { drawRunCard, shareOrDownloadCard } from "@/lib/runCard";
 import type { Persona, RunStats } from "@/lib/types";
 
 interface Props {
   persona: Persona;
   stats: RunStats;
+  speedUnit: SpeedUnit;
   onDone: () => void;
 }
 
@@ -58,8 +61,11 @@ function RouteMap({ route, accent }: { route: RunStats["route"]; accent: string 
   );
 }
 
-export default function SummaryScreen({ persona, stats, onDone }: Props) {
+export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Props) {
   const [comment, setComment] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [cardUrl, setCardUrl] = useState<string | null>(null);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
 
   const headline = persona.positive ? "You crushed it!" : "Okay lah, not bad, chee bye.";
   const fallbackSub = persona.positive
@@ -108,6 +114,33 @@ export default function SummaryScreen({ persona, stats, onDone }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Redraw whenever the coach's line lands, so the saved card carries it.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    drawRunCard(canvas, {
+      persona,
+      stats,
+      unit: speedUnit,
+      comment: comment ?? fallbackSub,
+    });
+    setCardUrl(canvas.toDataURL("image/png"));
+  }, [comment, persona, stats, speedUnit, fallbackSub]);
+
+  const saveCard = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    const result = await shareOrDownloadCard(canvas, `run-buddy-${stamp}.png`);
+    setSaveNote(
+      result === "shared"
+        ? null
+        : result === "downloaded"
+          ? "Saved to your downloads"
+          : "Couldn't save — long-press the image to save it instead"
+    );
+  }, []);
+
   return (
     <div className="fade-in" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <div className="summary-hero">
@@ -115,16 +148,21 @@ export default function SummaryScreen({ persona, stats, onDone }: Props) {
         <div className="summary-headline">{headline}</div>
       </div>
 
-      <div className="card route-card">
-        <RouteMap route={stats.route} accent={persona.accent} />
-      </div>
+      {/* The shareable square card — what you see is exactly what saves. */}
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+      {cardUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="run-card-img" src={cardUrl} alt="Your run summary card" />
+      ) : (
+        <div className="card route-card">
+          <RouteMap route={stats.route} accent={persona.accent} />
+        </div>
+      )}
 
-      <div className="coach-comment card">
-        <span className="chip-emoji" style={{ flexShrink: 0 }}>
-          {persona.emoji}
-        </span>
-        <span className="comment-text">{comment ?? fallbackSub}</span>
-      </div>
+      <button className="cta secondary save-card-btn" onClick={saveCard}>
+        ⬇︎ Save run card
+      </button>
+      {saveNote && <div className="save-note">{saveNote}</div>}
 
       <div className="stat-grid">
         <div className="stat-cell">
