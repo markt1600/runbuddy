@@ -11,15 +11,37 @@ export type PhraseCategory =
   | "finish"
   | "paused"
   | "resumed"
+  | "conditional" // opener keyed to the live time of day / weather
+  | "countdown" // delayed start: ordered [10 seconds, 5 seconds]
+  | "auto_paused" // the app paused itself — say so, the phone is in a sleeve
+  | "auto_resumed" // …and say when it picked the run back up
+  | "loitering" // stopped for far too long, and the coach has noticed
   | "chat" // canned push-to-talk replies when offline
   | "summary" // post-run closing comment (generated only)
   | "progress" // crossing a fraction of the target distance
   | "target_hit"; // the target distance was reached
 
+/**
+ * What has to be true for a "conditional" phrase to be eligible. Evaluated
+ * live at the start line against the clock and the fetched weather, so the
+ * line is pre-rendered but the choice of line is not.
+ */
+export type PhraseCondition =
+  | "dawn" // before 07:00
+  | "morning" // 07:00–11:00
+  | "midday" // 11:00–15:00
+  | "evening" // 15:00–19:00
+  | "night" // after 19:00
+  | "rain"
+  | "hot" // feels like 31°C or above
+  | "cool"; // feels like 20°C or below
+
 export interface Phrase {
   id: string;
   category: PhraseCategory;
   text: string;
+  /** Only for "conditional" phrases: when this line is allowed to play. */
+  condition?: PhraseCondition;
 }
 
 export interface Persona {

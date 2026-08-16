@@ -35,6 +35,18 @@ encouragement) — press Start, and get coached over your own music.
   lock, for armband runners.
 - **Sleeve lock** — 🔒 in the run screen's top bar blocks every control so an
   arm sleeve can't pause or end your run; unlock with a deliberate 1.5s hold.
+- **Auto-pause** — the clock freezes about two seconds after you stop moving
+  and picks up about two seconds after you start again, both back-dated to the
+  moment movement actually turned. Your buddy announces each transition out
+  loud, since the phone is in a sleeve, and starts commenting if you stand
+  around too long — escalating each time.
+- **Delayed start** — a 20-second countdown so you can press Start, get the
+  phone into the sleeve and set yourself. The screen locks immediately and your
+  buddy calls out ten and five seconds. GPS warms up during the count, so the
+  run begins on a settled fix.
+- **Openers that know the conditions** — a pre-rendered line chosen live from
+  the clock and the weather: a pre-dawn start, the afternoon heat, the rain you
+  came out in anyway.
 - **Push-to-talk** — tap the mic, say something, and the trainer answers in
   character.
 
@@ -131,3 +143,34 @@ produces), `maximumAge: 0` so a cached fix is never replayed as new, and a
 Simulated against synthetic noise, this holds a 10-minute stationary phone to
 0 m of phantom distance with Doppler (13 m without), and tracks running,
 walking, intervals, tunnels and Doppler dropouts to within 2.5% of truth.
+
+## Auto-pause
+
+Detection is only as good as the evidence available, which differs by device:
+
+| Signal available | Pause detected | Resume detected |
+| --- | --- | --- |
+| Doppler speed (normal iPhone outdoors) | ~2 s | ~2 s |
+| iOS drops the speed solution while still | ~7–10 s | ~2 s |
+| No speed at all (worst case) | ~10 s | ~5 s |
+
+Three things make that usable:
+
+1. **Both edges are back-dated.** Every fix carries a timestamp, so pausing
+   credits the clock from the *first* stationary fix, not from when the
+   detector became sure. The confirmation delay costs nothing in the recorded
+   splits — it only affects when the screen and the voice react.
+2. **Pausing is confirmed harder than resuming** (3 fixes vs 2). A false pause
+   eats real distance; a false resume just adds a couple of standing-still
+   seconds and then re-pauses.
+3. **A tunnel is not a stop.** Doppler keeps working where the position fix
+   falls apart, so it carries the decision under bridges and between tower
+   blocks. Where the device reports no speed at all, the fallback watches for
+   distance to stop growing — which a lost signal would fake perfectly — so it
+   refuses to conclude anything unless accurate fixes are still arriving
+   steadily across the whole window. No fixes, coarse fixes, or a collapsed fix
+   rate all mean "no opinion", never "stopped".
+
+Simulated across a 90-second tunnel at running pace, all four signal-loss
+shapes produce zero auto-pauses, and ten minutes of steady running produces no
+false pauses on any device profile.

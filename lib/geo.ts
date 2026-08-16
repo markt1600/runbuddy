@@ -22,6 +22,31 @@ const SPEED_SMOOTHING = 0.3; // EMA weight on the newest speed reading
 const MAX_GAP_S = 5; // longest interval a single speed reading may cover
 const DOPPLER_STALE_MS = 15_000; // after this, fall back to position deltas
 const KALMAN_Q = 2.5; // m/s of expected movement — the filter's process noise
+// After a gap this long the filtered position is stale rather than merely
+// uncertain, so it is re-seeded instead of blended. Without this, the estimate
+// crawls back toward reality over several fixes, and each of those catch-up
+// steps looks like a teleport and gets rejected — freezing the distance for
+// seconds every time a runner comes out of a tunnel.
+const FILTER_RESET_MS = 6000;
+
+// Auto-pause. Confirming a pause harder than a resume is deliberate: a false
+// pause eats real distance, a false resume just adds a couple of standing-still
+// seconds. Both transitions are reported back-dated to the fix that actually
+// turned, so the ~2s of confirmation costs nothing in the recorded stats.
+const AUTO_PAUSE_FIXES = 3; // ~3s of standing still before we pause
+const AUTO_RESUME_FIXES = 2; // ~2s of movement before we resume
+const AUTO_RETRIGGER_MS = 3000; // don't bounce straight back into a pause
+// Fallback for receivers that report no speed at all: watch for distance to
+// stop growing. The thresholds are asymmetric so a single noisy step — which
+// smears across the whole window — can't declare you running again.
+const STALL_WINDOW_MS = 8000;
+const STALL_STOP_KM = 0.006;
+const STALL_GO_KM = 0.015;
+// "Distance stopped growing" looks identical to "we're in a tunnel and the
+// signal died", so the stall path only gets to conclude anything while good
+// fixes are genuinely still arriving at a steady rate.
+const STALL_FIX_GAP_MS = 4000;
+const STALL_MIN_SAMPLES = 5;
 
 export function haversineKm(a: GeoSample, b: GeoSample): number {
   const R = 6371;
@@ -59,6 +84,21 @@ export class GeoTracker {
   stationary = false;
   /** While paused the watch keeps running (so the fix stays warm) but nothing counts. */
   paused = false;
+
+  private stillRun = 0;
+  private moveRun = 0;
+  private firstStillAt = 0;
+  private firstMoveAt = 0;
+  private lastAutoResumeAt = 0;
+  private stallLog: { t: number; km: number }[] = [];
+  /** Turn the whole auto-pause behaviour off (user preference). */
+  autoPauseEnabled = true;
+  /** True while the tracker believes the runner has stopped. */
+  autoPaused = false;
+  /** Called when the run should pause. The argument is when movement actually stopped. */
+  onAutoPause: ((atMs: number) => void) | null = null;
+  /** Called when the run should resume. The argument is when movement actually restarted. */
+  onAutoResume: ((atMs: number) => void) | null = null;
   distanceKm = 0;
   lastError: string | null = null;
   /** Most recent fix of any accuracy — good enough for weather / geocoding. */
@@ -122,15 +162,39 @@ export class GeoTracker {
           this.lastSpeedAt = now;
         }
 
-        // Drop inaccurate fixes (indoors, urban canyon) — they still count as
-        // "the GPS is alive", just not toward the route or distance.
-        if (s.accuracy > MAX_ACCURACY_M) {
-          onUpdate();
-          return;
-        }
-        this.lastGoodFixAt = now;
+        // Inaccurate fixes (indoors, urban canyon) still count as "the GPS is
+        // alive", just not toward the route or distance.
+        const usable = s.accuracy <= MAX_ACCURACY_M;
+        if (usable) this.trackPosition(s, now);
+        // Doppler tells us about movement regardless of how good the position
+        // is; without it, a coarse fix tells us nothing either way.
+        if (s.speed !== null || usable) this.detectAutoPause(s, now);
+        onUpdate();
+      },
+      (err) => {
+        this.denied = err.code === err.PERMISSION_DENIED;
+        this.lastError = this.denied ? "Location permission denied" : "Waiting for GPS…";
+        onUpdate();
+      },
+      // maximumAge: 0 — never hand us a cached fix; a stale one replayed as new
+      // looks like a jump back to where we were a moment ago.
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
+  }
 
-        // Smooth the position before it is used for anything. This is the
+  /** Forget the auto-pause state — for when the runner overrides it by hand. */
+  clearAutoPause() {
+    this.autoPaused = false;
+    this.stillRun = 0;
+    this.moveRun = 0;
+    this.lastAutoResumeAt = Date.now();
+  }
+
+  /** Route, anchor and the position-derived distance fallback. Accurate fixes only. */
+  private trackPosition(s: GeoSample, now: number) {
+    this.lastGoodFixAt = now;
+
+    // Smooth the position before it is used for anything. This is the
         // standard scalar Kalman filter: trust the new fix in proportion to
         // how it compares with our accumulated uncertainty, which grows with
         // however far we could plausibly have moved since the last one.
@@ -163,22 +227,71 @@ export class GeoTracker {
           }
         }
 
-        const sample = { t: now, km: this.distanceKm };
-        this.recent.push(sample);
-        this.history.push(sample);
-        const cutoff = now - 60_000;
-        while (this.recent.length > 2 && this.recent[0].t < cutoff) this.recent.shift();
-        onUpdate();
-      },
-      (err) => {
-        this.denied = err.code === err.PERMISSION_DENIED;
-        this.lastError = this.denied ? "Location permission denied" : "Waiting for GPS…";
-        onUpdate();
-      },
-      // maximumAge: 0 — never hand us a cached fix; a stale one replayed as new
-      // looks like a jump back to where we were a moment ago.
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-    );
+    const sample = { t: now, km: this.distanceKm };
+    this.recent.push(sample);
+    this.history.push(sample);
+    const cutoff = now - 60_000;
+    while (this.recent.length > 2 && this.recent[0].t < cutoff) this.recent.shift();
+  }
+
+  /**
+   * Auto-pause state machine. Doppler speed is the primary evidence; where the
+   * receiver gives us none, we fall back to watching for distance to stop
+   * growing, which is both slower and less certain.
+   */
+  private detectAutoPause(s: GeoSample, now: number) {
+    // A manual pause owns the run state — don't fight it, and don't come back
+    // from it on our own.
+    if (!this.autoPauseEnabled || this.paused) {
+      this.stillRun = 0;
+      this.moveRun = 0;
+      this.autoPaused = false;
+      return;
+    }
+    this.stallLog.push({ t: now, km: this.distanceKm });
+    while (this.stallLog.length > 1 && this.stallLog[0].t < now - STALL_WINDOW_MS) {
+      this.stallLog.shift();
+    }
+
+    let stopped: boolean;
+    if (s.speed !== null) {
+      // Doppler is measured, not inferred, so it stays trustworthy under a
+      // bridge or between tower blocks where the position fix falls apart.
+      stopped = this.stationary;
+    } else {
+      // Without it we're inferring from distance, which a tunnel would fake
+      // perfectly. Refuse to judge unless accurate fixes have been arriving
+      // steadily across the whole window — otherwise a runner who ducks into
+      // an underpass gets paused mid-stride.
+      if (now - this.stallLog[0].t < STALL_WINDOW_MS) return; // window not filled
+      if (now - this.lastGoodFixAt > STALL_FIX_GAP_MS) return; // signal trouble
+      if (this.stallLog.length < STALL_MIN_SAMPLES) return; // fix rate collapsed
+      const movedKm = this.distanceKm - this.stallLog[0].km;
+      stopped = movedKm < (this.autoPaused ? STALL_GO_KM : STALL_STOP_KM);
+    }
+
+    if (stopped) {
+      if (this.stillRun === 0) this.firstStillAt = now;
+      this.stillRun++;
+      this.moveRun = 0;
+    } else {
+      if (this.moveRun === 0) this.firstMoveAt = now;
+      this.moveRun++;
+      this.stillRun = 0;
+    }
+
+    if (
+      !this.autoPaused &&
+      this.stillRun >= AUTO_PAUSE_FIXES &&
+      now - this.lastAutoResumeAt > AUTO_RETRIGGER_MS
+    ) {
+      this.autoPaused = true;
+      this.onAutoPause?.(this.firstStillAt);
+    } else if (this.autoPaused && this.moveRun >= AUTO_RESUME_FIXES) {
+      this.autoPaused = false;
+      this.lastAutoResumeAt = now;
+      this.onAutoResume?.(this.firstMoveAt);
+    }
   }
 
   stop() {
@@ -195,6 +308,9 @@ export class GeoTracker {
    */
   private smooth(s: GeoSample): GeoSample {
     const acc = Math.max(s.accuracy, 1);
+    if (this.kVar >= 0 && s.timestamp - this.kAt > FILTER_RESET_MS) {
+      this.kVar = -1; // stale beyond rescue — start again from this fix
+    }
     if (this.kVar < 0) {
       this.kLat = s.lat;
       this.kLon = s.lon;

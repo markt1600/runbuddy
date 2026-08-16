@@ -16,6 +16,8 @@ interface Props {
   chattiness: number;
   targetKm: number;
   targetMin: number;
+  autoPause: boolean;
+  startDelaySec: number;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -27,11 +29,15 @@ export default function RunScreen({
   chattiness,
   targetKm,
   targetMin,
+  autoPause,
+  startDelaySec,
   onFinish,
 }: Props) {
   const treadmill = targetMin > 0;
   const [elapsedMs, setElapsedMs] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [autoPaused, setAutoPaused] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const [distanceKm, setDistanceKm] = useState(0);
   const [speeds, setSpeeds] = useState<{
     now: number | null;
@@ -44,7 +50,7 @@ export default function RunScreen({
   const [listening, setListening] = useState(false);
   const [gpsNote, setGpsNote] = useState<string | null>(null);
   const [gpsSignal, setGpsSignal] = useState<GpsSignal>("acquiring");
-  const [locked, setLocked] = useState(false);
+  const [locked, setLocked] = useState(startDelaySec > 0);
   const [holdPct, setHoldPct] = useState(0);
   const holdRef = useRef<{ raf: number; start: number } | null>(null);
   const holdDoneRef = useRef(false);
@@ -67,6 +73,8 @@ export default function RunScreen({
   const startAtRef = useRef(Date.now());
   const accumulatedRef = useRef(0);
   const pausedRef = useRef(false);
+  const autoPausedRef = useRef(false);
+  const countdownRef = useRef(0);
   const splitsRef = useRef<number[]>([]);
   const lastSplitAtRef = useRef(0);
   const statsRef = useRef<RunStats>({
@@ -122,6 +130,27 @@ export default function RunScreen({
     // Treadmill mode: never start the watch, so no location permission is
     // requested and nothing about speed, distance or route is tracked.
     if (!treadmill) {
+      geo.autoPauseEnabled = autoPause;
+      // Both edges arrive back-dated to the fix where movement actually turned,
+      // so the ~2s the detector spends confirming costs nothing on the clock.
+      geo.onAutoPause = (at) => {
+        if (pausedRef.current) return; // a manual pause already owns the state
+        accumulatedRef.current += Math.max(0, at - startAtRef.current);
+        pausedRef.current = true;
+        autoPausedRef.current = true;
+        setPaused(true);
+        setAutoPaused(true);
+        coach.onAutoPause();
+      };
+      geo.onAutoResume = (at) => {
+        if (!autoPausedRef.current) return; // never un-pause a manual pause
+        startAtRef.current = at;
+        pausedRef.current = false;
+        autoPausedRef.current = false;
+        setPaused(false);
+        setAutoPaused(false);
+        coach.onAutoResume();
+      };
       geo.start(() => {
         setDistanceKm(geo.distanceKm);
         setGpsNote(geo.lastError);
@@ -141,9 +170,33 @@ export default function RunScreen({
     void wake.enable();
 
     startAtRef.current = Date.now();
-    coach.onRunStart();
+    if (startDelaySec > 0) {
+      // Held at the start line: the screen is already locked so the phone can
+      // go straight into the sleeve, and nothing counts until we say go.
+      countdownRef.current = startDelaySec;
+      setCountdown(startDelaySec);
+      geo.paused = true;
+    } else {
+      coach.onRunStart();
+    }
 
     const interval = setInterval(() => {
+      // Delayed start: nothing else on this tick until the count reaches zero.
+      if (countdownRef.current > 0) {
+        const left = countdownRef.current - 1;
+        countdownRef.current = left;
+        setCountdown(left);
+        if (left === 10) coach.sayCountdown(0);
+        else if (left === 5) coach.sayCountdown(1);
+        if (left === 0) {
+          startAtRef.current = Date.now();
+          geo.paused = false;
+          coach.onRunStart();
+        }
+        setGpsSignal(geo.signal());
+        return;
+      }
+
       const stats = computeStats();
       setElapsedMs(stats.elapsedMs);
       setSpeeds({
@@ -179,7 +232,8 @@ export default function RunScreen({
       const lib = coach.libraryStats();
       setPhraseStats({ ...lib, ...voice.counts });
 
-      if (!pausedRef.current) coach.tick(stats);
+      if (pausedRef.current) coach.tickPaused(stats);
+      else coach.tick(stats);
     }, 1000);
 
     return () => {
@@ -196,7 +250,12 @@ export default function RunScreen({
     if (pausedRef.current) {
       startAtRef.current = Date.now();
       pausedRef.current = false;
+      autoPausedRef.current = false;
       setPaused(false);
+      setAutoPaused(false);
+      // Tapping Resume while standing still is a deliberate override — clear
+      // the detector's state so it judges from here rather than re-firing.
+      geoRef.current?.clearAutoPause();
       if (geoRef.current) geoRef.current.paused = false;
       coachRef.current?.onResume();
     } else {
@@ -347,8 +406,19 @@ export default function RunScreen({
         </button>
       </div>
 
-      <div className="big-timer">{formatElapsed(elapsedMs)}</div>
-      <div className="timer-label">{paused ? "Paused" : "Elapsed"}</div>
+      {countdown > 0 ? (
+        <>
+          <div className="big-timer counting">{countdown}</div>
+          <div className="timer-label">Phone in the sleeve — starting soon</div>
+        </>
+      ) : (
+        <>
+          <div className={`big-timer${paused ? " paused" : ""}`}>{formatElapsed(elapsedMs)}</div>
+          <div className="timer-label">
+            {autoPaused ? "Auto-paused — start moving to resume" : paused ? "Paused" : "Elapsed"}
+          </div>
+        </>
+      )}
 
       {(targetKm > 0 || treadmill) &&
         (() => {
@@ -454,7 +524,10 @@ export default function RunScreen({
         </div>
       </div>
 
-      <div className="run-controls">
+      {/* Hidden rather than unmounted while locked: the buttons are inert under
+          the overlay and would otherwise sit right beneath the unlock pad, but
+          keeping their space stops everything above from jumping. */}
+      <div className="run-controls" style={{ visibility: locked ? "hidden" : "visible" }}>
         <button className="control-btn pause" onClick={togglePause}>
           {paused ? "Resume" : "Pause"}
         </button>

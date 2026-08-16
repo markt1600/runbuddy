@@ -1,5 +1,5 @@
 import { allPhrasesFor, getPhraseUrl, renderedCount } from "./voiceLibrary";
-import type { Persona, Phrase, PhraseCategory, RunStats } from "./types";
+import type { Persona, Phrase, PhraseCategory, PhraseCondition, RunStats } from "./types";
 import type { VoiceEngine } from "./audio";
 import type { RunEnvironment } from "./enviro";
 
@@ -15,6 +15,12 @@ const PROGRESS_MARKS = [0.1, 0.25, 1 / 3, 0.5, 2 / 3, 0.75, 0.9, 0.94, 0.97, 0.9
 
 const FRESH_ANECDOTE_CHANCE = 0.5; // odds an anecdote slot asks the API for new material
 const FRESH_ENCOURAGE_CHANCE = 0.25; // odds regular encouragement is freshly generated
+
+// How long a stop is allowed to run before the trainer starts commenting on it,
+// and how often they come back to it. Scaled by the chatter setting like
+// everything else.
+const LOITER_FIRST_MS = 45_000;
+const LOITER_REPEAT_MS: [number, number] = [40_000, 70_000];
 
 function formatPaceShort(secPerKm: number | null): string | undefined {
   if (secPerKm === null || !isFinite(secPerKm) || secPerKm > 30 * 60) return undefined;
@@ -41,6 +47,10 @@ export class CoachEngine {
   private targetKm = 0;
   private targetMin = 0;
   private progressDone = new Set<number>();
+  private openerDone = false;
+  private pausedSince = 0;
+  private nextLoiterAt = 0;
+  private loiterLevel = 0;
 
   constructor(
     persona: Persona,
@@ -232,6 +242,49 @@ export class CoachEngine {
     });
   }
 
+  /** Everything true about right now that a pre-rendered line could key off. */
+  private currentConditions(): PhraseCondition[] {
+    const out: PhraseCondition[] = [];
+    const desc = this.env?.weatherDesc?.toLowerCase() ?? "";
+    if (/rain|drizzle|shower|thunder/.test(desc)) out.push("rain");
+    const feels = this.env?.feelsLikeC ?? this.env?.tempC ?? null;
+    if (feels !== null && feels >= 31) out.push("hot");
+    if (feels !== null && feels <= 20) out.push("cool");
+    const h = new Date().getHours();
+    out.push(
+      h < 7 ? "dawn" : h < 11 ? "morning" : h < 15 ? "midday" : h < 19 ? "evening" : "night"
+    );
+    return out;
+  }
+
+  /**
+   * One pre-rendered line, chosen live: an early start, the afternoon heat,
+   * the rain you decided to run in anyway. Weather and time-of-day lines are
+   * pooled together and picked from at random, so a hot rainy morning doesn't
+   * always open the same way.
+   */
+  private sayConditionalOpener() {
+    const conditions = this.currentConditions();
+    const pool = allPhrasesFor(this.persona.id, "conditional").filter(
+      (p) => p.condition && conditions.includes(p.condition)
+    );
+    if (pool.length === 0) return;
+    const phrase = pool[Math.floor(Math.random() * pool.length)];
+    this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
+  }
+
+  /**
+   * Delayed start marks. The library bank is written in order — [10 seconds,
+   * 5 seconds] — so the caller passes the index, and it comes out in the
+   * persona's own voice like everything else.
+   */
+  sayCountdown(index: number) {
+    const pool = allPhrasesFor(this.persona.id, "countdown");
+    const phrase = pool[index];
+    if (!phrase) return;
+    this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
+  }
+
   /** Round-robin through the intro monologues, persisted across runs. */
   private sayIntroFromLibrary() {
     const pool = allPhrasesFor(this.persona.id, "intro");
@@ -252,13 +305,65 @@ export class CoachEngine {
   }
 
   onPause() {
+    this.beginPause();
     this.sayFromLibrary("paused");
   }
 
   onResume() {
-    const now = Date.now();
-    this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS) / 2;
+    this.endPause();
     this.sayFromLibrary("resumed");
+  }
+
+  /**
+   * The app paused itself because the runner stopped moving. Announce it —
+   * the phone is in an arm sleeve and the frozen clock is invisible from there.
+   */
+  onAutoPause() {
+    this.beginPause();
+    this.sayFromLibrary("auto_paused");
+  }
+
+  onAutoResume() {
+    this.endPause();
+    this.sayFromLibrary("auto_resumed");
+  }
+
+  private beginPause() {
+    const now = Date.now();
+    this.pausedSince = now;
+    this.loiterLevel = 0;
+    this.nextLoiterAt = now + LOITER_FIRST_MS / this.chattiness;
+  }
+
+  private endPause() {
+    const now = Date.now();
+    this.pausedSince = 0;
+    this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS) / 2;
+  }
+
+  /**
+   * Called every second while the run is paused, however it got paused. Stand
+   * around long enough and the trainer starts having opinions about it — each
+   * one a step further along their persona's escalation.
+   */
+  tickPaused(stats: RunStats) {
+    if (this.disposed || this.voice.busy || this.pausedSince === 0) return;
+    const now = Date.now();
+    if (now < this.nextLoiterAt) return;
+
+    const stoppedSec = Math.round((now - this.pausedSince) / 1000);
+    this.nextLoiterAt = now + this.gap(LOITER_REPEAT_MS);
+    const level = this.loiterLevel++;
+
+    // The library lines are written mildest-first, so walking the index is the
+    // escalation. Once past the end of the bank, ask for something fresh.
+    const pool = allPhrasesFor(this.persona.id, "loitering");
+    if (level < pool.length) {
+      const phrase = pool[level];
+      this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
+      return;
+    }
+    void this.sayFresh("loitering", stats, { pausedSeconds: stoppedSec });
   }
 
   onFinish(stats: RunStats) {
@@ -277,7 +382,20 @@ export class CoachEngine {
     if (this.disposed || this.voice.busy) return;
     const now = Date.now();
 
-    // 0. Target progress takes priority over everything else.
+    // 0a. The condition-keyed opener, once, as soon as the intro has finished
+    // speaking. Waits briefly for the weather to land, then goes with the time
+    // of day alone rather than missing the start of the run entirely.
+    if (
+      !this.openerDone &&
+      stats.elapsedMs > 12_000 &&
+      (this.env !== null || stats.elapsedMs > 40_000)
+    ) {
+      this.openerDone = true;
+      this.sayConditionalOpener();
+      return;
+    }
+
+    // 0b. Target progress takes priority over everything else.
     if (this.targetMin > 0) {
       // Treadmill: no GPS, so distance and pace cues below don't apply —
       // only clock checkpoints, encouragement and anecdotes.

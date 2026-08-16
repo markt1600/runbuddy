@@ -27,6 +27,12 @@ const INSTRUCTIONS: Partial<Record<PhraseCategory, string>> = {
   target_hit:
     "The runner just REACHED the target distance they set out to do. React to that in your " +
     "persona — this is the moment they earned.",
+  loitering:
+    "The run is PAUSED because the runner stopped moving, and they have now been standing " +
+    "still for a long time — the stats tell you exactly how long. You have already needled " +
+    "them about it several times and they still haven't moved, so this line escalates: go " +
+    "further than you would have a minute ago, fully in your persona. Do not mention their " +
+    "pace or speed — they aren't moving. One line.",
   summary:
     "The runner just FINISHED their run — this is your closing comment on the whole thing. " +
     "React to their actual numbers (distance, time, pace or speed) in your persona: proud, " +

@@ -11,6 +11,7 @@ import {
 import {
   CHATTINESS_MAX,
   CHATTINESS_MIN,
+  START_DELAY_SEC,
   TARGET_OPTIONS,
   TARGET_TIME_OPTIONS,
   chattinessLabel,
@@ -60,6 +61,10 @@ interface Props {
   onTargetKmChange: (v: number) => void;
   targetMin: number;
   onTargetMinChange: (v: number) => void;
+  autoPause: boolean;
+  onAutoPauseChange: (on: boolean) => void;
+  startDelay: boolean;
+  onStartDelayChange: (on: boolean) => void;
 }
 
 export default function SetupScreen({
@@ -77,6 +82,10 @@ export default function SetupScreen({
   onTargetKmChange,
   targetMin,
   onTargetMinChange,
+  autoPause,
+  onAutoPauseChange,
+  startDelay,
+  onStartDelayChange,
 }: Props) {
   const [libraryReady, setLibraryReady] = useState(false);
   const mode: "none" | "distance" | "time" =
@@ -279,6 +288,50 @@ export default function SetupScreen({
             </div>
           )}
         </div>
+      )}
+
+      <div className="section-header">Getting Going</div>
+      <div className="card" style={{ padding: "12px 16px" }}>
+        <label className="switch-row">
+          <span className="switch-text">
+            {START_DELAY_SEC}-second delayed start
+            <span className="switch-sub">
+              Press Start, slide the phone into your arm sleeve and get set. The
+              screen locks straight away and your buddy calls out ten seconds and
+              five seconds before the run begins.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={startDelay}
+            onChange={(e) => onStartDelayChange(e.target.checked)}
+          />
+        </label>
+      </div>
+
+      {mode !== "time" && (
+        <>
+          <div className="section-header">Auto-Pause</div>
+          <div className="card" style={{ padding: "12px 16px" }}>
+            <label className="switch-row">
+              <span className="switch-text">
+                Pause when I stop
+                <span className="switch-sub">
+                  Your buddy freezes the clock about two seconds after you stop moving
+                  and picks it back up about two seconds after you start again — and
+                  says so out loud, since your phone won&apos;t be in your hand.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={autoPause}
+                onChange={(e) => onAutoPauseChange(e.target.checked)}
+              />
+            </label>
+          </div>
+        </>
       )}
 
       <div className="section-header">Coach Chatter</div>

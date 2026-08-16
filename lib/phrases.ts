@@ -68,6 +68,31 @@ const ahbeng: Phrase[] = [
   // ---- pause / resume ----
   { id: "ab-pause-1", category: "paused", text: "PAUSE?! Kanina... okay lah, okay lah. One minute. I'm counting ah, chee bye. ONE. MINUTE." },
   { id: "ab-res-1", category: "resumed", text: "FINALLY, wah lau! Break over! You think this is lunch hour issit? GO GO GO, chee bye!" },
+  // ---- conditional openers: chosen at the start line from clock + weather ----
+  { id: "ab-cond-dawn", category: "conditional", condition: "dawn", text: "Wah, sky still dark and you already outside? Kanina, I respect that. Now don't waste it." },
+  { id: "ab-cond-morning", category: "conditional", condition: "morning", text: "Morning sun already up, chee bye. Means no more excuse about cannot see the road. GO!" },
+  { id: "ab-cond-midday", category: "conditional", condition: "midday", text: "Aiyo, you choose to run in this afternoon heat ah? Sibei siao. Drink water and MOVE." },
+  { id: "ab-cond-evening", category: "conditional", condition: "evening", text: "Evening run, sun going down. Perfect timing. Now don't you dare go down with it, chee bye." },
+  { id: "ab-cond-night", category: "conditional", condition: "night", text: "Night running ah? Okay lah, but watch where you step. You trip and fall, don't come blame me, kanina." },
+  { id: "ab-cond-rain", category: "conditional", condition: "rain", text: "Raining somemore you still come out?! Wah lau, either sibei hardcore or sibei stupid. Either way — RUN!" },
+  { id: "ab-cond-hot", category: "conditional", condition: "hot", text: "Chee bye, today so hot. You going to sweat like nobody's business. Hydrate, and don't pengsan on me." },
+  { id: "ab-cond-cool", category: "conditional", condition: "cool", text: "Eh, weather sibei shiok today. This one is free speed, kanina. No excuse now. GO!" },
+  // ---- delayed start countdown: ordered [10 seconds, 5 seconds] ----
+  { id: "ab-count-10", category: "countdown", text: "Oi! Ten seconds! Phone in the sleeve already or not, chee bye?" },
+  { id: "ab-count-5", category: "countdown", text: "FIVE SECONDS! Get ready, kanina. Don't embarrass me!" },
+  // ---- auto pause: kept short, it's a status report the runner can't see ----
+  { id: "ab-apause-1", category: "auto_paused", text: "Oi, you stop, so I stop the clock. Timer paused, chee bye." },
+  { id: "ab-apause-2", category: "auto_paused", text: "Wah, standing still. Clock also stop already. Don't take too long ah, kanina." },
+  { id: "ab-apause-3", category: "auto_paused", text: "Timer paused lah. But I still watching you, chee bye." },
+  { id: "ab-ares-1", category: "auto_resumed", text: "Moving again! Clock restart, kanina. GO!" },
+  { id: "ab-ares-2", category: "auto_resumed", text: "Okay okay, timer running again, chee bye. Faster!" },
+  { id: "ab-ares-3", category: "auto_resumed", text: "Wah lau, finally. Clock start already. RUN!" },
+  // ---- loitering: ordered mildest to worst, the coach escalates through them ----
+  { id: "ab-loiter-1", category: "loitering", text: "Eh? Why we not moving? You tying shoelace, or you retiring, chee bye?" },
+  { id: "ab-loiter-2", category: "loitering", text: "Kanina, this one not a water break already lah. This one a lunch break. MOVE." },
+  { id: "ab-loiter-3", category: "loitering", text: "Wah lau, you stand there so long the grass growing around your shoe, chee bye. Leg still work or not?" },
+  { id: "ab-loiter-4", category: "loitering", text: "Sibei jialat. I see bus stop queue move faster than you, kanina. Chao chee bye, RUN!" },
+  { id: "ab-loiter-5", category: "loitering", text: "Okay lah, I give up. You want to stand there whole day, stand lah. But don't tell people I train you. LAN JIAO! MOVE YOUR LEG!" },
   // ---- canned chat replies ----
   { id: "ab-chat-1", category: "chat", text: "Talk less, run more lah chee bye! Save your breath for the hill, kanina!" },
   { id: "ab-chat-2", category: "chat", text: "Hah? Cannot hear you. All I hear is lan jiao excuses. RUN!" },
@@ -145,6 +170,31 @@ const coach: Phrase[] = [
   // ---- pause / resume ----
   { id: "co-pause-1", category: "paused", text: "Taking a breather — smart! Rest is part of training too. I'll be right here." },
   { id: "co-res-1", category: "resumed", text: "And we're back! Ease into it, find your breath, and let's finish what we started!" },
+  // ---- conditional openers: chosen at the start line from clock + weather ----
+  { id: "co-cond-dawn", category: "conditional", condition: "dawn", text: "Up before the sun — that's a choice most people never make. What a way to start." },
+  { id: "co-cond-morning", category: "conditional", condition: "morning", text: "Morning light, fresh legs. This is the good stuff. Let's put it to work." },
+  { id: "co-cond-midday", category: "conditional", condition: "midday", text: "Running in the middle of the day takes real grit. Keep your effort honest and drink when you can." },
+  { id: "co-cond-evening", category: "conditional", condition: "evening", text: "Evening miles are the best way to close out a day. Let everything else go now." },
+  { id: "co-cond-night", category: "conditional", condition: "night", text: "A night run — quiet roads, just you and the rhythm. Stay visible out there and enjoy it." },
+  { id: "co-cond-rain", category: "conditional", condition: "rain", text: "It's raining and you came out anyway. That tells me more about you than any pace ever could." },
+  { id: "co-cond-hot", category: "conditional", condition: "hot", text: "It's warm out there, so listen to your body over the numbers today. Effort first, pace second." },
+  { id: "co-cond-cool", category: "conditional", condition: "cool", text: "Gorgeous cool air today — proper running weather. Your legs are going to thank you for this one." },
+  // ---- delayed start countdown: ordered [10 seconds, 5 seconds] ----
+  { id: "co-count-10", category: "countdown", text: "Ten seconds. Get yourself set — phone away, shoulders loose." },
+  { id: "co-count-5", category: "countdown", text: "Five seconds. Deep breath in. Here we go!" },
+  // ---- auto pause: kept short, it's a status report the runner can't see ----
+  { id: "co-apause-1", category: "auto_paused", text: "You've stopped, so I've paused your clock. Take your time." },
+  { id: "co-apause-2", category: "auto_paused", text: "Timer's paused while you catch your breath. I've got you." },
+  { id: "co-apause-3", category: "auto_paused", text: "Auto-paused — your time is safe. Just breathe." },
+  { id: "co-ares-1", category: "auto_resumed", text: "You're moving — clock's running again. Nice and easy." },
+  { id: "co-ares-2", category: "auto_resumed", text: "And we're rolling. Timer's back on. Find your rhythm." },
+  { id: "co-ares-3", category: "auto_resumed", text: "Back underway, clock restarted. Lovely." },
+  // ---- loitering: ordered mildest to firmest, the coach escalates through them ----
+  { id: "co-loiter-1", category: "loitering", text: "Still with me? Take the breath you need — I'm not going anywhere." },
+  { id: "co-loiter-2", category: "loitering", text: "That's a proper rest now. Whenever you're ready, we ease back in. No rush." },
+  { id: "co-loiter-3", category: "loitering", text: "Those legs are cooling down on you. Even a gentle walk would keep them honest — shall we?" },
+  { id: "co-loiter-4", category: "loitering", text: "You've been stopped a while. The hardest part of any run is starting again, and you've already done that once today." },
+  { id: "co-loiter-5", category: "loitering", text: "I'll wait as long as you need. But you didn't come out here to stand still, and we both know it. One step. That's all I'm asking." },
   // ---- canned chat replies ----
   { id: "co-chat-1", category: "chat", text: "I hear you! Whatever it is, we'll run through it together. One step at a time!" },
   { id: "co-chat-2", category: "chat", text: "Great question! My honest answer: you're doing better than you think you are. Keep going!" },
@@ -222,6 +272,31 @@ const flirty: Phrase[] = [
   // ---- pause / resume ----
   { id: "ca-pause-1", category: "paused", text: "Taking a little break? That's alright. I'll wait. I'm not going anywhere." },
   { id: "ca-res-1", category: "resumed", text: "Mmm, there you are. I was getting lonely. Ease back into it for me." },
+  // ---- conditional openers: chosen at the start line from clock + weather ----
+  { id: "ca-cond-dawn", category: "conditional", condition: "dawn", text: "Up this early, just for me? Careful — I might start expecting it." },
+  { id: "ca-cond-morning", category: "conditional", condition: "morning", text: "Good morning, you. There's something about someone who starts the day moving." },
+  { id: "ca-cond-midday", category: "conditional", condition: "midday", text: "Running in the middle of this heat? Bold. I do like bold." },
+  { id: "ca-cond-evening", category: "conditional", condition: "evening", text: "Evening light suits you. Let's make this one count, shall we?" },
+  { id: "ca-cond-night", category: "conditional", condition: "night", text: "Just us and the dark tonight. Try to keep your mind on the running, sweetheart." },
+  { id: "ca-cond-rain", category: "conditional", condition: "rain", text: "You are going to get absolutely soaked out there. I'm not going to pretend I mind." },
+  { id: "ca-cond-hot", category: "conditional", condition: "hot", text: "It's hot, you're going to glow, and I intend to enjoy every minute. Drink something for me." },
+  { id: "ca-cond-cool", category: "conditional", condition: "cool", text: "Perfect cool air out there. Nothing to hide behind now, gorgeous. Show me what you've got." },
+  // ---- delayed start countdown: ordered [10 seconds, 5 seconds] ----
+  { id: "ca-count-10", category: "countdown", text: "Ten seconds, gorgeous. Tuck that phone away and get yourself ready for me." },
+  { id: "ca-count-5", category: "countdown", text: "Five seconds. Mmm. I've been looking forward to this." },
+  // ---- auto pause: kept short, it's a status report the runner can't see ----
+  { id: "ca-apause-1", category: "auto_paused", text: "You stopped, so I stopped the clock. I don't mind waiting." },
+  { id: "ca-apause-2", category: "auto_paused", text: "Timer's paused, gorgeous. Catch your breath for me." },
+  { id: "ca-apause-3", category: "auto_paused", text: "Clock's on hold. I'm still right here." },
+  { id: "ca-ares-1", category: "auto_resumed", text: "Mmm, moving again. Clock's running, and so are you." },
+  { id: "ca-ares-2", category: "auto_resumed", text: "There you go. Timer's back on. Don't keep me waiting next time." },
+  { id: "ca-ares-3", category: "auto_resumed", text: "Back in motion. I've restarted your clock, sweetheart." },
+  // ---- loitering: ordered mildest to boldest, the coach escalates through them ----
+  { id: "ca-loiter-1", category: "loitering", text: "Mmm, stopping already? I was just starting to enjoy watching you work." },
+  { id: "ca-loiter-2", category: "loitering", text: "You know I can wait. I'm very patient. I just don't like to be." },
+  { id: "ca-loiter-3", category: "loitering", text: "All this standing around for me? Sweetheart, you had my attention the whole time." },
+  { id: "ca-loiter-4", category: "loitering", text: "I've been staring at a very still little dot on my screen. Move it for me. Please?" },
+  { id: "ca-loiter-5", category: "loitering", text: "Last chance before I start taking this personally. Come on. Impress me." },
   // ---- canned chat replies ----
   { id: "ca-chat-1", category: "chat", text: "Talking to me already? Save your breath, gorgeous. You'll need it." },
   { id: "ca-chat-2", category: "chat", text: "Mmm, I love the sound of your voice. Now use it for breathing and keep running." },
@@ -299,6 +374,31 @@ const loanshark: Phrase[] = [
   // ---- pause / resume ----
   { id: "al-pause-1", category: "paused", text: "Eh?! You stopping?! Kanina, I also stop lah. But the interest — the interest never stop, chee bye." },
   { id: "al-res-1", category: "resumed", text: "AH, you running again! Good, good. I was about to knock on your door. GO GO GO!" },
+  // ---- conditional openers: chosen at the start line from clock + weather ----
+  { id: "al-cond-dawn", category: "conditional", condition: "dawn", text: "So early? Trying to slip away before sunrise, ah? Kanina, I still find you." },
+  { id: "al-cond-morning", category: "conditional", condition: "morning", text: "Morning already. New day, same debt, chee bye. Start moving." },
+  { id: "al-cond-midday", category: "conditional", condition: "midday", text: "You run in this heat? Good. Suffer a bit — I count that as partial payment, kanina." },
+  { id: "al-cond-evening", category: "conditional", condition: "evening", text: "Evening ah. My collection round starts about now, chee bye. Better get going." },
+  { id: "al-cond-night", category: "conditional", condition: "night", text: "Night time. Dark. Nobody around. Very good conditions... for me lah. RUN!" },
+  { id: "al-cond-rain", category: "conditional", condition: "rain", text: "Rain also cannot save you, chao chee bye. Water wash away everything except what you owe me." },
+  { id: "al-cond-hot", category: "conditional", condition: "hot", text: "So hot until your shirt stick to you. Good — means you cannot run far. Easier for me, kanina." },
+  { id: "al-cond-cool", category: "conditional", condition: "cool", text: "Weather sibei nice today, so no excuse. Every step you don't take, I add to your account, chee bye." },
+  // ---- delayed start countdown: ordered [10 seconds, 5 seconds] ----
+  { id: "al-count-10", category: "countdown", text: "Ten seconds. I already know your address, so don't try anything funny, chee bye." },
+  { id: "al-count-5", category: "countdown", text: "FIVE SECONDS! Then you run, kanina. And I chase." },
+  // ---- auto pause: kept short, it's a status report the runner can't see ----
+  { id: "al-apause-1", category: "auto_paused", text: "You stop, clock stop. The interest never stop though, chee bye." },
+  { id: "al-apause-2", category: "auto_paused", text: "Timer paused. My patience also paused, kanina." },
+  { id: "al-apause-3", category: "auto_paused", text: "Clock on hold. Your debt is not, chao chee bye." },
+  { id: "al-ares-1", category: "auto_resumed", text: "AH, moving! Clock running again. So is the interest, kanina." },
+  { id: "al-ares-2", category: "auto_resumed", text: "Good good, timer restart. Keep going, chee bye." },
+  { id: "al-ares-3", category: "auto_resumed", text: "You run again, so the clock also run. GO!" },
+  // ---- loitering: ordered mildest to worst, the coach escalates through them ----
+  { id: "al-loiter-1", category: "loitering", text: "Eh. Why you stop? You think when you stop, the interest also stop issit? Kanina." },
+  { id: "al-loiter-2", category: "loitering", text: "Every second you stand there, you owe me more. Compound one, chee bye. COMPOUND." },
+  { id: "al-loiter-3", category: "loitering", text: "Wah lau, my boys already sitting in the van. You want me send them come look for you?" },
+  { id: "al-loiter-4", category: "loitering", text: "You standing there like you settle your debt already. You HAVEN'T, chao chee bye. Move those legs!" },
+  { id: "al-loiter-5", category: "loitering", text: "Okay. I write your name in the red book already. Lan jiao, you better start running NOW — because I'm coming, and I never get tired." },
   // ---- canned chat replies ----
   { id: "al-chat-1", category: "chat", text: "You talking to me? Talk with MONEY lah, chee bye! Now RUN!" },
   { id: "al-chat-2", category: "chat", text: "Kanina, excuses I heard all of them already. Save your breath for running!" },

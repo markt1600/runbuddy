@@ -20,6 +20,7 @@ export interface PhraseContext {
   targetKm?: number;
   progressPercent?: number;
   remainingKm?: number;
+  pausedSeconds?: number; // how long they've been standing still
   // Treadmill (time-target) runs
   treadmill?: boolean;
   targetMinutes?: number;
@@ -39,6 +40,9 @@ function contextLines(context: PhraseContext): string {
       context.remainingMinutes !== undefined
         ? `Remaining: ${context.remainingMinutes} minutes`
         : null,
+      context.pausedSeconds !== undefined
+        ? `They have been stopped, not moving, for ${context.pausedSeconds} seconds`
+        : null,
       context.localTime ? `Local time: ${context.localTime}` : null,
     ].filter(Boolean);
     return `\n\nLive run stats:\n${lines.join("\n")}`;
@@ -52,6 +56,9 @@ function contextLines(context: PhraseContext): string {
     context.paceMinPerKm ? `Current pace: ${context.paceMinPerKm} min/km` : null,
     context.avgPaceMinPerKm ? `Average pace: ${context.avgPaceMinPerKm} min/km` : null,
     context.speedKmh !== undefined ? `Current speed: ${context.speedKmh} km/h` : null,
+    context.pausedSeconds !== undefined
+      ? `They have been stopped, not moving, for ${context.pausedSeconds} seconds`
+      : null,
     context.localTime ? `Local time: ${context.localTime}` : null,
   ].filter(Boolean);
   return lines.length ? `\n\nLive run stats:\n${lines.join("\n")}` : "";

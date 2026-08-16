@@ -10,10 +10,15 @@ import { ensureVoiceLibrary } from "@/lib/voiceLibrary";
 import { loadSpeedUnit, saveSpeedUnit, type SpeedUnit } from "@/lib/units";
 import {
   CHATTINESS_DEFAULT,
+  START_DELAY_SEC,
+  loadAutoPause,
   loadChattiness,
   loadTargetKm,
   loadTargetMin,
+  loadStartDelay,
+  saveAutoPause,
   saveChattiness,
+  saveStartDelay,
   saveTargetKm,
   saveTargetMin,
 } from "@/lib/prefs";
@@ -30,12 +35,16 @@ export default function RunBuddyApp() {
   const [chattiness, setChattinessState] = useState(CHATTINESS_DEFAULT);
   const [targetKm, setTargetKmState] = useState(0);
   const [targetMin, setTargetMinState] = useState(0);
+  const [autoPause, setAutoPauseState] = useState(true);
+  const [startDelay, setStartDelayState] = useState(false);
 
   useEffect(() => {
     setSpeedUnitState(loadSpeedUnit());
     setChattinessState(loadChattiness());
     setTargetKmState(loadTargetKm());
     setTargetMinState(loadTargetMin());
+    setAutoPauseState(loadAutoPause());
+    setStartDelayState(loadStartDelay());
   }, []);
 
   const setTargetKm = (v: number) => {
@@ -46,6 +55,16 @@ export default function RunBuddyApp() {
   const setTargetMin = (v: number) => {
     setTargetMinState(v);
     saveTargetMin(v);
+  };
+
+  const setAutoPause = (on: boolean) => {
+    setAutoPauseState(on);
+    saveAutoPause(on);
+  };
+
+  const setStartDelay = (on: boolean) => {
+    setStartDelayState(on);
+    saveStartDelay(on);
   };
 
   const setSpeedUnit = (unit: SpeedUnit) => {
@@ -85,6 +104,10 @@ export default function RunBuddyApp() {
           onTargetKmChange={setTargetKm}
           targetMin={targetMin}
           onTargetMinChange={setTargetMin}
+          autoPause={autoPause}
+          onAutoPauseChange={setAutoPause}
+          startDelay={startDelay}
+          onStartDelayChange={setStartDelay}
         />
       )}
       {screen === "admin" && <AdminScreen onBack={() => setScreen("setup")} />}
@@ -97,6 +120,8 @@ export default function RunBuddyApp() {
           chattiness={chattiness}
           targetKm={targetKm}
           targetMin={targetMin}
+          autoPause={autoPause}
+          startDelaySec={startDelay ? START_DELAY_SEC : 0}
           onFinish={(stats) => {
             setFinalStats(stats);
             setScreen("summary");
