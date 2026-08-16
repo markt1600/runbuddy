@@ -1,0 +1,38 @@
+import { NextRequest, NextResponse } from "next/server";
+import { generateLine, renderVoice } from "@/lib/server/generate";
+import { PERSONAS } from "@/lib/personas";
+import type { PersonaId, PhraseCategory } from "@/lib/types";
+
+export const maxDuration = 30;
+
+const INSTRUCTIONS: Partial<Record<PhraseCategory, string>> = {
+  anecdote:
+    "Share one surprising, true-flavoured fact, anecdote or nugget of wisdom about running, " +
+    "fitness, food or life — delivered fully in your persona.",
+  encourage: "Give the runner one line of motivation in your persona.",
+  milestone: "React to the runner completing another kilometre, in your persona.",
+};
+
+export async function POST(req: NextRequest) {
+  let body: { persona?: string; category?: string; context?: Record<string, unknown> };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid JSON" }, { status: 400 });
+  }
+
+  const persona = body.persona as PersonaId;
+  if (!persona || !(persona in PERSONAS)) {
+    return NextResponse.json({ error: "unknown persona" }, { status: 400 });
+  }
+  const category = (body.category ?? "anecdote") as PhraseCategory;
+  const instruction = INSTRUCTIONS[category] ?? INSTRUCTIONS.anecdote!;
+
+  try {
+    const text = await generateLine(persona, instruction, body.context ?? {});
+    const audioBase64 = await renderVoice(persona, text);
+    return NextResponse.json(audioBase64 ? { text, audioBase64 } : { text });
+  } catch {
+    return NextResponse.json({ error: "generation unavailable" }, { status: 503 });
+  }
+}

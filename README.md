@@ -1,0 +1,81 @@
+# Run Buddy 🏃
+
+An AI running trainer for your iPhone, built as a mobile web app. Pick a persona —
+**Angry Ah Beng** (scolds you in Singlish) or **Coach Christine** (relentless
+encouragement) — press Start, and get coached over your own music.
+
+## Features
+
+- **Personas** — each with its own voice, phrase library, and attitude.
+- **GPS run tracking** — time, distance, live pace, per-km splits.
+- **Coach engine** — encouragement (positive or abusive, per persona), pace
+  reactions when you slow down or speed up, km milestone callouts, and random
+  anecdotes / facts / nuggets on a schedule.
+- **Pre-rendered voice library** — phrases rendered with ElevenLabs, served as
+  static MP3s. Falls back to on-device speech synthesis when a phrase isn't
+  rendered yet, so the app works with zero API keys.
+- **Live phrase generation** — mid-run, the coach occasionally asks the server
+  for brand-new material (Claude writes the line in-persona, ElevenLabs voices it).
+- **Music over-dub** — deep-links into Spotify or Apple Podcasts; the trainer's
+  voice mixes *over* the music using Safari's Audio Session API (music ducks
+  while the coach speaks, then comes back).
+- **Keep-alive audio session** — a near-silent loop keeps Safari running the
+  app (timers + GPS) when the phone is locked.
+- **Always-on display mode** — dim, AMOLED-friendly orange readout with wake
+  lock, for armband runners.
+- **Push-to-talk** — tap the mic, say something, and the trainer answers in
+  character.
+
+## Running locally
+
+```bash
+npm install
+npm run dev
+```
+
+The app is fully functional with no API keys (library phrases + on-device TTS).
+
+## Environment variables (optional, unlock the good stuff)
+
+| Variable | Purpose |
+| --- | --- |
+| `ANTHROPIC_API_KEY` | Live phrase generation + push-to-talk replies (Claude) |
+| `ELEVENLABS_API_KEY` | Voicing generated phrases, and batch-rendering the library |
+
+## Rendering the voice library
+
+Set the two persona voice IDs in `lib/personas.ts` to voices in your ElevenLabs
+account (for Ah Beng, a cloned Singlish voice is *chef's kiss*), then:
+
+```bash
+ELEVENLABS_API_KEY=... npm run generate-library
+```
+
+This renders every un-rendered phrase into `public/audio/<persona>/` and writes
+a `manifest.json` per persona. It's idempotent — add phrases to
+`lib/phrases.ts` and re-run to top up the library. Commit the MP3s (or put them
+on Vercel Blob and adjust the URL in `lib/coach.ts`).
+
+## Deploying to Vercel
+
+Push this repo, import it in Vercel, add the two env vars. That's it — the API
+routes run as serverless functions.
+
+## iPhone setup tips
+
+- Open in Safari and **Add to Home Screen** for the full-screen app feel.
+- Flip the **ringer switch on** — ambient web audio respects the mute switch.
+- Start your music/podcast first, then hit Start Run.
+- Keep the phone unlocked-ish: the always-on mode (moon button) dims the screen
+  while keeping GPS and the coach alive.
+
+## Architecture notes
+
+- `lib/coach.ts` — decides what to say and when (milestones > pace events >
+  anecdotes > encouragement, with cooldowns and no-repeat shuffling).
+- `lib/audio.ts` — audio session management (`ambient` ↔ `transient` for music
+  ducking), keep-alive loop, MP3 playback with TTS fallback, wake lock.
+- `lib/geo.ts` — `watchPosition` + haversine with jitter/teleport filtering,
+  rolling 60s pace.
+- `app/api/phrase` / `app/api/chat` — Claude (claude-opus-5) writes one line
+  in-persona; ElevenLabs voices it; both degrade gracefully.
