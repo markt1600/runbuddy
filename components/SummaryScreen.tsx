@@ -12,10 +12,10 @@ interface Props {
 export default function SummaryScreen({ persona, stats, onDone }: Props) {
   const headline = persona.positive
     ? "You crushed it!"
-    : "Okay lah, not bad.";
+    : "Okay lah, not bad, chee bye.";
   const sub = persona.positive
     ? "Every step of that was yours. Be proud!"
-    : "Don't get cocky ah. Same time tomorrow.";
+    : "Don't get cocky ah, kan ni na. Same time tomorrow.";
 
   return (
     <div className="fade-in" style={{ display: "flex", flexDirection: "column", flex: 1 }}>

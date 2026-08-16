@@ -297,6 +297,53 @@ body {
   background: color-mix(in srgb, var(--accent, var(--blue)) 25%, transparent);
 }
 
+.gps-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  margin-right: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.gps-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.gps-pill.good { color: var(--green); }
+.gps-pill.good .gps-dot { background: var(--green); }
+
+.gps-pill.weak { color: var(--orange); }
+.gps-pill.weak .gps-dot {
+  background: var(--orange);
+  animation: gps-pulse 1.2s ease-in-out infinite;
+}
+
+.gps-pill.lost { color: var(--red); }
+.gps-pill.lost .gps-dot {
+  background: var(--red);
+  animation: gps-pulse 0.7s ease-in-out infinite;
+}
+
+@keyframes gps-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.aod .aod-gps {
+  margin-top: 10px;
+  font-size: 15px;
+  color: rgba(255, 69, 58, 0.8);
+  animation: gps-pulse 1.2s ease-in-out infinite;
+}
+
 .icon-btn {
   width: 40px;
   height: 40px;

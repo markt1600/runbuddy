@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GeoTracker, formatElapsed, formatPace } from "@/lib/geo";
+import { GeoTracker, formatElapsed, formatPace, type GpsSignal } from "@/lib/geo";
 import { VoiceEngine, WakeLockManager } from "@/lib/audio";
 import { CoachEngine } from "@/lib/coach";
 import type { MusicSource, Persona, RunStats } from "@/lib/types";
@@ -22,6 +22,7 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
   const [aod, setAod] = useState(false);
   const [listening, setListening] = useState(false);
   const [gpsNote, setGpsNote] = useState<string | null>(null);
+  const [gpsSignal, setGpsSignal] = useState<GpsSignal>("acquiring");
   const [clock, setClock] = useState("");
 
   const voiceRef = useRef<VoiceEngine | null>(null);
@@ -76,6 +77,7 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
     geo.start(() => {
       setDistanceKm(geo.distanceKm);
       setGpsNote(geo.lastError);
+      setGpsSignal(geo.signal());
       // Record km splits
       const km = Math.floor(geo.distanceKm);
       if (km > splitsRef.current.length) {
@@ -99,6 +101,7 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
       setClock(
         new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
       );
+      setGpsSignal(geo.signal()); // staleness-based, so re-check every second
       if (!pausedRef.current) coach.tick(stats);
     }, 1000);
 
@@ -172,12 +175,27 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
   const musicLabel =
     music === "spotify" ? "Spotify" : music === "apple-podcasts" ? "Podcasts" : null;
 
+  const GPS_META: Record<GpsSignal, { cls: string; label: string }> = {
+    good: { cls: "good", label: "GPS" },
+    weak: { cls: "weak", label: "GPS weak" },
+    acquiring: { cls: "weak", label: "Locating…" },
+    lost: { cls: "lost", label: "GPS lost" },
+    denied: { cls: "lost", label: "No location" },
+    unavailable: { cls: "lost", label: "No GPS" },
+  };
+  const gps = GPS_META[gpsSignal];
+  const gpsTrouble = gpsSignal === "lost" || gpsSignal === "denied" || gpsSignal === "unavailable";
+
   return (
     <div className="run-screen fade-in">
       <div className="run-topbar">
         <div className="run-persona-chip">
           <span className="chip-emoji">{persona.emoji}</span>
           {persona.name}
+        </div>
+        <div className={`gps-pill ${gps.cls}`}>
+          <span className="gps-dot" />
+          {gps.label}
         </div>
         <button
           className={`icon-btn${aod ? " active" : ""}`}
@@ -205,7 +223,9 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
       </div>
 
       <div className="gps-note">
-        {gpsNote ?? (musicLabel ? `Mixing over ${musicLabel} · ringer on 🔔` : "")}
+        {gpsSignal === "lost"
+          ? "GPS signal lost — distance is paused until it comes back"
+          : gpsNote ?? (musicLabel ? `Mixing over ${musicLabel} · ringer on 🔔` : "")}
       </div>
 
       <div className="coach-bubble">
@@ -241,6 +261,7 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
             <span>{formatPace(pace)}</span>
             <span>{clock}</span>
           </div>
+          {gpsTrouble && <div className="aod-gps">⚠ {gps.label}</div>}
           <div className="aod-hint">tap anywhere to wake · coach keeps talking</div>
         </div>
       )}
