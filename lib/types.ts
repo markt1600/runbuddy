@@ -6,7 +6,9 @@ export type PhraseCategory =
   | "encourage" // periodic motivation (positive or negative depending on persona)
   | "pace_up" // runner slowed down
   | "pace_down" // runner sped up / praise pace
-  | "milestone" // each km
+  | "milestone" // each km (generic; used past the pre-rendered marker range)
+  | "km_marker" // "three kilometres down" — one per km, so the number is in-voice
+  | "pace_lead" // lead-in that hands off to the spoken pace figure
   | "anecdote" // facts, stories, nuggets
   | "finish"
   | "paused"
@@ -42,6 +44,8 @@ export interface Phrase {
   text: string;
   /** Only for "conditional" phrases: when this line is allowed to play. */
   condition?: PhraseCondition;
+  /** Only for "km_marker" phrases: which kilometre this line announces. */
+  km?: number;
 }
 
 export interface Persona {

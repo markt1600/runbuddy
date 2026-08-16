@@ -14,6 +14,7 @@ export interface PhraseContext {
   kmMarker?: number; // whole kilometres completed
   paceMinPerKm?: string; // current pace, e.g. "6:24"
   avgPaceMinPerKm?: string;
+  lastKmPaceMinPerKm?: string; // split for the kilometre just finished
   speedKmh?: number;
   locality?: string; // where the runner is, e.g. "Bishan"
   weather?: string; // e.g. "partly cloudy, 29°C (feels like 33°C)"
@@ -55,6 +56,9 @@ function contextLines(context: PhraseContext): string {
     context.elapsedMin !== undefined ? `Elapsed: ${context.elapsedMin} minutes` : null,
     context.paceMinPerKm ? `Current pace: ${context.paceMinPerKm} min/km` : null,
     context.avgPaceMinPerKm ? `Average pace: ${context.avgPaceMinPerKm} min/km` : null,
+    context.lastKmPaceMinPerKm
+      ? `Pace for the kilometre they just finished: ${context.lastKmPaceMinPerKm} min/km`
+      : null,
     context.speedKmh !== undefined ? `Current speed: ${context.speedKmh} km/h` : null,
     context.pausedSeconds !== undefined
       ? `They have been stopped, not moving, for ${context.pausedSeconds} seconds`

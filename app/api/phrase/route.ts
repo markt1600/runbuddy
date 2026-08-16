@@ -16,9 +16,10 @@ const INSTRUCTIONS: Partial<Record<PhraseCategory, string>> = {
     "fitness, food or life — delivered fully in your persona.",
   encourage: "Give the runner one line of motivation in your persona.",
   milestone:
-    "The runner just completed another kilometre and you already announced the number and " +
-    "average pace. Add ONE line of improvised colour commentary on top — react to their pace, " +
-    "the weather, where they are, or the time of day. Don't repeat the kilometre count.",
+    "The runner just completed another kilometre. You have already announced the number and " +
+    "the split for that kilometre out loud. Add ONE line of improvised colour commentary on " +
+    "top — react to how that kilometre went, the weather, where they are, or the time of day. " +
+    "Do not repeat the kilometre count or restate the pace as a figure.",
   progress:
     "The runner is chasing a target distance and just crossed a checkpoint on the way there. " +
     "The stats tell you what percent they've done and how far is left. React to exactly where " +

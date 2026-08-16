@@ -15,6 +15,12 @@ encouragement) — press Start, and get coached over your own music.
 - **Coach engine** — encouragement (positive or abusive, per persona), pace
   reactions when you slow down or speed up, km milestone callouts, and random
   anecdotes / facts / nuggets on a schedule.
+- **Km markers in the persona's voice** — every kilometre from 1 to 21 has its
+  own pre-rendered line, and the pace hand-off ("and that last kilometre took
+  you…") is pre-rendered too, so the only thing the device voice ever reads is
+  the figure itself. The pace quoted is the split for the kilometre just
+  finished — not the whole-run average — taken from the recorded split, which
+  already excludes paused time.
 - **Pre-rendered voice library** — phrases rendered with ElevenLabs. On first
   launch after deploy, the app renders any missing phrases itself through the
   server's ElevenLabs key into Vercel Blob, with an on-screen progress bar —

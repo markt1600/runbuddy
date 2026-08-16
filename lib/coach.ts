@@ -33,6 +33,27 @@ function between([a, b]: [number, number]) {
   return a + Math.random() * (b - a);
 }
 
+/** Highest kilometre with a pre-rendered marker phrase. Beyond it we improvise. */
+const MAX_KM_MARKER = 21;
+
+/**
+ * The one thing that can't be pre-rendered, written out so the device voice
+ * reads it as a duration rather than two bare numbers.
+ */
+function spokenDuration(totalSec: number): string {
+  let m = Math.floor(totalSec / 60);
+  let s = Math.round(totalSec % 60);
+  if (s === 60) {
+    m += 1;
+    s = 0;
+  }
+  const mins = `${m} minute${m === 1 ? "" : "s"}`;
+  const secs = `${s} second${s === 1 ? "" : "s"}`;
+  if (m === 0) return secs;
+  if (s === 0) return mins;
+  return `${mins} ${secs}`;
+}
+
 export class CoachEngine {
   private persona: Persona;
   private voice: VoiceEngine;
@@ -242,6 +263,38 @@ export class CoachEngine {
     });
   }
 
+  /**
+   * Announce the kilometre just completed. Each number has its own pre-rendered
+   * line, so "seven kilometres" is spoken by the persona rather than by the
+   * device. Past the rendered range it degrades to a generic milestone line
+   * plus the bare number.
+   */
+  private sayKmMarker(km: number) {
+    const marker = allPhrasesFor(this.persona.id, "km_marker").find((p) => p.km === km);
+    if (marker) {
+      this.voice.say(marker.text, getPhraseUrl(this.persona.id, marker.id));
+      return;
+    }
+    this.sayFromLibrary("milestone");
+    this.voice.say(`${km} kilometres.`);
+  }
+
+  /**
+   * How long the kilometre that just finished took. The recorded split is the
+   * truth — it already excludes paused time — but the coach ticks on its own
+   * timer and the split lands on a GPS update, so on the odd tick it isn't in
+   * yet and the tracker's rolling last-kilometre average stands in.
+   */
+  private lastKmPaceSec(stats: RunStats, km: number): number | null {
+    const split = stats.splits[km - 1];
+    let sec: number | null = null;
+    if (typeof split === "number" && split > 0) sec = split / 1000;
+    else if (stats.lastKmSpeedKmh && stats.lastKmSpeedKmh > 0)
+      sec = 3600 / stats.lastKmSpeedKmh;
+    // Anything slower than 30 min/km means the data is wrong, not the runner.
+    return sec !== null && sec > 60 && sec < 30 * 60 ? sec : null;
+  }
+
   /** Everything true about right now that a pre-rendered line could key off. */
   private currentConditions(): PhraseCondition[] {
     const out: PhraseCondition[] = [];
@@ -410,16 +463,20 @@ export class CoachEngine {
     const km = Math.floor(stats.distanceKm);
     if (km > this.lastKmAnnounced) {
       this.lastKmAnnounced = km;
-      this.sayFromLibrary("milestone");
-      const pace = stats.avgPaceSecPerKm;
-      if (pace) {
-        const m = Math.floor(pace / 60);
-        const s = Math.round(pace % 60);
-        this.voice.say(
-          `That's ${km} kilometre${km > 1 ? "s" : ""}. Average pace ${m} ${s} per kilometre.`
-        );
+      this.sayKmMarker(km);
+      // The split for the kilometre just finished — not the whole-run average,
+      // so it tells you how the last kilometre actually went. Only the figure
+      // itself falls through to the device voice; the sentence around it is
+      // pre-rendered.
+      const lastKmSec = this.lastKmPaceSec(stats, km);
+      if (lastKmSec !== null) {
+        this.sayFromLibrary("pace_lead");
+        this.voice.say(spokenDuration(lastKmSec));
       }
-      void this.fetchFresh("milestone", stats, { kmMarker: km }).then((color) => {
+      void this.fetchFresh("milestone", stats, {
+        kmMarker: km,
+        lastKmPaceMinPerKm: lastKmSec !== null ? formatPaceShort(lastKmSec) : undefined,
+      }).then((color) => {
         if (color && !this.disposed) this.voice.say(color.text, color.url);
       });
       this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS);
