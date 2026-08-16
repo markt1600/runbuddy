@@ -308,14 +308,48 @@ export function lifetimeStats(): Record<ServeKind, number> {
   }
 }
 
-/** Preview a phrase in the admin screen: rendered audio if we have it, else synth. */
+// One shared element for previews, so starting a new one stops the last.
+let previewAudio: HTMLAudioElement | null = null;
+
+export function stopPreview() {
+  if (previewAudio) {
+    previewAudio.pause();
+    previewAudio.currentTime = 0;
+  }
+  if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+/** Preview a phrase: the pre-rendered ElevenLabs audio if we have it, else synth. */
 export function playPhrase(persona: Persona, phrase: Phrase) {
+  stopPreview();
   const url = getPhraseUrl(persona.id, phrase.id);
   if (url) {
-    void new Audio(url).play().catch(() => speakFallback(persona, phrase.text));
+    if (!previewAudio) previewAudio = new Audio();
+    previewAudio.src = url;
+    void previewAudio.play().catch(() => speakFallback(persona, phrase.text));
   } else {
     speakFallback(persona, phrase.text);
   }
+}
+
+/**
+ * A sample line for auditioning a persona — prefers one that already has
+ * rendered audio, so the preview is the real voice rather than the robotic
+ * on-device fallback.
+ */
+export function pickSamplePhrase(persona: PersonaId): Phrase | null {
+  const pool = allPhrasesFor(persona, "encourage");
+  if (pool.length === 0) return null;
+  const rendered = pool.filter((p) => urls.has(key(persona, p.id)));
+  const source = rendered.length > 0 ? rendered : pool;
+  return source[Math.floor(Math.random() * source.length)];
+}
+
+/** Does this persona have any pre-rendered audio at all? */
+export function hasRenderedAudio(persona: PersonaId): boolean {
+  return renderedCount(persona) > 0;
 }
 
 function speakFallback(persona: Persona, text: string) {

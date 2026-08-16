@@ -1,7 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PERSONA_LIST, PERSONAS } from "@/lib/personas";
-import { phrasesFor } from "@/lib/phrases";
+import {
+  hasRenderedAudio,
+  loadLibraryState,
+  pickSamplePhrase,
+  playPhrase,
+} from "@/lib/voiceLibrary";
 import {
   CHATTINESS_MAX,
   CHATTINESS_MIN,
@@ -67,18 +73,17 @@ export default function SetupScreen({
   targetKm,
   onTargetKmChange,
 }: Props) {
+  const [libraryReady, setLibraryReady] = useState(false);
+  // Make sure the rendered-audio registry is loaded before anyone taps play —
+  // otherwise the preview would fall back to the robotic on-device voice.
+  useEffect(() => {
+    void loadLibraryState().then(() => setLibraryReady(true));
+  }, []);
+
   const previewVoice = (id: PersonaId, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const p = PERSONAS[id];
-    const pool = phrasesFor(id, "encourage");
-    const sample = pool[Math.floor(Math.random() * pool.length)];
-    const u = new SpeechSynthesisUtterance(sample.text);
-    u.rate = p.tts.rate;
-    u.pitch = p.tts.pitch;
-    u.lang = p.tts.lang;
-    window.speechSynthesis.speak(u);
+    const sample = pickSamplePhrase(id);
+    if (sample) playPhrase(PERSONAS[id], sample);
   };
 
   const musicMeta = music !== "none" ? MUSIC_META[music] : null;
@@ -102,9 +107,18 @@ export default function SetupScreen({
             <div className="persona-tagline">{p.tagline}</div>
           </span>
           <span
-            className="preview-btn"
+            className={`preview-btn${libraryReady && !hasRenderedAudio(p.id) ? " no-audio" : ""}`}
             role="button"
-            aria-label={`Preview ${p.name}'s voice`}
+            aria-label={
+              libraryReady && !hasRenderedAudio(p.id)
+                ? `Preview ${p.name} — no voice rendered yet, using the device voice`
+                : `Preview ${p.name}'s voice`
+            }
+            title={
+              libraryReady && !hasRenderedAudio(p.id)
+                ? "No voice rendered yet — render this persona in Admin"
+                : undefined
+            }
             onClick={(e) => previewVoice(p.id, e)}
             style={{ display: "grid", placeItems: "center" }}
           >

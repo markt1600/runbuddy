@@ -230,6 +230,11 @@ body {
   flex-shrink: 0;
 }
 
+/* No ElevenLabs audio rendered yet — the preview falls back to device TTS */
+.preview-btn.no-audio {
+  opacity: 0.45;
+}
+
 /* ---------- Segmented control ---------- */
 
 .segmented {
