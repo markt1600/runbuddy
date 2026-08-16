@@ -36,7 +36,7 @@ export interface Persona {
   stylePrompt: string;
 }
 
-export type MusicSource = "spotify" | "apple-podcasts" | "none";
+export type MusicSource = "spotify" | "apple-music" | "apple-podcasts" | "none";
 
 export interface RunStats {
   elapsedMs: number;

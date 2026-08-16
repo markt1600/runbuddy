@@ -17,6 +17,13 @@ const MUSIC_META: Record<
     sub: "Opens the Spotify app — your buddy talks over the music",
     link: "spotify://",
   },
+  "apple-music": {
+    icon: "♪",
+    className: "applemusic",
+    title: "Apple Music",
+    sub: "Opens Music — your buddy talks over the tunes",
+    link: "music://",
+  },
   "apple-podcasts": {
     icon: "🎙",
     className: "podcasts",
@@ -100,13 +107,19 @@ export default function SetupScreen({
 
       <div className="section-header">Background Audio</div>
       <div className="segmented">
-        {(["spotify", "apple-podcasts", "none"] as MusicSource[]).map((m) => (
+        {(["spotify", "apple-music", "apple-podcasts", "none"] as MusicSource[]).map((m) => (
           <button
             key={m}
             className={music === m ? "active" : ""}
             onClick={() => onMusicChange(m)}
           >
-            {m === "spotify" ? "Spotify" : m === "apple-podcasts" ? "Podcasts" : "None"}
+            {m === "spotify"
+              ? "Spotify"
+              : m === "apple-music"
+                ? "Music"
+                : m === "apple-podcasts"
+                  ? "Podcasts"
+                  : "None"}
           </button>
         ))}
       </div>

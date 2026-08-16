@@ -307,6 +307,7 @@ body {
 }
 
 .music-icon.spotify { background: #1db954; }
+.music-icon.applemusic { background: linear-gradient(180deg, #fb5c74, #fa233b); }
 .music-icon.podcasts { background: linear-gradient(180deg, #b150e2, #7e3ff2); }
 
 .music-meta { flex: 1; min-width: 0; }

@@ -234,7 +234,13 @@ export default function RunScreen({
   };
 
   const musicLabel =
-    music === "spotify" ? "Spotify" : music === "apple-podcasts" ? "Podcasts" : null;
+    music === "spotify"
+      ? "Spotify"
+      : music === "apple-music"
+        ? "Apple Music"
+        : music === "apple-podcasts"
+          ? "Podcasts"
+          : null;
 
   const GPS_META: Record<GpsSignal, { cls: string; label: string }> = {
     good: { cls: "good", label: "GPS" },
