@@ -50,6 +50,11 @@ encouragement) — press Start, and get coached over your own music.
   phone into the sleeve and set yourself. The screen locks immediately and your
   buddy calls out ten and five seconds. GPS warms up during the count, so the
   run begins on a settled fix.
+- **Target checkpoints in the persona's voice** — the preset targets (3/5/10/12/14 km
+  and 15/20/30/45/60 min) have a known remaining figure at every checkpoint, so
+  all 10 callouts per target are pre-rendered with the distance or time baked
+  in. A target outside the presets falls back to a generic line plus the
+  figures read by the device.
 - **Openers that know the conditions** — a pre-rendered line chosen live from
   the clock and the weather: a pre-dawn start, the afternoon heat, the rain you
   came out in anyway.

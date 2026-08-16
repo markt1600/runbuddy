@@ -20,7 +20,9 @@ export type PhraseCategory =
   | "loitering" // stopped for far too long, and the coach has noticed
   | "chat" // canned push-to-talk replies when offline
   | "summary" // post-run closing comment (generated only)
-  | "progress" // crossing a fraction of the target distance
+  | "progress" // generic checkpoint line (fallback)
+  | "progress_km" // checkpoint on a preset distance target: percentage + exact remaining
+  | "progress_time" // checkpoint on a preset time target
   | "target_hit"; // the target distance was reached
 
 /**
@@ -46,6 +48,14 @@ export interface Phrase {
   condition?: PhraseCondition;
   /** Only for "km_marker" phrases: which kilometre this line announces. */
   km?: number;
+  /**
+   * Only for "progress_km" / "progress_time": which preset target this line
+   * belongs to (kilometres or minutes), and which checkpoint of it, as a whole
+   * percent. Both are known up front, so the remaining distance or time is
+   * baked into the recording instead of being read out by the device.
+   */
+  target?: number;
+  mark?: number;
 }
 
 export interface Persona {

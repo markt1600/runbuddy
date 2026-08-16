@@ -41,7 +41,9 @@ const CATEGORY_LABELS: Record<PhraseCategory, string> = {
   loitering: "Standing around too long",
   chat: "Chat replies",
   summary: "Run summaries",
-  progress: "Target progress",
+  progress: "Target progress (generic)",
+  progress_km: "Distance-target checkpoints",
+  progress_time: "Time-target checkpoints",
   target_hit: "Target reached",
 };
 

@@ -101,13 +101,18 @@ export class CoachEngine {
     }
 
     const remainingSec = Math.max(0, (totalMs - stats.elapsedMs) / 1000);
-    const left =
-      remainingSec < 90
-        ? `${Math.max(10, Math.round(remainingSec / 10) * 10)} seconds to go.`
-        : `${Math.round(remainingSec / 60)} minutes to go.`;
-
-    this.sayFromLibrary("progress");
-    this.voice.say(`${Math.round(next * 100)} percent of your ${this.targetMin} minutes. ${left}`);
+    if (!this.sayTargetCheckpoint("progress_time", this.targetMin, next)) {
+      // Not a preset target (or not rendered yet) — generic line plus the
+      // figures in the device voice.
+      const left =
+        remainingSec < 90
+          ? `${Math.max(10, Math.round(remainingSec / 10) * 10)} seconds to go.`
+          : `${Math.round(remainingSec / 60)} minutes to go.`;
+      this.sayFromLibrary("progress");
+      this.voice.say(
+        `${Math.round(next * 100)} percent of your ${this.targetMin} minutes. ${left}`
+      );
+    }
     void this.fetchFresh("progress", stats, {
       targetMinutes: this.targetMin,
       progressPercent: Math.round(next * 100),
@@ -143,14 +148,16 @@ export class CoachEngine {
       return true;
     }
 
-    this.sayFromLibrary("progress");
-    // The numbers themselves, then an in-persona line about them when the
-    // API can supply one.
-    const left =
-      remainingKm < 0.2
-        ? `${Math.max(50, Math.round((remainingKm * 1000) / 10) * 10)} metres to go.`
-        : `${remainingKm.toFixed(1)} kilometres to go.`;
-    this.voice.say(`${Math.round(next * 100)} percent of your ${this.targetKm} K. ${left}`);
+    if (!this.sayTargetCheckpoint("progress_km", this.targetKm, next)) {
+      // Not a preset target (or not rendered yet) — generic line plus the
+      // figures in the device voice.
+      this.sayFromLibrary("progress");
+      const left =
+        remainingKm < 0.2
+          ? `${Math.max(50, Math.round((remainingKm * 1000) / 10) * 10)} metres to go.`
+          : `${remainingKm.toFixed(1)} kilometres to go.`;
+      this.voice.say(`${Math.round(next * 100)} percent of your ${this.targetKm} K. ${left}`);
+    }
     void this.fetchFresh("progress", stats, {
       targetKm: this.targetKm,
       progressPercent: Math.round(next * 100),
@@ -261,6 +268,29 @@ export class CoachEngine {
       if (winner) this.voice.say(winner.text, winner.url);
       else this.sayIntroFromLibrary();
     });
+  }
+
+  /**
+   * A checkpoint on one of the preset targets. Both the target and the
+   * fraction are known up front, so the remaining distance or time is exact
+   * and lives in the recording — nothing here falls through to the device
+   * voice. Returns false for a target we have no line for, so the caller can
+   * fall back to reading the figures out.
+   */
+  private sayTargetCheckpoint(
+    category: "progress_km" | "progress_time",
+    target: number,
+    fraction: number
+  ): boolean {
+    // Marks are stored as whole percents: 1/3 and 2/3 would never survive a
+    // float comparison.
+    const mark = Math.round(fraction * 100);
+    const phrase = allPhrasesFor(this.persona.id, category).find(
+      (p) => p.target === target && p.mark === mark
+    );
+    if (!phrase) return false;
+    this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
+    return true;
   }
 
   /**
