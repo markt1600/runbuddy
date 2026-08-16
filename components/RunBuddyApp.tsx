@@ -8,6 +8,7 @@ import AdminScreen from "./AdminScreen";
 import { PERSONAS } from "@/lib/personas";
 import { ensureVoiceLibrary } from "@/lib/voiceLibrary";
 import { loadSpeedUnit, saveSpeedUnit, type SpeedUnit } from "@/lib/units";
+import { CHATTINESS_DEFAULT, loadChattiness, saveChattiness } from "@/lib/prefs";
 import type { MusicSource, PersonaId, RunStats } from "@/lib/types";
 
 type Screen = "setup" | "run" | "summary" | "admin";
@@ -18,14 +19,21 @@ export default function RunBuddyApp() {
   const [music, setMusic] = useState<MusicSource>("spotify");
   const [finalStats, setFinalStats] = useState<RunStats | null>(null);
   const [speedUnit, setSpeedUnitState] = useState<SpeedUnit>("kmh");
+  const [chattiness, setChattinessState] = useState(CHATTINESS_DEFAULT);
 
   useEffect(() => {
     setSpeedUnitState(loadSpeedUnit());
+    setChattinessState(loadChattiness());
   }, []);
 
   const setSpeedUnit = (unit: SpeedUnit) => {
     setSpeedUnitState(unit);
     saveSpeedUnit(unit);
+  };
+
+  const setChattiness = (v: number) => {
+    setChattinessState(v);
+    saveChattiness(v);
   };
 
   // First launch after deploy: quietly top up the voice library through the
@@ -49,6 +57,8 @@ export default function RunBuddyApp() {
           onAdmin={() => setScreen("admin")}
           speedUnit={speedUnit}
           onSpeedUnitChange={setSpeedUnit}
+          chattiness={chattiness}
+          onChattinessChange={setChattiness}
         />
       )}
       {screen === "admin" && <AdminScreen onBack={() => setScreen("setup")} />}
@@ -58,6 +68,7 @@ export default function RunBuddyApp() {
           music={music}
           speedUnit={speedUnit}
           onSpeedUnitChange={setSpeedUnit}
+          chattiness={chattiness}
           onFinish={(stats) => {
             setFinalStats(stats);
             setScreen("summary");

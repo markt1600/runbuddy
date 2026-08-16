@@ -33,10 +33,17 @@ export class CoachEngine {
   private lastKmAnnounced = 0;
   private disposed = false;
   private env: RunEnvironment | null = null;
+  private chattiness = 1.0;
 
-  constructor(persona: Persona, voice: VoiceEngine) {
+  constructor(persona: Persona, voice: VoiceEngine, chattiness = 1.0) {
     this.persona = persona;
     this.voice = voice;
+    this.chattiness = Math.min(2, Math.max(0.5, chattiness));
+  }
+
+  /** Gap until the next scheduled interjection, scaled by the chatter setting. */
+  private gap(range: [number, number]): number {
+    return between(range) / this.chattiness;
   }
 
   /** Weather + locality, fetched by the run screen once GPS locks on. */
@@ -98,8 +105,8 @@ export class CoachEngine {
 
   onRunStart() {
     const now = Date.now();
-    this.nextEncourageAt = now + between(ENCOURAGE_GAP_MS);
-    this.nextAnecdoteAt = now + between(ANECDOTE_GAP_MS);
+    this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS);
+    this.nextAnecdoteAt = now + this.gap(ANECDOTE_GAP_MS);
 
     // ~10s intro at the start line. Prefer a freshly generated one (never the
     // same twice), but don't leave the runner in silence: if the API hasn't
@@ -150,7 +157,7 @@ export class CoachEngine {
 
   onResume() {
     const now = Date.now();
-    this.nextEncourageAt = now + between(ENCOURAGE_GAP_MS) / 2;
+    this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS) / 2;
     this.sayFromLibrary("resumed");
   }
 
@@ -184,7 +191,7 @@ export class CoachEngine {
       void this.fetchFresh("milestone", stats, { kmMarker: km }).then((color) => {
         if (color && !this.disposed) this.voice.say(color.text, color.url);
       });
-      this.nextEncourageAt = now + between(ENCOURAGE_GAP_MS);
+      this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS);
       return;
     }
 
@@ -210,7 +217,7 @@ export class CoachEngine {
 
     // 3. Anecdotes / nuggets
     if (now >= this.nextAnecdoteAt) {
-      this.nextAnecdoteAt = now + between(ANECDOTE_GAP_MS);
+      this.nextAnecdoteAt = now + this.gap(ANECDOTE_GAP_MS);
       if (Math.random() < FRESH_ANECDOTE_CHANCE) {
         void this.sayFresh("anecdote", stats);
       } else {
@@ -221,7 +228,7 @@ export class CoachEngine {
 
     // 4. Regular encouragement / scolding
     if (now >= this.nextEncourageAt) {
-      this.nextEncourageAt = now + between(ENCOURAGE_GAP_MS);
+      this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS);
       if (Math.random() < FRESH_ENCOURAGE_CHANCE) {
         void this.sayFresh("encourage", stats);
       } else {

@@ -13,6 +13,7 @@ interface Props {
   music: MusicSource;
   speedUnit: SpeedUnit;
   onSpeedUnitChange: (u: SpeedUnit) => void;
+  chattiness: number;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -21,6 +22,7 @@ export default function RunScreen({
   music,
   speedUnit,
   onSpeedUnitChange,
+  chattiness,
   onFinish,
 }: Props) {
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -100,7 +102,7 @@ export default function RunScreen({
     voice.start();
     voiceRef.current = voice;
 
-    const coach = new CoachEngine(persona, voice);
+    const coach = new CoachEngine(persona, voice, chattiness);
     coachRef.current = coach;
 
     const geo = new GeoTracker();

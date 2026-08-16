@@ -2,6 +2,7 @@
 
 import { PERSONA_LIST, PERSONAS } from "@/lib/personas";
 import { phrasesFor } from "@/lib/phrases";
+import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
 import type { SpeedUnit } from "@/lib/units";
 import type { MusicSource, PersonaId } from "@/lib/types";
 
@@ -34,6 +35,8 @@ interface Props {
   onAdmin: () => void;
   speedUnit: SpeedUnit;
   onSpeedUnitChange: (u: SpeedUnit) => void;
+  chattiness: number;
+  onChattinessChange: (v: number) => void;
 }
 
 export default function SetupScreen({
@@ -45,6 +48,8 @@ export default function SetupScreen({
   onAdmin,
   speedUnit,
   onSpeedUnitChange,
+  chattiness,
+  onChattinessChange,
 }: Props) {
   const previewVoice = (id: PersonaId, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -133,6 +138,27 @@ export default function SetupScreen({
         >
           min/km
         </button>
+      </div>
+
+      <div className="section-header">Coach Chatter</div>
+      <div className="card" style={{ padding: "12px 16px" }}>
+        <div className="chatter-row">
+          <span className="chatter-end">Quieter</span>
+          <input
+            type="range"
+            min={CHATTINESS_MIN}
+            max={CHATTINESS_MAX}
+            step={0.25}
+            value={chattiness}
+            onChange={(e) => onChattinessChange(Number(e.target.value))}
+          />
+          <span className="chatter-end">Chattier</span>
+        </div>
+        <div className="chatter-label">
+          {chattinessLabel(chattiness)}
+          {chattiness === 1 ? " (default)" : ""} — km markers and pace reactions always
+          fire; this tunes how often the in-between talking happens
+        </div>
       </div>
 
       <div className="section-header">Before You Go</div>

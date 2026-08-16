@@ -258,6 +258,35 @@ body {
   color: #fff;
 }
 
+/* ---------- Coach chatter slider ---------- */
+
+.chatter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chatter-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent, var(--blue));
+}
+
+.chatter-end {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--label-2);
+  flex-shrink: 0;
+}
+
+.chatter-label {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--label-2);
+  line-height: 1.45;
+}
+
 /* ---------- Music widget ---------- */
 
 .music-widget {
