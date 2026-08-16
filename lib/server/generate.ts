@@ -17,9 +17,32 @@ export interface PhraseContext {
   speedKmh?: number;
   locality?: string; // where the runner is, e.g. "Bishan"
   weather?: string; // e.g. "partly cloudy, 29°C (feels like 33°C)"
+  targetKm?: number;
+  progressPercent?: number;
+  remainingKm?: number;
+  // Treadmill (time-target) runs
+  treadmill?: boolean;
+  targetMinutes?: number;
+  remainingMinutes?: number;
 }
 
 function contextLines(context: PhraseContext): string {
+  if (context.treadmill) {
+    const lines = [
+      "The runner is on a TREADMILL indoors — there is no GPS, so you do not know " +
+        "their distance, pace, speed or location. Never mention any of those.",
+      context.targetMinutes ? `Goal: ${context.targetMinutes} minutes` : null,
+      context.elapsedMin !== undefined ? `Elapsed: ${context.elapsedMin} minutes` : null,
+      context.progressPercent !== undefined
+        ? `They have completed ${context.progressPercent}% of the time`
+        : null,
+      context.remainingMinutes !== undefined
+        ? `Remaining: ${context.remainingMinutes} minutes`
+        : null,
+      context.localTime ? `Local time: ${context.localTime}` : null,
+    ].filter(Boolean);
+    return `\n\nLive run stats:\n${lines.join("\n")}`;
+  }
   const lines = [
     context.locality ? `Location: running through ${context.locality}` : null,
     context.weather ? `Weather right now: ${context.weather}` : null,

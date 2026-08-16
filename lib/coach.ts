@@ -39,13 +39,53 @@ export class CoachEngine {
   private env: RunEnvironment | null = null;
   private chattiness = 1.0;
   private targetKm = 0;
+  private targetMin = 0;
   private progressDone = new Set<number>();
 
-  constructor(persona: Persona, voice: VoiceEngine, chattiness = 1.0, targetKm = 0) {
+  constructor(
+    persona: Persona,
+    voice: VoiceEngine,
+    chattiness = 1.0,
+    targetKm = 0,
+    targetMin = 0
+  ) {
     this.persona = persona;
     this.voice = voice;
     this.chattiness = Math.min(2, Math.max(0.5, chattiness));
     this.targetKm = targetKm > 0 ? targetKm : 0;
+    this.targetMin = targetMin > 0 ? targetMin : 0;
+  }
+
+  /** Treadmill (time-target) runs: checkpoints come off the clock. */
+  private announceTimeProgress(stats: RunStats): boolean {
+    const totalMs = this.targetMin * 60_000;
+    const frac = stats.elapsedMs / totalMs;
+    const next = PROGRESS_MARKS.find((m) => !this.progressDone.has(m) && frac >= m);
+    if (next === undefined) return false;
+    PROGRESS_MARKS.filter((m) => m <= next).forEach((m) => this.progressDone.add(m));
+
+    if (next >= 1) {
+      this.sayFromLibrary("target_hit");
+      return true;
+    }
+
+    const remainingSec = Math.max(0, (totalMs - stats.elapsedMs) / 1000);
+    const left =
+      remainingSec < 90
+        ? `${Math.max(10, Math.round(remainingSec / 10) * 10)} seconds to go.`
+        : `${Math.round(remainingSec / 60)} minutes to go.`;
+
+    this.sayFromLibrary("progress");
+    this.voice.say(`${Math.round(next * 100)} percent of your ${this.targetMin} minutes. ${left}`);
+    void this.fetchFresh("progress", stats, {
+      targetMinutes: this.targetMin,
+      progressPercent: Math.round(next * 100),
+      remainingMinutes: Number((remainingSec / 60).toFixed(1)),
+      treadmill: true,
+    }).then((line) => {
+      if (line && !this.disposed) this.voice.say(line.text, line.url);
+    });
+    return true;
   }
 
   /**
@@ -111,6 +151,17 @@ export class CoachEngine {
   /** Everything the generator might want to weave into a line. */
   private buildContext(stats: RunStats, extra: Record<string, unknown> = {}) {
     const pace = stats.paceSecPerKm;
+    // Treadmill runs have no GPS — omit distance, pace, speed and place so the
+    // model never invents them.
+    if (this.targetMin > 0) {
+      return {
+        elapsedMin: Math.round(stats.elapsedMs / 60000),
+        localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        treadmill: true,
+        targetMinutes: this.targetMin,
+        ...extra,
+      };
+    }
     return {
       distanceKm: Number(stats.distanceKm.toFixed(2)),
       elapsedMin: Math.round(stats.elapsedMs / 60000),
@@ -212,9 +263,12 @@ export class CoachEngine {
 
   onFinish(stats: RunStats) {
     this.sayFromLibrary("finish");
-    const km = stats.distanceKm.toFixed(2);
     const mins = Math.round(stats.elapsedMs / 60000);
-    this.voice.say(`${km} kilometres in about ${mins} minutes.`);
+    this.voice.say(
+      this.targetMin > 0
+        ? `${mins} minutes on the treadmill.`
+        : `${stats.distanceKm.toFixed(2)} kilometres in about ${mins} minutes.`
+    );
   }
 
   tick(stats: RunStats) {
@@ -223,7 +277,14 @@ export class CoachEngine {
     if (this.disposed || this.voice.busy) return;
     const now = Date.now();
 
-    // 0. Target-distance progress takes priority over everything else.
+    // 0. Target progress takes priority over everything else.
+    if (this.targetMin > 0) {
+      // Treadmill: no GPS, so distance and pace cues below don't apply —
+      // only clock checkpoints, encouragement and anecdotes.
+      if (this.announceTimeProgress(stats)) return;
+      this.tickAmbient(stats, now);
+      return;
+    }
     if (this.targetKm > 0 && this.announceTargetProgress(stats)) return;
 
     // 1. Kilometre milestones (highest priority). The callout itself is
@@ -269,7 +330,11 @@ export class CoachEngine {
       }
     }
 
-    // 3. Anecdotes / nuggets
+    this.tickAmbient(stats, now);
+  }
+
+  /** Anecdotes and periodic encouragement — the cues that need no GPS. */
+  private tickAmbient(stats: RunStats, now: number) {
     if (now >= this.nextAnecdoteAt) {
       this.nextAnecdoteAt = now + this.gap(ANECDOTE_GAP_MS);
       if (Math.random() < FRESH_ANECDOTE_CHANCE) {
@@ -280,7 +345,6 @@ export class CoachEngine {
       return;
     }
 
-    // 4. Regular encouragement / scolding
     if (now >= this.nextEncourageAt) {
       this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS);
       if (Math.random() < FRESH_ENCOURAGE_CHANCE) {

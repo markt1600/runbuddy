@@ -487,6 +487,19 @@ body {
   animation: gps-pulse 1.2s ease-in-out infinite;
 }
 
+.gps-pill.treadmill { color: var(--label-2); }
+
+.treadmill-warning {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--orange) 14%, transparent);
+  color: var(--orange);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 .gps-pill.lost { color: var(--red); }
 .gps-pill.lost .gps-dot {
   background: var(--red);

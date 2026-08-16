@@ -12,8 +12,10 @@ import {
   CHATTINESS_DEFAULT,
   loadChattiness,
   loadTargetKm,
+  loadTargetMin,
   saveChattiness,
   saveTargetKm,
+  saveTargetMin,
 } from "@/lib/prefs";
 import type { MusicSource, PersonaId, RunStats } from "@/lib/types";
 
@@ -27,16 +29,23 @@ export default function RunBuddyApp() {
   const [speedUnit, setSpeedUnitState] = useState<SpeedUnit>("kmh");
   const [chattiness, setChattinessState] = useState(CHATTINESS_DEFAULT);
   const [targetKm, setTargetKmState] = useState(0);
+  const [targetMin, setTargetMinState] = useState(0);
 
   useEffect(() => {
     setSpeedUnitState(loadSpeedUnit());
     setChattinessState(loadChattiness());
     setTargetKmState(loadTargetKm());
+    setTargetMinState(loadTargetMin());
   }, []);
 
   const setTargetKm = (v: number) => {
     setTargetKmState(v);
     saveTargetKm(v);
+  };
+
+  const setTargetMin = (v: number) => {
+    setTargetMinState(v);
+    saveTargetMin(v);
   };
 
   const setSpeedUnit = (unit: SpeedUnit) => {
@@ -74,6 +83,8 @@ export default function RunBuddyApp() {
           onChattinessChange={setChattiness}
           targetKm={targetKm}
           onTargetKmChange={setTargetKm}
+          targetMin={targetMin}
+          onTargetMinChange={setTargetMin}
         />
       )}
       {screen === "admin" && <AdminScreen onBack={() => setScreen("setup")} />}
@@ -85,6 +96,7 @@ export default function RunBuddyApp() {
           onSpeedUnitChange={setSpeedUnit}
           chattiness={chattiness}
           targetKm={targetKm}
+          targetMin={targetMin}
           onFinish={(stats) => {
             setFinalStats(stats);
             setScreen("summary");

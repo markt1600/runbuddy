@@ -85,18 +85,34 @@ export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Pro
       body: JSON.stringify({
         persona: persona.id,
         category: "summary",
-        context: {
-          distanceKm: Number(stats.distanceKm.toFixed(2)),
-          elapsedMin: Math.round(stats.elapsedMs / 60000),
-          avgPaceMinPerKm:
-            stats.avgPaceSecPerKm !== null
-              ? `${Math.floor(stats.avgPaceSecPerKm / 60)}:${Math.round(stats.avgPaceSecPerKm % 60)
-                  .toString()
-                  .padStart(2, "0")}`
-              : undefined,
-          speedKmh: Number(avgSpeedKmh.toFixed(1)),
-          localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
+        // A treadmill run has no distance, pace or speed to talk about.
+        context: stats.treadmill
+          ? {
+              treadmill: true,
+              targetMinutes: stats.targetMinutes,
+              elapsedMin: Math.round(stats.elapsedMs / 60000),
+              localTime: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            }
+          : {
+              distanceKm: Number(stats.distanceKm.toFixed(2)),
+              elapsedMin: Math.round(stats.elapsedMs / 60000),
+              avgPaceMinPerKm:
+                stats.avgPaceSecPerKm !== null
+                  ? `${Math.floor(stats.avgPaceSecPerKm / 60)}:${Math.round(
+                      stats.avgPaceSecPerKm % 60
+                    )
+                      .toString()
+                      .padStart(2, "0")}`
+                  : undefined,
+              speedKmh: Number(avgSpeedKmh.toFixed(1)),
+              localTime: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            },
       }),
     })
       .then((res) => (res.ok ? res.json() : null))
@@ -165,26 +181,43 @@ export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Pro
       {saveNote && <div className="save-note">{saveNote}</div>}
 
       <div className="stat-grid">
-        <div className="stat-cell">
-          <div className="stat-value">
-            {stats.distanceKm.toFixed(2)} <span className="stat-unit">km</span>
-          </div>
-          <div className="stat-label">Distance</div>
-        </div>
-        <div className="stat-cell">
-          <div className="stat-value">{formatElapsed(stats.elapsedMs)}</div>
-          <div className="stat-label">Time</div>
-        </div>
-        <div className="stat-cell">
-          <div className="stat-value">{formatPace(stats.avgPaceSecPerKm)}</div>
-          <div className="stat-label">Avg pace / km</div>
-        </div>
-        <div className="stat-cell">
-          <div className="stat-value">
-            {avgSpeedKmh.toFixed(1)} <span className="stat-unit">km/h</span>
-          </div>
-          <div className="stat-label">Avg speed</div>
-        </div>
+        {stats.treadmill ? (
+          <>
+            <div className="stat-cell">
+              <div className="stat-value">{formatElapsed(stats.elapsedMs)}</div>
+              <div className="stat-label">Time</div>
+            </div>
+            <div className="stat-cell">
+              <div className="stat-value">
+                {stats.targetMinutes} <span className="stat-unit">min</span>
+              </div>
+              <div className="stat-label">Target</div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="stat-cell">
+              <div className="stat-value">
+                {stats.distanceKm.toFixed(2)} <span className="stat-unit">km</span>
+              </div>
+              <div className="stat-label">Distance</div>
+            </div>
+            <div className="stat-cell">
+              <div className="stat-value">{formatElapsed(stats.elapsedMs)}</div>
+              <div className="stat-label">Time</div>
+            </div>
+            <div className="stat-cell">
+              <div className="stat-value">{formatPace(stats.avgPaceSecPerKm)}</div>
+              <div className="stat-label">Avg pace / km</div>
+            </div>
+            <div className="stat-cell">
+              <div className="stat-value">
+                {avgSpeedKmh.toFixed(1)} <span className="stat-unit">km/h</span>
+              </div>
+              <div className="stat-label">Avg speed</div>
+            </div>
+          </>
+        )}
       </div>
 
       {stats.splits.length > 0 && (

@@ -15,6 +15,7 @@ interface Props {
   onSpeedUnitChange: (u: SpeedUnit) => void;
   chattiness: number;
   targetKm: number;
+  targetMin: number;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -25,8 +26,10 @@ export default function RunScreen({
   onSpeedUnitChange,
   chattiness,
   targetKm,
+  targetMin,
   onFinish,
 }: Props) {
+  const treadmill = targetMin > 0;
   const [elapsedMs, setElapsedMs] = useState(0);
   const [paused, setPaused] = useState(false);
   const [distanceKm, setDistanceKm] = useState(0);
@@ -95,6 +98,8 @@ export default function RunScreen({
       avgSpeedKmh: dist > 0.05 && elapsed > 0 ? dist / (elapsed / 3_600_000) : null,
       splits: splitsRef.current,
       route: geo.route,
+      treadmill,
+      targetMinutes: treadmill ? targetMin : undefined,
     };
     statsRef.current = stats;
     return stats;
@@ -109,23 +114,27 @@ export default function RunScreen({
     voice.start();
     voiceRef.current = voice;
 
-    const coach = new CoachEngine(persona, voice, chattiness, targetKm);
+    const coach = new CoachEngine(persona, voice, chattiness, targetKm, targetMin);
     coachRef.current = coach;
 
     const geo = new GeoTracker();
     geoRef.current = geo;
-    geo.start(() => {
-      setDistanceKm(geo.distanceKm);
-      setGpsNote(geo.lastError);
-      setGpsSignal(geo.signal());
-      // Record km splits
-      const km = Math.floor(geo.distanceKm);
-      if (km > splitsRef.current.length) {
-        const elapsed = statsRef.current.elapsedMs;
-        splitsRef.current = [...splitsRef.current, elapsed - lastSplitAtRef.current];
-        lastSplitAtRef.current = elapsed;
-      }
-    });
+    // Treadmill mode: never start the watch, so no location permission is
+    // requested and nothing about speed, distance or route is tracked.
+    if (!treadmill) {
+      geo.start(() => {
+        setDistanceKm(geo.distanceKm);
+        setGpsNote(geo.lastError);
+        setGpsSignal(geo.signal());
+        // Record km splits
+        const km = Math.floor(geo.distanceKm);
+        if (km > splitsRef.current.length) {
+          const elapsed = statsRef.current.elapsedMs;
+          splitsRef.current = [...splitsRef.current, elapsed - lastSplitAtRef.current];
+          lastSplitAtRef.current = elapsed;
+        }
+      });
+    }
 
     const wake = new WakeLockManager();
     wakeRef.current = wake;
@@ -311,10 +320,14 @@ export default function RunScreen({
           <span className="chip-emoji">{persona.emoji}</span>
           {persona.name}
         </div>
-        <div className={`gps-pill ${gps.cls}`}>
-          <span className="gps-dot" />
-          {gps.label}
-        </div>
+        {treadmill ? (
+          <div className="gps-pill treadmill">🏃 Treadmill</div>
+        ) : (
+          <div className={`gps-pill ${gps.cls}`}>
+            <span className="gps-dot" />
+            {gps.label}
+          </div>
+        )}
         <button
           className="icon-btn"
           aria-label="Lock screen for armband"
@@ -335,24 +348,49 @@ export default function RunScreen({
       <div className="big-timer">{formatElapsed(elapsedMs)}</div>
       <div className="timer-label">{paused ? "Paused" : "Elapsed"}</div>
 
-      {targetKm > 0 && (
-        <div className="target-progress">
-          <div className="target-bar">
-            <div
-              className="target-bar-fill"
-              style={{ width: `${Math.min(100, (distanceKm / targetKm) * 100)}%` }}
-            />
-          </div>
-          <div className="target-progress-label">
-            {distanceKm >= targetKm
+      {(targetKm > 0 || treadmill) &&
+        (() => {
+          const done = treadmill ? elapsedMs / (targetMin * 60_000) : distanceKm / targetKm;
+          const pct = Math.min(100, Math.max(0, done * 100));
+          const label = treadmill
+            ? done >= 1
+              ? `🎯 ${targetMin} minute target reached`
+              : `${Math.floor(pct)}% of ${targetMin} min · ${formatElapsed(
+                  Math.max(0, targetMin * 60_000 - elapsedMs)
+                )} to go`
+            : done >= 1
               ? `🎯 ${targetKm} km target reached`
-              : `${Math.floor((distanceKm / targetKm) * 100)}% of ${targetKm} km · ${(
-                  targetKm - distanceKm
-                ).toFixed(2)} km to go`}
+              : `${Math.floor(pct)}% of ${targetKm} km · ${(targetKm - distanceKm).toFixed(
+                  2
+                )} km to go`;
+          return (
+            <div className="target-progress">
+              <div className="target-bar">
+                <div className="target-bar-fill" style={{ width: `${pct}%` }} />
+              </div>
+              <div className="target-progress-label">{label}</div>
+            </div>
+          );
+        })()}
+
+      {treadmill ? (
+        // No GPS indoors, so distance and speed don't exist — show the clock.
+        <div className="stat-grid">
+          <div className="stat-cell">
+            <div className="stat-value">
+              {formatElapsed(Math.max(0, targetMin * 60_000 - elapsedMs))}
+            </div>
+            <div className="stat-label">Remaining</div>
+          </div>
+          <div className="stat-cell">
+            <div className="stat-value">
+              {Math.floor(Math.min(100, (elapsedMs / (targetMin * 60_000)) * 100))}
+              <span className="stat-unit">%</span>
+            </div>
+            <div className="stat-label">Complete</div>
           </div>
         </div>
-      )}
-
+      ) : (
       <div
         className="stat-grid tappable"
         role="button"
@@ -387,8 +425,13 @@ export default function RunScreen({
           <div className="stat-label">Run average · tap to switch</div>
         </div>
       </div>
+      )}
 
-      {gpsSignal === "lost" || gpsNote ? (
+      {treadmill ? (
+        <div className="env-line">
+          {musicLabel ? `Mixing over ${musicLabel} · ringer on 🔔` : "Location tracking off"}
+        </div>
+      ) : gpsSignal === "lost" || gpsNote ? (
         <div className="gps-note">
           {gpsSignal === "lost"
             ? "GPS signal lost — distance is paused until it comes back"
@@ -448,13 +491,22 @@ export default function RunScreen({
         <div className="aod" onClick={() => !locked && setAod(false)}>
           <div className="aod-time">{formatElapsed(elapsedMs)}</div>
           <div className="aod-stats">
-            <span>{distanceKm.toFixed(2)} km</span>
-            <span>
-              {formatInUnit(speeds.now, speedUnit)} {unitSuffix(speedUnit)}
-            </span>
-            <span>{clock}</span>
+            {treadmill ? (
+              <>
+                <span>{formatElapsed(Math.max(0, targetMin * 60_000 - elapsedMs))} left</span>
+                <span>{clock}</span>
+              </>
+            ) : (
+              <>
+                <span>{distanceKm.toFixed(2)} km</span>
+                <span>
+                  {formatInUnit(speeds.now, speedUnit)} {unitSuffix(speedUnit)}
+                </span>
+                <span>{clock}</span>
+              </>
+            )}
           </div>
-          {gpsTrouble && <div className="aod-gps">⚠ {gps.label}</div>}
+          {!treadmill && gpsTrouble && <div className="aod-gps">⚠ {gps.label}</div>}
           <div className="aod-hint">
             {locked ? "screen locked · coach keeps talking" : "tap anywhere to wake · coach keeps talking"}
           </div>

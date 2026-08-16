@@ -49,6 +49,30 @@ export function saveTargetKm(v: number) {
   }
 }
 
+// Optional target duration (minutes). Choosing one puts the app in treadmill
+// mode: GPS, speed and route tracking are off and the coach paces by the clock.
+export const TARGET_TIME_OPTIONS = [0, 15, 20, 30, 45, 60] as const;
+
+const TARGET_MIN_KEY = "runbuddy-target-min";
+
+export function loadTargetMin(): number {
+  try {
+    const v = Number(localStorage.getItem(TARGET_MIN_KEY));
+    if (TARGET_TIME_OPTIONS.includes(v as (typeof TARGET_TIME_OPTIONS)[number])) return v;
+  } catch {
+    /* private mode */
+  }
+  return 0;
+}
+
+export function saveTargetMin(v: number) {
+  try {
+    localStorage.setItem(TARGET_MIN_KEY, String(v));
+  } catch {
+    /* private mode */
+  }
+}
+
 export function chattinessLabel(v: number): string {
   if (v <= 0.5) return "Rare";
   if (v <= 0.75) return "Quieter";

@@ -132,6 +132,45 @@ function drawRoute(
   dot(pts[pts.length - 1], "#ff453a");
 }
 
+/** Treadmill runs have no route — draw a ring of time completed instead. */
+function drawTimeRing(
+  ctx: CanvasRenderingContext2D,
+  stats: RunStats,
+  accent: string,
+  box: { x: number; y: number; w: number; h: number }
+) {
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  const r = Math.min(box.w, box.h) / 2 - 26;
+  const targetMs = (stats.targetMinutes ?? 0) * 60_000;
+  const frac = targetMs > 0 ? Math.min(1, stats.elapsedMs / targetMs) : 1;
+
+  ctx.lineWidth = 22;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.shadowColor = accent;
+  ctx.shadowBlur = 24;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `800 84px ${FONT}`;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(`${Math.round(frac * 100)}%`, cx, cy - 12);
+  ctx.font = `700 26px ${FONT}`;
+  ctx.fillStyle = "rgba(235,235,245,0.55)";
+  ctx.fillText("TREADMILL RUN", cx, cy + 52);
+}
+
 export interface RunCardOptions {
   persona: Persona;
   stats: RunStats;
@@ -193,29 +232,37 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   }
   ctx.fillText(name, nameX, PAD + 22);
 
-  // ---- route ----
-  drawRoute(ctx, stats.route, persona.accent, {
-    x: PAD,
-    y: 210,
-    w: S - PAD * 2,
-    h: 400,
-  });
+  const box = { x: PAD, y: 210, w: S - PAD * 2, h: 400 };
+  let cells: { label: string; value: string; unit: string }[];
 
-  // ---- stats row ----
-  const avgSpeedKmh =
-    stats.elapsedMs > 0 ? stats.distanceKm / (stats.elapsedMs / 3_600_000) : null;
-  const cells: { label: string; value: string; unit: string }[] = [
-    { label: "DISTANCE", value: stats.distanceKm.toFixed(2), unit: "km" },
-    { label: "TIME", value: formatElapsed(stats.elapsedMs), unit: "" },
-    {
-      label: unit === "kmh" ? "AVG SPEED" : "AVG PACE",
-      value: formatInUnit(avgSpeedKmh, unit),
-      unit: unitSuffix(unit),
-    },
-  ];
+  if (stats.treadmill) {
+    // Indoors there's no route to draw — show progress against the clock.
+    drawTimeRing(ctx, stats, persona.accent, box);
+    cells = [
+      { label: "TIME", value: formatElapsed(stats.elapsedMs), unit: "" },
+      {
+        label: "TARGET",
+        value: String(stats.targetMinutes ?? Math.round(stats.elapsedMs / 60000)),
+        unit: "min",
+      },
+    ];
+  } else {
+    drawRoute(ctx, stats.route, persona.accent, box);
+    const avgSpeedKmh =
+      stats.elapsedMs > 0 ? stats.distanceKm / (stats.elapsedMs / 3_600_000) : null;
+    cells = [
+      { label: "DISTANCE", value: stats.distanceKm.toFixed(2), unit: "km" },
+      { label: "TIME", value: formatElapsed(stats.elapsedMs), unit: "" },
+      {
+        label: unit === "kmh" ? "AVG SPEED" : "AVG PACE",
+        value: formatInUnit(avgSpeedKmh, unit),
+        unit: unitSuffix(unit),
+      },
+    ];
+  }
 
   const rowY = 712;
-  const colW = (S - PAD * 2) / 3;
+  const colW = (S - PAD * 2) / cells.length;
   const cellMax = colW - 24; // keep a gutter between columns
   ctx.textBaseline = "alphabetic";
   cells.forEach((cell, i) => {

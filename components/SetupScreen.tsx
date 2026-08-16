@@ -12,6 +12,7 @@ import {
   CHATTINESS_MAX,
   CHATTINESS_MIN,
   TARGET_OPTIONS,
+  TARGET_TIME_OPTIONS,
   chattinessLabel,
 } from "@/lib/prefs";
 import type { SpeedUnit } from "@/lib/units";
@@ -57,6 +58,8 @@ interface Props {
   onChattinessChange: (v: number) => void;
   targetKm: number;
   onTargetKmChange: (v: number) => void;
+  targetMin: number;
+  onTargetMinChange: (v: number) => void;
 }
 
 export default function SetupScreen({
@@ -72,8 +75,12 @@ export default function SetupScreen({
   onChattinessChange,
   targetKm,
   onTargetKmChange,
+  targetMin,
+  onTargetMinChange,
 }: Props) {
   const [libraryReady, setLibraryReady] = useState(false);
+  const mode: "none" | "distance" | "time" =
+    targetMin > 0 ? "time" : targetKm > 0 ? "distance" : "none";
   // Make sure the rendered-audio registry is loaded before anyone taps play —
   // otherwise the preview would fall back to the robotic on-device voice.
   useEffect(() => {
@@ -176,40 +183,103 @@ export default function SetupScreen({
         </button>
       </div>
 
-      <div className="section-header">Target Distance</div>
-      <div className="card" style={{ padding: "14px 16px" }}>
-        <div className="target-value">
-          {targetKm === 0 ? (
-            <span className="target-off">No target</span>
+      <div className="section-header">Target</div>
+      <div className="segmented">
+        <button
+          className={mode === "none" ? "active" : ""}
+          onClick={() => {
+            onTargetKmChange(0);
+            onTargetMinChange(0);
+          }}
+        >
+          None
+        </button>
+        <button
+          className={mode === "distance" ? "active" : ""}
+          onClick={() => {
+            onTargetMinChange(0);
+            onTargetKmChange(targetKm || 5);
+          }}
+        >
+          Distance
+        </button>
+        <button
+          className={mode === "time" ? "active" : ""}
+          onClick={() => {
+            onTargetKmChange(0);
+            onTargetMinChange(targetMin || 30);
+          }}
+        >
+          Time
+        </button>
+      </div>
+
+      {mode !== "none" && (
+        <div className="card" style={{ padding: "14px 16px", marginTop: 10 }}>
+          <div className="target-value">
+            {mode === "distance" ? targetKm : targetMin}
+            <span className="target-unit">{mode === "distance" ? " km" : " min"}</span>
+          </div>
+          {mode === "distance" ? (
+            <>
+              <input
+                className="target-slider"
+                type="range"
+                min={1}
+                max={TARGET_OPTIONS.length - 1}
+                step={1}
+                value={Math.max(
+                  1,
+                  TARGET_OPTIONS.indexOf(targetKm as (typeof TARGET_OPTIONS)[number])
+                )}
+                onChange={(e) => onTargetKmChange(TARGET_OPTIONS[Number(e.target.value)])}
+              />
+              <div className="target-ticks">
+                {TARGET_OPTIONS.slice(1).map((km) => (
+                  <span key={km} className={km === targetKm ? "on" : ""}>
+                    {km}
+                  </span>
+                ))}
+              </div>
+            </>
           ) : (
             <>
-              {targetKm}
-              <span className="target-unit"> km</span>
+              <input
+                className="target-slider"
+                type="range"
+                min={1}
+                max={TARGET_TIME_OPTIONS.length - 1}
+                step={1}
+                value={Math.max(
+                  1,
+                  TARGET_TIME_OPTIONS.indexOf(
+                    targetMin as (typeof TARGET_TIME_OPTIONS)[number]
+                  )
+                )}
+                onChange={(e) => onTargetMinChange(TARGET_TIME_OPTIONS[Number(e.target.value)])}
+              />
+              <div className="target-ticks">
+                {TARGET_TIME_OPTIONS.slice(1).map((m) => (
+                  <span key={m} className={m === targetMin ? "on" : ""}>
+                    {m}
+                  </span>
+                ))}
+              </div>
             </>
           )}
+          <div className="chatter-label">
+            {mode === "distance"
+              ? `Your buddy calls out 10%, a quarter, a third, halfway, two thirds, three quarters and 90% — then talks you through the run-in to ${targetKm} km.`
+              : `Your buddy calls out the same checkpoints against the clock, then counts you down to ${targetMin} minutes.`}
+          </div>
+          {mode === "time" && (
+            <div className="treadmill-warning">
+              🏃 Treadmill mode — GPS, speed, distance and route tracking are all off.
+              Your buddy paces you by the clock only.
+            </div>
+          )}
         </div>
-        <input
-          className="target-slider"
-          type="range"
-          min={0}
-          max={TARGET_OPTIONS.length - 1}
-          step={1}
-          value={Math.max(0, TARGET_OPTIONS.indexOf(targetKm as (typeof TARGET_OPTIONS)[number]))}
-          onChange={(e) => onTargetKmChange(TARGET_OPTIONS[Number(e.target.value)])}
-        />
-        <div className="target-ticks">
-          {TARGET_OPTIONS.map((km) => (
-            <span key={km} className={km === targetKm ? "on" : ""}>
-              {km === 0 ? "NA" : km}
-            </span>
-          ))}
-        </div>
-        <div className="chatter-label">
-          {targetKm === 0
-            ? "Run as long as you like — no distance goal."
-            : `Your buddy will call out 10%, a quarter, a third, halfway, two thirds, three quarters and 90% — then talk you through the run-in to ${targetKm} km.`}
-        </div>
-      </div>
+      )}
 
       <div className="section-header">Coach Chatter</div>
       <div className="card" style={{ padding: "12px 16px" }}>

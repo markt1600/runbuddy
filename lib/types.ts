@@ -51,4 +51,6 @@ export interface RunStats {
   avgSpeedKmh: number | null; // whole run
   splits: number[]; // ms per completed km
   route: { lat: number; lon: number }[]; // GPS path of the run
+  treadmill?: boolean; // time-target run: no GPS, speed or route
+  targetMinutes?: number; // the duration goal, when running to time
 }
