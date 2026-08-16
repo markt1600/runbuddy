@@ -33,6 +33,8 @@ encouragement) — press Start, and get coached over your own music.
   app (timers + GPS) when the phone is locked.
 - **Always-on display mode** — dim, AMOLED-friendly orange readout with wake
   lock, for armband runners.
+- **Sleeve lock** — 🔒 in the run screen's top bar blocks every control so an
+  arm sleeve can't pause or end your run; unlock with a deliberate 1.5s hold.
 - **Push-to-talk** — tap the mic, say something, and the trainer answers in
   character.
 

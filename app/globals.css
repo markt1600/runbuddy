@@ -868,6 +868,66 @@ body {
 .phrase-badge.ok { color: var(--green); }
 .phrase-badge.ai { color: var(--blue); }
 
+/* ---------- Sleeve / armband lock ---------- */
+
+.lock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 34px);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(1px);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  animation: fade-in 0.25s ease;
+}
+
+.lock-badge {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--label-2);
+  background: rgba(28, 28, 30, 0.9);
+  padding: 8px 16px;
+  border-radius: 999px;
+}
+
+.unlock-pad {
+  position: relative;
+  width: 220px;
+  height: 58px;
+  border: none;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--label);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.unlock-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--accent, var(--blue));
+  transform-origin: left center;
+  transform: scaleX(0);
+  opacity: 0.85;
+}
+
+.unlock-text {
+  position: relative;
+  z-index: 1;
+}
+
 /* ---------- Summary ---------- */
 
 .summary-hero {

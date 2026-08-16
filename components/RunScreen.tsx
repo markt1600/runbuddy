@@ -39,6 +39,9 @@ export default function RunScreen({
   const [listening, setListening] = useState(false);
   const [gpsNote, setGpsNote] = useState<string | null>(null);
   const [gpsSignal, setGpsSignal] = useState<GpsSignal>("acquiring");
+  const [locked, setLocked] = useState(false);
+  const [holdPct, setHoldPct] = useState(0);
+  const holdRef = useRef<{ raf: number; start: number } | null>(null);
   const [clock, setClock] = useState("");
   const [envLine, setEnvLine] = useState<string | null>(null);
   const [phraseStats, setPhraseStats] = useState({
@@ -233,6 +236,32 @@ export default function RunScreen({
     }
   };
 
+  // Hold-to-unlock: a sustained press on the small target for 1.5s. Fabric
+  // brushing the screen produces short, moving contacts, not a steady hold.
+  const HOLD_MS = 1500;
+
+  const startHold = () => {
+    if (holdRef.current) return;
+    const start = performance.now();
+    const step = () => {
+      const pct = Math.min(100, ((performance.now() - start) / HOLD_MS) * 100);
+      setHoldPct(pct);
+      if (pct >= 100) {
+        cancelHold();
+        setLocked(false);
+        return;
+      }
+      holdRef.current = { raf: requestAnimationFrame(step), start };
+    };
+    holdRef.current = { raf: requestAnimationFrame(step), start };
+  };
+
+  const cancelHold = () => {
+    if (holdRef.current) cancelAnimationFrame(holdRef.current.raf);
+    holdRef.current = null;
+    setHoldPct(0);
+  };
+
   const musicLabel =
     music === "spotify"
       ? "Spotify"
@@ -264,6 +293,14 @@ export default function RunScreen({
           <span className="gps-dot" />
           {gps.label}
         </div>
+        <button
+          className="icon-btn"
+          aria-label="Lock screen for armband"
+          onClick={() => setLocked(true)}
+          style={{ marginRight: 8 }}
+        >
+          🔒
+        </button>
         <button
           className={`icon-btn${aod ? " active" : ""}`}
           aria-label="Always-on display"
@@ -368,7 +405,7 @@ export default function RunScreen({
       </div>
 
       {aod && (
-        <div className="aod" onClick={() => setAod(false)}>
+        <div className="aod" onClick={() => !locked && setAod(false)}>
           <div className="aod-time">{formatElapsed(elapsedMs)}</div>
           <div className="aod-stats">
             <span>{distanceKm.toFixed(2)} km</span>
@@ -378,7 +415,38 @@ export default function RunScreen({
             <span>{clock}</span>
           </div>
           {gpsTrouble && <div className="aod-gps">⚠ {gps.label}</div>}
-          <div className="aod-hint">tap anywhere to wake · coach keeps talking</div>
+          <div className="aod-hint">
+            {locked ? "screen locked · coach keeps talking" : "tap anywhere to wake · coach keeps talking"}
+          </div>
+        </div>
+      )}
+
+      {locked && (
+        <div
+          className="lock-overlay"
+          onClickCapture={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
+        >
+          <div className="lock-badge">🔒 Screen locked</div>
+          <button
+            className="unlock-pad"
+            aria-label="Hold to unlock"
+            onPointerDown={startHold}
+            onPointerUp={cancelHold}
+            onPointerLeave={cancelHold}
+            onPointerCancel={cancelHold}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <span
+              className="unlock-fill"
+              style={{ transform: `scaleX(${holdPct / 100})` }}
+            />
+            <span className="unlock-text">
+              {holdPct > 0 ? "Keep holding…" : "Hold to unlock"}
+            </span>
+          </button>
         </div>
       )}
     </div>
