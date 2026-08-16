@@ -42,6 +42,8 @@ export default function RunScreen({
   const [locked, setLocked] = useState(false);
   const [holdPct, setHoldPct] = useState(0);
   const holdRef = useRef<{ raf: number; start: number } | null>(null);
+  const holdDoneRef = useRef(false);
+  const unlockingRef = useRef(false);
   const [clock, setClock] = useState("");
   const [envLine, setEnvLine] = useState<string | null>(null);
   const [phraseStats, setPhraseStats] = useState({
@@ -236,19 +238,24 @@ export default function RunScreen({
     }
   };
 
-  // Hold-to-unlock: a sustained press on the small target for 1.5s. Fabric
-  // brushing the screen produces short, moving contacts, not a steady hold.
+  // Hold-to-unlock: a sustained 1.5s press ARMS the unlock; the unlock itself
+  // happens on finger RELEASE, and the overlay lingers briefly past release.
+  // Unlocking mid-press used to unmount the overlay while the finger was still
+  // down, so the lift-off tap fell through onto the push-to-talk button
+  // underneath and started the microphone. Fabric brushing the screen still
+  // can't unlock: short or moving contacts never survive the full hold.
   const HOLD_MS = 1500;
 
   const startHold = () => {
-    if (holdRef.current) return;
+    if (holdRef.current || unlockingRef.current) return;
+    holdDoneRef.current = false;
     const start = performance.now();
     const step = () => {
       const pct = Math.min(100, ((performance.now() - start) / HOLD_MS) * 100);
       setHoldPct(pct);
       if (pct >= 100) {
-        cancelHold();
-        setLocked(false);
+        holdDoneRef.current = true; // armed — waiting for release
+        holdRef.current = null;
         return;
       }
       holdRef.current = { raf: requestAnimationFrame(step), start };
@@ -256,10 +263,23 @@ export default function RunScreen({
     holdRef.current = { raf: requestAnimationFrame(step), start };
   };
 
-  const cancelHold = () => {
-    if (holdRef.current) cancelAnimationFrame(holdRef.current.raf);
-    holdRef.current = null;
-    setHoldPct(0);
+  const releaseHold = () => {
+    if (unlockingRef.current) return;
+    if (holdDoneRef.current) {
+      holdDoneRef.current = false;
+      unlockingRef.current = true;
+      // Keep the overlay mounted through the tap that iOS synthesises on
+      // lift-off, so it lands here and not on the controls underneath.
+      window.setTimeout(() => {
+        unlockingRef.current = false;
+        setHoldPct(0);
+        setLocked(false);
+      }, 250);
+    } else {
+      if (holdRef.current) cancelAnimationFrame(holdRef.current.raf);
+      holdRef.current = null;
+      setHoldPct(0);
+    }
   };
 
   const musicLabel =
@@ -434,9 +454,9 @@ export default function RunScreen({
             className="unlock-pad"
             aria-label="Hold to unlock"
             onPointerDown={startHold}
-            onPointerUp={cancelHold}
-            onPointerLeave={cancelHold}
-            onPointerCancel={cancelHold}
+            onPointerUp={releaseHold}
+            onPointerLeave={releaseHold}
+            onPointerCancel={releaseHold}
             onContextMenu={(e) => e.preventDefault()}
           >
             <span
@@ -444,7 +464,11 @@ export default function RunScreen({
               style={{ transform: `scaleX(${holdPct / 100})` }}
             />
             <span className="unlock-text">
-              {holdPct > 0 ? "Keep holding…" : "Hold to unlock"}
+              {holdPct >= 100
+                ? "Release to unlock"
+                : holdPct > 0
+                  ? "Keep holding…"
+                  : "Hold to unlock"}
             </span>
           </button>
         </div>

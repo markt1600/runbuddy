@@ -880,8 +880,9 @@ body {
   justify-content: flex-end;
   gap: 14px;
   padding-bottom: calc(env(safe-area-inset-bottom) + 34px);
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(1px);
+  /* Transparent on purpose: time / distance / speed stay fully readable.
+     The overlay still occupies the whole screen and swallows every touch. */
+  background: transparent;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
