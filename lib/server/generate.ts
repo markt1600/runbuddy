@@ -97,7 +97,12 @@ export async function renderVoiceBuffer(
       body: JSON.stringify({
         text,
         model_id: "eleven_multilingual_v2",
-        voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.6 },
+        voice_settings: {
+          stability: 0.4,
+          similarity_boost: 0.8,
+          style: 0.6,
+          speed: PERSONAS[persona].elevenLabsSpeed,
+        },
       }),
     }
   );

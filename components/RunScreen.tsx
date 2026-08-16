@@ -50,6 +50,7 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
     paceSecPerKm: null,
     avgPaceSecPerKm: null,
     splits: [],
+    route: [],
   });
 
   const computeStats = useCallback((): RunStats => {
@@ -65,6 +66,7 @@ export default function RunScreen({ persona, music, onFinish }: Props) {
       paceSecPerKm: geo.rollingPaceSecPerKm(),
       avgPaceSecPerKm: avg,
       splits: splitsRef.current,
+      route: geo.route,
     };
     statsRef.current = stats;
     return stats;

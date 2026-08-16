@@ -10,6 +10,7 @@ import {
   lifetimeStats,
   loadLibraryState,
   playPhrase,
+  reRenderPersona,
   renderMissingPhrases,
   renderedCount,
   type GenerationProgress,
@@ -28,6 +29,7 @@ const CATEGORY_LABELS: Record<PhraseCategory, string> = {
   paused: "Paused",
   resumed: "Resumed",
   chat: "Chat replies",
+  summary: "Run summaries",
 };
 
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS) as PhraseCategory[];
@@ -66,6 +68,23 @@ export default function AdminScreen({ onBack }: Props) {
       setProgress(p);
       refresh();
     });
+  };
+
+  const onReRender = async () => {
+    const count = allPhrasesFor(personaId).length;
+    if (
+      !window.confirm(
+        `Re-render ALL ${count} ${persona.name} phrases with the current voice? ` +
+          "This overwrites existing audio and spends ElevenLabs credits."
+      )
+    )
+      return;
+    setNotice(null);
+    await reRenderPersona(personaId, (p) => {
+      setProgress(p);
+      refresh();
+    });
+    refresh();
   };
 
   const onExpand = async () => {
@@ -131,6 +150,14 @@ export default function AdminScreen({ onBack }: Props) {
           onClick={onExpand}
         >
           {expanding ? "Writing fresh phrases…" : `Generate 10 fresh ${persona.name} phrases`}
+        </button>
+        <button
+          className="cta secondary"
+          style={{ marginTop: 10 }}
+          disabled={busy}
+          onClick={onReRender}
+        >
+          Re-render all {persona.name} phrases (voice changed)
         </button>
         {progress?.state === "generating" && (
           <div className="gen-bar" style={{ marginTop: 12 }}>

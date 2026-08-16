@@ -36,10 +36,12 @@ const personasSrc = readFileSync(join(root, "lib/personas.ts"), "utf8");
 
 // Voice IDs: ELEVENLABS_VOICE_<PERSONA> env vars win, else lib/personas.ts defaults.
 const voiceIds = {};
+const voiceSpeeds = {};
 for (const m of personasSrc.matchAll(
-  /id:\s*"(\w+)",[\s\S]*?elevenLabsVoiceId:\s*"([^"]+)"/g
+  /id:\s*"(\w+)",[\s\S]*?elevenLabsVoiceId:\s*"([^"]+)",\s*elevenLabsSpeed:\s*([\d.]+)/g
 )) {
   voiceIds[m[1]] = process.env[`ELEVENLABS_VOICE_${m[1].toUpperCase()}`] || m[2];
+  voiceSpeeds[m[1]] = Number(m[3]) || 1.0;
 }
 
 const sections = phrasesSrc.split(/const (\w+): Phrase\[\] = \[/).slice(1);
@@ -48,7 +50,7 @@ for (let i = 0; i < sections.length; i += 2) {
   libraries[sections[i]] = extractPhrases(sections[i + 1]);
 }
 
-async function render(voiceId, text) {
+async function render(voiceId, text, speed = 1.0) {
   const res = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_64`,
     {
@@ -57,7 +59,7 @@ async function render(voiceId, text) {
       body: JSON.stringify({
         text,
         model_id: "eleven_multilingual_v2",
-        voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.6 },
+        voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.6, speed },
       }),
     }
   );
@@ -77,7 +79,7 @@ for (const [personaId, phrases] of Object.entries(libraries)) {
     if (existsSync(file)) continue;
     process.stdout.write(`[${personaId}] ${phrase.id} … `);
     try {
-      writeFileSync(file, await render(voiceId, phrase.text));
+      writeFileSync(file, await render(voiceId, phrase.text, voiceSpeeds[personaId]));
       rendered++;
       console.log("ok");
     } catch (err) {

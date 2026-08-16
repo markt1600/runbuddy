@@ -73,18 +73,24 @@ async function findPhrase(persona: PersonaId, phraseId: string): Promise<Phrase 
   return (await readExtras(persona)).find((p) => p.id === phraseId);
 }
 
-/** Render one library phrase into Blob (idempotent). Returns its public URL. */
+/**
+ * Render one library phrase into Blob. Idempotent unless `force`, which
+ * re-renders and overwrites — used after a persona's voice ID changes.
+ */
 export async function renderPhraseToBlob(
   persona: PersonaId,
-  phraseId: string
+  phraseId: string,
+  force = false
 ): Promise<{ url: string; existed: boolean }> {
   const phrase = await findPhrase(persona, phraseId);
   if (!phrase) throw new Error("unknown phrase");
 
   const pathname = `${PREFIX}/${persona}/${phraseId}.mp3`;
-  const existing = await list({ prefix: pathname, limit: 1 });
-  const hit = existing.blobs.find((b) => b.pathname === pathname);
-  if (hit) return { url: hit.url, existed: true };
+  if (!force) {
+    const existing = await list({ prefix: pathname, limit: 1 });
+    const hit = existing.blobs.find((b) => b.pathname === pathname);
+    if (hit) return { url: hit.url, existed: true };
+  }
 
   const buf = await renderVoiceBuffer(persona, phrase.text);
   if (!buf) throw new Error("elevenlabs render failed");

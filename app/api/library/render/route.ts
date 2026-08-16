@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   if (!blobConfigured() || !elevenLabsConfigured()) {
     return NextResponse.json({ error: "rendering not configured" }, { status: 503 });
   }
-  let body: { persona?: string; id?: string };
+  let body: { persona?: string; id?: string; force?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
   try {
-    const { url, existed } = await renderPhraseToBlob(persona, body.id);
+    const { url, existed } = await renderPhraseToBlob(persona, body.id, body.force === true);
     return NextResponse.json({ id: body.id, persona, url, existed });
   } catch (err) {
     const message = err instanceof Error ? err.message : "render failed";

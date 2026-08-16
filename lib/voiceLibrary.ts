@@ -141,6 +141,50 @@ export async function renderMissingPhrases(
   report("done");
 }
 
+/**
+ * Force re-render every phrase for one persona — used after its ElevenLabs
+ * voice ID (or speed) changes. Overwrites blob audio; URLs get a cache-buster
+ * so the new voice plays immediately despite long-lived browser caching.
+ */
+export async function reRenderPersona(
+  persona: PersonaId,
+  onProgress: (p: GenerationProgress) => void
+): Promise<void> {
+  const pool = allPhrasesFor(persona);
+  const report = (state: GenerationProgress["state"], done: number, message?: string) =>
+    onProgress({ state, done, total: pool.length, message });
+
+  if (!flags.canRender) {
+    report("unavailable", 0, unavailableReason());
+    return;
+  }
+  let done = 0;
+  let consecutiveFailures = 0;
+  report("generating", 0);
+  for (const phrase of pool) {
+    try {
+      const res = await fetch("/api/library/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ persona, id: phrase.id, force: true }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const data: { url: string } = await res.json();
+      urls.set(key(persona, phrase.id), `${data.url}?v=${Date.now()}`);
+      consecutiveFailures = 0;
+      done++;
+      report("generating", done);
+    } catch {
+      consecutiveFailures++;
+      if (consecutiveFailures >= 3) {
+        report("error", done, "Re-rendering stopped — check ElevenLabs credits, then retry.");
+        return;
+      }
+    }
+  }
+  report("done", done);
+}
+
 let autoStarted = false;
 
 /** App-launch hook: load state, then top up the library automatically. */

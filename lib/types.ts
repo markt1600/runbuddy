@@ -11,7 +11,8 @@ export type PhraseCategory =
   | "finish"
   | "paused"
   | "resumed"
-  | "chat"; // canned push-to-talk replies when offline
+  | "chat" // canned push-to-talk replies when offline
+  | "summary"; // post-run closing comment (generated only)
 
 export interface Phrase {
   id: string;
@@ -27,6 +28,8 @@ export interface Persona {
   accent: string; // theme color
   positive: boolean; // encouraging vs scolding
   elevenLabsVoiceId: string;
+  /** ElevenLabs playback speed (1.0 normal; API accepts ~0.7–1.2). */
+  elevenLabsSpeed: number;
   // Fallback speechSynthesis tuning when no rendered audio is available
   tts: { rate: number; pitch: number; lang: string };
   // Prompt persona description used for live phrase generation
@@ -41,4 +44,5 @@ export interface RunStats {
   paceSecPerKm: number | null; // current rolling pace
   avgPaceSecPerKm: number | null;
   splits: number[]; // ms per completed km
+  route: { lat: number; lon: number }[]; // GPS path of the run
 }

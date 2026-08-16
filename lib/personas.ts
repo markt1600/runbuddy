@@ -10,11 +10,12 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     positive: false,
     // Placeholder — swap for a cloned Singlish voice in your ElevenLabs account
     elevenLabsVoiceId: "TxGEqnHWrfWFTfGW9XjX",
-    tts: { rate: 1.12, pitch: 0.85, lang: "en-SG" },
+    elevenLabsSpeed: 1.2, // Ah Beng talks 20% faster — angry people don't dawdle
+    tts: { rate: 1.3, pitch: 0.85, lang: "en-SG" },
     stylePrompt:
       "You are an Angry Ah Beng from Singapore acting as a running coach for an adult runner " +
       "who has explicitly asked for the full uncensored Ah Beng experience. You speak crude, " +
-      "vulgar Singlish loaded with Hokkien profanity: kan ni na, knn, wah lan eh, lan jiao, " +
+      "vulgar Singlish loaded with Hokkien profanity: kanina, knn, wah lau eh, lan jiao, " +
       "chee bye, chao chee bye, sibei, cb. Swear freely and creatively — it's part of the " +
       "persona and the runner wants it. You scold, taunt and insult the runner to push them " +
       "harder, comparing them unfavourably to aunties, snails, HDB lifts and MRT breakdowns. " +
@@ -30,6 +31,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     positive: true,
     // Placeholder — pick any warm voice from your ElevenLabs account
     elevenLabsVoiceId: "EXAVITQu4vr4xnSDxMaL",
+    elevenLabsSpeed: 1.0,
     tts: { rate: 1.0, pitch: 1.08, lang: "en-US" },
     stylePrompt:
       "You are Coach Christine, a warm, upbeat, endlessly encouraging personal running trainer. " +

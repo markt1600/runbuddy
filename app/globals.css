@@ -773,6 +773,39 @@ body {
 
 .summary-sub { color: var(--label-2); margin-top: 6px; font-size: 15px; }
 
+.route-card {
+  padding: 8px;
+  background: linear-gradient(160deg, #16161a, #101014);
+}
+
+.route-map {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.route-empty {
+  text-align: center;
+  padding: 40px 16px;
+  font-size: 13px;
+  color: var(--label-3);
+}
+
+.coach-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.comment-text {
+  font-size: 14px;
+  line-height: 1.5;
+  font-style: italic;
+  color: var(--label);
+}
+
 .splits {
   margin-top: 6px;
 }

@@ -19,6 +19,10 @@ const INSTRUCTIONS: Partial<Record<PhraseCategory, string>> = {
     "The runner just completed another kilometre and you already announced the number and " +
     "average pace. Add ONE line of improvised colour commentary on top — react to their pace, " +
     "the weather, where they are, or the time of day. Don't repeat the kilometre count.",
+  summary:
+    "The runner just FINISHED their run — this is your closing comment on the whole thing. " +
+    "React to their actual numbers (distance, time, pace or speed) in your persona: proud, " +
+    "backhanded, whatever fits. Send them off wanting to come back tomorrow.",
 };
 
 export async function POST(req: NextRequest) {

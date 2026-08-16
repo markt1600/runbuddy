@@ -106,6 +106,7 @@ export class CoachEngine {
       paceSecPerKm: null,
       avgPaceSecPerKm: null,
       splits: [],
+      route: [],
     };
     const fresh = this.fetchFresh("intro", zeroStats);
     const timeout = new Promise<null>((r) => setTimeout(() => r(null), 2500));

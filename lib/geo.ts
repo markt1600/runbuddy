@@ -33,6 +33,8 @@ export class GeoTracker {
   lastError: string | null = null;
   /** Most recent fix of any accuracy — good enough for weather / geocoding. */
   lastPosition: { lat: number; lon: number } | null = null;
+  /** Accepted fixes forming the run's path (downsampled when long). */
+  route: { lat: number; lon: number }[] = [];
 
   start(onUpdate: () => void) {
     if (!("geolocation" in navigator)) {
@@ -67,11 +69,13 @@ export class GeoTracker {
           if (d > 0.003 && (dtHrs <= 0 || d / dtHrs < 25)) {
             this.distanceKm += d;
             this.last = s;
+            this.pushRoutePoint(s);
           } else if (d <= 0.003) {
             this.last = s;
           }
         } else {
           this.last = s;
+          this.pushRoutePoint(s);
         }
         this.recent.push({ t: Date.now(), km: this.distanceKm });
         const cutoff = Date.now() - 60_000;
@@ -91,6 +95,14 @@ export class GeoTracker {
   stop() {
     if (this.watchId !== null) navigator.geolocation.clearWatch(this.watchId);
     this.watchId = null;
+  }
+
+  private pushRoutePoint(s: GeoSample) {
+    this.route.push({ lat: s.lat, lon: s.lon });
+    // Keep the path drawable: halve resolution once it gets long, keeping ends
+    if (this.route.length > 1500) {
+      this.route = this.route.filter((_, i) => i % 2 === 0 || i === this.route.length - 1);
+    }
   }
 
   /**
