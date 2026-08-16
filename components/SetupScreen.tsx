@@ -2,7 +2,12 @@
 
 import { PERSONA_LIST, PERSONAS } from "@/lib/personas";
 import { phrasesFor } from "@/lib/phrases";
-import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
+import {
+  CHATTINESS_MAX,
+  CHATTINESS_MIN,
+  TARGET_OPTIONS,
+  chattinessLabel,
+} from "@/lib/prefs";
 import type { SpeedUnit } from "@/lib/units";
 import type { MusicSource, PersonaId } from "@/lib/types";
 
@@ -44,6 +49,8 @@ interface Props {
   onSpeedUnitChange: (u: SpeedUnit) => void;
   chattiness: number;
   onChattinessChange: (v: number) => void;
+  targetKm: number;
+  onTargetKmChange: (v: number) => void;
 }
 
 export default function SetupScreen({
@@ -57,6 +64,8 @@ export default function SetupScreen({
   onSpeedUnitChange,
   chattiness,
   onChattinessChange,
+  targetKm,
+  onTargetKmChange,
 }: Props) {
   const previewVoice = (id: PersonaId, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -151,6 +160,41 @@ export default function SetupScreen({
         >
           min/km
         </button>
+      </div>
+
+      <div className="section-header">Target Distance</div>
+      <div className="card" style={{ padding: "14px 16px" }}>
+        <div className="target-value">
+          {targetKm === 0 ? (
+            <span className="target-off">No target</span>
+          ) : (
+            <>
+              {targetKm}
+              <span className="target-unit"> km</span>
+            </>
+          )}
+        </div>
+        <input
+          className="target-slider"
+          type="range"
+          min={0}
+          max={TARGET_OPTIONS.length - 1}
+          step={1}
+          value={Math.max(0, TARGET_OPTIONS.indexOf(targetKm as (typeof TARGET_OPTIONS)[number]))}
+          onChange={(e) => onTargetKmChange(TARGET_OPTIONS[Number(e.target.value)])}
+        />
+        <div className="target-ticks">
+          {TARGET_OPTIONS.map((km) => (
+            <span key={km} className={km === targetKm ? "on" : ""}>
+              {km === 0 ? "NA" : km}
+            </span>
+          ))}
+        </div>
+        <div className="chatter-label">
+          {targetKm === 0
+            ? "Run as long as you like — no distance goal."
+            : `Your buddy will call out 10%, a quarter, a third, halfway, two thirds, three quarters and 90% — then talk you through the run-in to ${targetKm} km.`}
+        </div>
       </div>
 
       <div className="section-header">Coach Chatter</div>

@@ -89,9 +89,16 @@ export class VoiceEngine {
     setAudioSession("ambient");
   }
 
+  /** True while anything is playing OR still waiting its turn. */
+  get busy(): boolean {
+    return this.speaking || this.queue.length > 0;
+  }
+
   say(text: string, audioUrl?: string) {
-    // Keep the queue short — a coach that monologues is worse than one that skips a line
-    if (this.queue.length >= 2) this.queue.shift();
+    // Lines never overlap: drain() plays them strictly one at a time. The cap
+    // only stops a backlog building up so far that the coach ends up narrating
+    // a part of the run you've already left behind.
+    if (this.queue.length >= 4) this.queue.shift();
     this.queue.push({ text, audioUrl });
     void this.drain();
   }

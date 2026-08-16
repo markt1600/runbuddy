@@ -19,6 +19,7 @@ const EXPANDABLE: PhraseCategory[] = [
   "pace_down",
   "milestone",
   "chat",
+  "progress",
 ];
 
 export async function POST(req: NextRequest) {

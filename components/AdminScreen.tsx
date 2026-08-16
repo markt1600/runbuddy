@@ -34,6 +34,8 @@ const CATEGORY_LABELS: Record<PhraseCategory, string> = {
   resumed: "Resumed",
   chat: "Chat replies",
   summary: "Run summaries",
+  progress: "Target progress",
+  target_hit: "Target reached",
 };
 
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS) as PhraseCategory[];

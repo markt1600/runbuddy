@@ -9,6 +9,10 @@ import type { RunEnvironment } from "./enviro";
 const ENCOURAGE_GAP_MS: [number, number] = [50_000, 95_000];
 const ANECDOTE_GAP_MS: [number, number] = [180_000, 300_000];
 const PACE_COOLDOWN_MS = 120_000;
+// Fractions of the target distance that earn a callout. The requested
+// checkpoints, then a tighter run-in over the last stretch.
+const PROGRESS_MARKS = [0.1, 0.25, 1 / 3, 0.5, 2 / 3, 0.75, 0.9, 0.94, 0.97, 0.99, 1];
+
 const FRESH_ANECDOTE_CHANCE = 0.5; // odds an anecdote slot asks the API for new material
 const FRESH_ENCOURAGE_CHANCE = 0.25; // odds regular encouragement is freshly generated
 
@@ -34,11 +38,56 @@ export class CoachEngine {
   private disposed = false;
   private env: RunEnvironment | null = null;
   private chattiness = 1.0;
+  private targetKm = 0;
+  private progressDone = new Set<number>();
 
-  constructor(persona: Persona, voice: VoiceEngine, chattiness = 1.0) {
+  constructor(persona: Persona, voice: VoiceEngine, chattiness = 1.0, targetKm = 0) {
     this.persona = persona;
     this.voice = voice;
     this.chattiness = Math.min(2, Math.max(0.5, chattiness));
+    this.targetKm = targetKm > 0 ? targetKm : 0;
+  }
+
+  /**
+   * Fires once per checkpoint on the way to the target: the fractions the
+   * runner asked for, then a tighter run-in as the finish approaches.
+   * Returns true when something was said this tick.
+   */
+  private announceTargetProgress(stats: RunStats): boolean {
+    const frac = stats.distanceKm / this.targetKm;
+    const next = PROGRESS_MARKS.find((m) => !this.progressDone.has(m) && frac >= m);
+    if (next === undefined) return false;
+
+    // Everything at or below the crossed mark is now spent — prevents a burst
+    // of back-to-back callouts if GPS delivers a big jump.
+    PROGRESS_MARKS.filter((m) => m <= next).forEach((m) => this.progressDone.add(m));
+
+    const remainingKm = Math.max(0, this.targetKm - stats.distanceKm);
+
+    // The target landing on a whole kilometre would otherwise be announced twice.
+    this.lastKmAnnounced = Math.max(this.lastKmAnnounced, Math.floor(stats.distanceKm));
+
+    if (next >= 1) {
+      this.sayFromLibrary("target_hit");
+      return true;
+    }
+
+    this.sayFromLibrary("progress");
+    // The numbers themselves, then an in-persona line about them when the
+    // API can supply one.
+    const left =
+      remainingKm < 0.2
+        ? `${Math.max(50, Math.round((remainingKm * 1000) / 10) * 10)} metres to go.`
+        : `${remainingKm.toFixed(1)} kilometres to go.`;
+    this.voice.say(`${Math.round(next * 100)} percent of your ${this.targetKm} K. ${left}`);
+    void this.fetchFresh("progress", stats, {
+      targetKm: this.targetKm,
+      progressPercent: Math.round(next * 100),
+      remainingKm: Number(remainingKm.toFixed(2)),
+    }).then((line) => {
+      if (line && !this.disposed) this.voice.say(line.text, line.url);
+    });
+    return true;
   }
 
   /** Gap until the next scheduled interjection, scaled by the chatter setting. */
@@ -169,8 +218,13 @@ export class CoachEngine {
   }
 
   tick(stats: RunStats) {
-    if (this.disposed || this.voice.speaking) return;
+    // `busy` covers anything still queued, not just what's audible right now —
+    // so scheduled interjections wait their turn instead of stacking up.
+    if (this.disposed || this.voice.busy) return;
     const now = Date.now();
+
+    // 0. Target-distance progress takes priority over everything else.
+    if (this.targetKm > 0 && this.announceTargetProgress(stats)) return;
 
     // 1. Kilometre milestones (highest priority). The callout itself is
     // library-only so it lands instantly; improvised colour commentary

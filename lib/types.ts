@@ -12,7 +12,9 @@ export type PhraseCategory =
   | "paused"
   | "resumed"
   | "chat" // canned push-to-talk replies when offline
-  | "summary"; // post-run closing comment (generated only)
+  | "summary" // post-run closing comment (generated only)
+  | "progress" // crossing a fraction of the target distance
+  | "target_hit"; // the target distance was reached
 
 export interface Phrase {
   id: string;

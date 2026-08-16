@@ -264,6 +264,60 @@ body {
   padding: 6px 2px;
 }
 
+/* ---------- Target distance ---------- */
+
+.target-value {
+  text-align: center;
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.target-unit { font-size: 16px; font-weight: 600; color: var(--label-2); }
+.target-off { font-size: 22px; font-weight: 700; color: var(--label-2); }
+
+.target-slider {
+  width: 100%;
+  margin-top: 10px;
+  accent-color: var(--accent, var(--blue));
+}
+
+.target-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--label-3);
+}
+
+.target-ticks .on { color: var(--accent, var(--blue)); }
+
+.target-progress { margin-top: 14px; }
+
+.target-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.target-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent, var(--blue));
+  transition: width 0.5s ease;
+}
+
+.target-progress-label {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Coach chatter slider ---------- */
 
 .chatter-row {

@@ -72,6 +72,14 @@ const ahbeng: Phrase[] = [
   { id: "ab-chat-1", category: "chat", text: "Talk less, run more lah chee bye! Save your breath for the hill, kanina!" },
   { id: "ab-chat-2", category: "chat", text: "Hah? Cannot hear you. All I hear is lan jiao excuses. RUN!" },
   { id: "ab-chat-3", category: "chat", text: "Yes yes, sibei interesting. You know what's MORE interesting? Your chee bye pace. FASTER!" },
+  // ---- target progress ----
+  { id: "ab-prog-1", category: "progress", text: "Eh, got progress ah! Don't get happy too early, chee bye. Still not finish!" },
+  { id: "ab-prog-2", category: "progress", text: "Kanina, chalk one up. Now stop thinking and keep those legs moving!" },
+  { id: "ab-prog-3", category: "progress", text: "Wah lau, you actually going to make it issit? Don't jinx yourself. RUN!" },
+  { id: "ab-prog-4", category: "progress", text: "Okay lah, checkpoint. I mark it down. Distance still owe me, chee bye. GO!" },
+  { id: "ab-prog-5", category: "progress", text: "Sibei good, still moving. The rest is where people give up. Don't be people!" },
+  { id: "ab-tgt-1", category: "target_hit", text: "OI! TARGET HIT, chee bye! Wah lau... okay okay, I say it once only: well done. Now don't let it get to your head!" },
+  { id: "ab-tgt-2", category: "target_hit", text: "Kanina, you actually did the whole thing! I got nothing to scold you about. Sibei uncomfortable feeling sia. Good job lah!" },
 ];
 
 const coach: Phrase[] = [
@@ -141,6 +149,14 @@ const coach: Phrase[] = [
   { id: "co-chat-1", category: "chat", text: "I hear you! Whatever it is, we'll run through it together. One step at a time!" },
   { id: "co-chat-2", category: "chat", text: "Great question! My honest answer: you're doing better than you think you are. Keep going!" },
   { id: "co-chat-3", category: "chat", text: "I'm listening! And for the record — you sound strong. Let's keep that energy!" },
+  // ---- target progress ----
+  { id: "co-prog-1", category: "progress", text: "Look at that progress! You're eating into this target beautifully. Keep the rhythm!" },
+  { id: "co-prog-2", category: "progress", text: "Another chunk done and you're still strong. This is exactly how it should feel!" },
+  { id: "co-prog-3", category: "progress", text: "You're closing the gap! Settle into your breathing and let your legs do what they know." },
+  { id: "co-prog-4", category: "progress", text: "Checkpoint reached! Notice how capable you feel right now — remember this bit." },
+  { id: "co-prog-5", category: "progress", text: "Beautiful pacing. The finish is coming to you now — just hold this and stay smooth." },
+  { id: "co-tgt-1", category: "target_hit", text: "TARGET REACHED! You said you'd do it and you did exactly that. I am so proud of you right now!" },
+  { id: "co-tgt-2", category: "target_hit", text: "That's your goal, done and dusted! However you feel right now — you earned every bit of it. Incredible work!" },
 ];
 
 const flirty: Phrase[] = [
@@ -210,6 +226,14 @@ const flirty: Phrase[] = [
   { id: "ca-chat-1", category: "chat", text: "Talking to me already? Save your breath, gorgeous. You'll need it." },
   { id: "ca-chat-2", category: "chat", text: "Mmm, I love the sound of your voice. Now use it for breathing and keep running." },
   { id: "ca-chat-3", category: "chat", text: "Flirting with me mid-run? Bold. Keep that energy in your legs, darling." },
+  // ---- target progress ----
+  { id: "ca-prog-1", category: "progress", text: "Mmm, look at you making progress. I do love a runner who follows through." },
+  { id: "ca-prog-2", category: "progress", text: "Another piece of it, done. You're making this look far too easy, gorgeous." },
+  { id: "ca-prog-3", category: "progress", text: "You're closing in and I'm enjoying every second. Don't you dare fade on me now." },
+  { id: "ca-prog-4", category: "progress", text: "Checkpoint, darling. Breathe, relax those shoulders, and keep giving me exactly this." },
+  { id: "ca-prog-5", category: "progress", text: "So close I can taste it. Finish what you started — I'm watching." },
+  { id: "ca-tgt-1", category: "target_hit", text: "Target reached, gorgeous. Mmm. You told me what you'd do and then you actually did it — that's dangerously attractive." },
+  { id: "ca-tgt-2", category: "target_hit", text: "And there it is — your goal, all done. Look at you. I might not stop thinking about that for a while." },
 ];
 
 const loanshark: Phrase[] = [
@@ -279,6 +303,14 @@ const loanshark: Phrase[] = [
   { id: "al-chat-1", category: "chat", text: "You talking to me? Talk with MONEY lah, chee bye! Now RUN!" },
   { id: "al-chat-2", category: "chat", text: "Kanina, excuses I heard all of them already. Save your breath for running!" },
   { id: "al-chat-3", category: "chat", text: "Very nice story. Does it come with a payment? No? Then FASTER, chee bye!" },
+  // ---- target progress ----
+  { id: "al-prog-1", category: "progress", text: "Eh, progress! I updating your ledger ah. In pencil. Keep running, chee bye!" },
+  { id: "al-prog-2", category: "progress", text: "Kanina, you actually sticking to the plan. Suspicious. Keep going, I'm watching!" },
+  { id: "al-prog-3", category: "progress", text: "Checkpoint! Your debt still same, but my respect going up slightly. Slightly ah!" },
+  { id: "al-prog-4", category: "progress", text: "Wah lau, still running. Most people already hiding in coffee shop by now. MOVE!" },
+  { id: "al-prog-5", category: "progress", text: "Almost there, chee bye. Don't make me chase you the last part — my knees cannot!" },
+  { id: "al-tgt-1", category: "target_hit", text: "TARGET HIT! Kanina... okay. OKAY. I waive this week interest. You hear me? THIS WEEK only ah, chee bye!" },
+  { id: "al-tgt-2", category: "target_hit", text: "Wah lau eh, you did the whole thing! Fine. FINE. I tell Ah Seng to stop parking outside your block. For now." },
 ];
 
 export const PHRASE_LIBRARY: Record<PersonaId, Phrase[]> = {

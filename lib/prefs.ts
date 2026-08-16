@@ -26,6 +26,29 @@ export function saveChattiness(v: number) {
   }
 }
 
+// Optional target distance for the run. 0 = no target (default).
+export const TARGET_OPTIONS = [0, 3, 5, 10, 12, 14] as const;
+
+const TARGET_KEY = "runbuddy-target-km";
+
+export function loadTargetKm(): number {
+  try {
+    const v = Number(localStorage.getItem(TARGET_KEY));
+    if (TARGET_OPTIONS.includes(v as (typeof TARGET_OPTIONS)[number])) return v;
+  } catch {
+    /* private mode */
+  }
+  return 0;
+}
+
+export function saveTargetKm(v: number) {
+  try {
+    localStorage.setItem(TARGET_KEY, String(v));
+  } catch {
+    /* private mode */
+  }
+}
+
 export function chattinessLabel(v: number): string {
   if (v <= 0.5) return "Rare";
   if (v <= 0.75) return "Quieter";

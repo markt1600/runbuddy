@@ -14,6 +14,7 @@ interface Props {
   speedUnit: SpeedUnit;
   onSpeedUnitChange: (u: SpeedUnit) => void;
   chattiness: number;
+  targetKm: number;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -23,6 +24,7 @@ export default function RunScreen({
   speedUnit,
   onSpeedUnitChange,
   chattiness,
+  targetKm,
   onFinish,
 }: Props) {
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -107,7 +109,7 @@ export default function RunScreen({
     voice.start();
     voiceRef.current = voice;
 
-    const coach = new CoachEngine(persona, voice, chattiness);
+    const coach = new CoachEngine(persona, voice, chattiness, targetKm);
     coachRef.current = coach;
 
     const geo = new GeoTracker();
@@ -332,6 +334,24 @@ export default function RunScreen({
 
       <div className="big-timer">{formatElapsed(elapsedMs)}</div>
       <div className="timer-label">{paused ? "Paused" : "Elapsed"}</div>
+
+      {targetKm > 0 && (
+        <div className="target-progress">
+          <div className="target-bar">
+            <div
+              className="target-bar-fill"
+              style={{ width: `${Math.min(100, (distanceKm / targetKm) * 100)}%` }}
+            />
+          </div>
+          <div className="target-progress-label">
+            {distanceKm >= targetKm
+              ? `🎯 ${targetKm} km target reached`
+              : `${Math.floor((distanceKm / targetKm) * 100)}% of ${targetKm} km · ${(
+                  targetKm - distanceKm
+                ).toFixed(2)} km to go`}
+          </div>
+        </div>
+      )}
 
       <div
         className="stat-grid tappable"
