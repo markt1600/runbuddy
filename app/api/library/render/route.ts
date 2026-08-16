@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { blobConfigured, elevenLabsConfigured, renderPhraseToBlob } from "@/lib/server/library";
+import { checkPinHeader } from "@/lib/server/adminAuth";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/types";
 
@@ -22,6 +23,11 @@ export async function POST(req: NextRequest) {
   const persona = body.persona as PersonaId;
   if (!persona || !(persona in PERSONAS) || typeof body.id !== "string") {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
+  }
+  // Idempotent gap-filling is open (the app does it on launch); force
+  // re-rendering overwrites at will, so it needs the admin PIN.
+  if (body.force === true && !checkPinHeader(req)) {
+    return NextResponse.json({ error: "admin PIN required" }, { status: 401 });
   }
   try {
     const { url, existed } = await renderPhraseToBlob(persona, body.id, body.force === true);

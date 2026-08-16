@@ -13,6 +13,27 @@ let stateLoaded = false;
 
 const key = (persona: PersonaId, id: string) => `${persona}/${id}`;
 
+// ---- Admin PIN (kept for the session; sent on credit-spending calls) ----
+
+const PIN_KEY = "runbuddy-admin-pin";
+
+export function storeAdminPin(pin: string) {
+  try {
+    sessionStorage.setItem(PIN_KEY, pin);
+  } catch {
+    /* private mode */
+  }
+}
+
+export function adminPinHeaders(): Record<string, string> {
+  try {
+    const pin = sessionStorage.getItem(PIN_KEY);
+    return pin ? { "x-admin-pin": pin } : {};
+  } catch {
+    return {};
+  }
+}
+
 export function getPhraseUrl(persona: PersonaId, id: string): string | undefined {
   return urls.get(key(persona, id));
 }
@@ -165,7 +186,7 @@ export async function reRenderPersona(
     try {
       const res = await fetch("/api/library/render", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...adminPinHeaders() },
         body: JSON.stringify({ persona, id: phrase.id, force: true }),
       });
       if (!res.ok) throw new Error(String(res.status));
@@ -206,7 +227,7 @@ export async function expandLibrary(
 ): Promise<Phrase[]> {
   const res = await fetch("/api/library/expand", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...adminPinHeaders() },
     body: JSON.stringify({ persona, count }),
   });
   if (!res.ok) {

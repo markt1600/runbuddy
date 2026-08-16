@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PERSONAS, PERSONA_LIST } from "@/lib/personas";
 import {
+  adminPinHeaders,
   allPhrasesFor,
   expandLibrary,
   getPhraseUrl,
@@ -13,6 +14,7 @@ import {
   reRenderPersona,
   renderMissingPhrases,
   renderedCount,
+  storeAdminPin,
   type GenerationProgress,
 } from "@/lib/voiceLibrary";
 import type { PersonaId, PhraseCategory } from "@/lib/types";
@@ -39,6 +41,9 @@ interface Props {
 }
 
 export default function AdminScreen({ onBack }: Props) {
+  const [lock, setLock] = useState<"checking" | "locked" | "unlocked">("checking");
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
   const [personaId, setPersonaId] = useState<PersonaId>("ahbeng");
   const [ready, setReady] = useState(false);
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
@@ -48,11 +53,49 @@ export default function AdminScreen({ onBack }: Props) {
   const refresh = () => bump((n) => n + 1);
 
   useEffect(() => {
+    // PIN gate: no ADMIN_PIN on the server → open; else try the session's
+    // stored pin, else ask.
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/verify");
+        const { required } = await res.json();
+        if (!required) return setLock("unlocked");
+        const stored = adminPinHeaders()["x-admin-pin"];
+        if (stored) {
+          const check = await fetch("/api/admin/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pin: stored }),
+          });
+          if (check.ok) return setLock("unlocked");
+        }
+        setLock("locked");
+      } catch {
+        setLock("locked");
+      }
+    })();
     void loadLibraryState(true).then(() => {
       setReady(true);
       refresh();
     });
   }, []);
+
+  const submitPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPinError(false);
+    const res = await fetch("/api/admin/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: pinInput }),
+    });
+    if (res.ok) {
+      storeAdminPin(pinInput);
+      setLock("unlocked");
+    } else {
+      setPinError(true);
+      setPinInput("");
+    }
+  };
 
   const flags = libraryFlags();
   const persona = PERSONAS[personaId];
@@ -103,6 +146,40 @@ export default function AdminScreen({ onBack }: Props) {
       refresh();
     }
   };
+
+  if (lock !== "unlocked") {
+    return (
+      <div className="fade-in">
+        <div className="admin-topbar">
+          <button className="back-link" onClick={onBack}>
+            ‹ Back
+          </button>
+          <h1 className="admin-title">Admin</h1>
+        </div>
+        {lock === "checking" ? (
+          <div className="admin-notice">Checking access…</div>
+        ) : (
+          <form className="card pin-gate" onSubmit={submitPin}>
+            <div className="pin-emoji">🔒</div>
+            <div className="pin-title">Enter admin PIN</div>
+            <input
+              className="pin-input"
+              type="password"
+              inputMode="numeric"
+              autoFocus
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              placeholder="PIN"
+            />
+            {pinError && <div className="admin-notice bad">Wrong PIN — try again</div>}
+            <button className="cta" type="submit" disabled={pinInput.length === 0}>
+              Unlock
+            </button>
+          </form>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in">

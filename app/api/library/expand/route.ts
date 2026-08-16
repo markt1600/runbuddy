@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { appendExtras, blobConfigured, readExtras } from "@/lib/server/library";
+import { checkPinHeader } from "@/lib/server/adminAuth";
 import { PERSONAS } from "@/lib/personas";
 import { PHRASE_LIBRARY } from "@/lib/phrases";
 import type { PersonaId, Phrase, PhraseCategory } from "@/lib/types";
@@ -21,6 +22,9 @@ const EXPANDABLE: PhraseCategory[] = [
 ];
 
 export async function POST(req: NextRequest) {
+  if (!checkPinHeader(req)) {
+    return NextResponse.json({ error: "admin PIN required" }, { status: 401 });
+  }
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 503 });
   }
