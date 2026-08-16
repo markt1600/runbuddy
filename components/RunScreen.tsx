@@ -75,6 +75,7 @@ export default function RunScreen({
   const pausedRef = useRef(false);
   const autoPausedRef = useRef(false);
   const countdownRef = useRef(0);
+  const finishedRef = useRef(false);
   const splitsRef = useRef<number[]>([]);
   const lastSplitAtRef = useRef(0);
   const statsRef = useRef<RunStats>({
@@ -239,7 +240,9 @@ export default function RunScreen({
     return () => {
       clearInterval(interval);
       coach.dispose();
-      voice.stop();
+      // A finished run gets to say its piece; anything else stops dead.
+      if (finishedRef.current) voice.stopWhenIdle();
+      else voice.stop();
       geo.stop();
       void wake.disable();
     };
@@ -270,7 +273,8 @@ export default function RunScreen({
   const endRun = () => {
     if (!window.confirm("End this run?")) return;
     const stats = computeStats();
-    coachRef.current?.onFinish(stats);
+    finishedRef.current = true;
+    coachRef.current?.onFinish();
     // Give the finish line a moment to start playing before unmount
     setTimeout(() => onFinish(stats), 300);
   };

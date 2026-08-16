@@ -366,14 +366,12 @@ export class CoachEngine {
     void this.sayFresh("loitering", stats, { pausedSeconds: stoppedSec });
   }
 
-  onFinish(stats: RunStats) {
+  onFinish() {
+    // Library only. The numeric recap that used to follow had no pre-rendered
+    // audio by definition, so it always came out in the robotic fallback voice
+    // — as the last thing you heard. The summary screen says the same numbers
+    // straight after, in-persona and properly voiced, and the card shows them.
     this.sayFromLibrary("finish");
-    const mins = Math.round(stats.elapsedMs / 60000);
-    this.voice.say(
-      this.targetMin > 0
-        ? `${mins} minutes on the treadmill.`
-        : `${stats.distanceKm.toFixed(2)} kilometres in about ${mins} minutes.`
-    );
   }
 
   tick(stats: RunStats) {

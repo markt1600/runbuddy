@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatElapsed, formatPace } from "@/lib/geo";
+import { coachIsSpeaking } from "@/lib/audio";
 import type { SpeedUnit } from "@/lib/units";
 import { drawRunCard, shareOrDownloadCard } from "@/lib/runCard";
 import type { Persona, RunStats } from "@/lib/types";
@@ -116,12 +117,18 @@ export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Pro
       }),
     })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { text: string; audioBase64?: string } | null) => {
+      .then(async (data: { text: string; audioBase64?: string } | null) => {
         if (cancelled || !data?.text) return;
         setComment(data.text);
-        if (data.audioBase64) {
-          void new Audio(`data:audio/mpeg;base64,${data.audioBase64}`).play().catch(() => {});
+        if (!data.audioBase64) return;
+        // The run screen's sign-off is still playing out; queue behind it
+        // rather than speaking over the top.
+        const waitStartedAt = Date.now();
+        while (coachIsSpeaking() && Date.now() - waitStartedAt < 15_000) {
+          await new Promise((r) => setTimeout(r, 250));
         }
+        if (cancelled) return;
+        void new Audio(`data:audio/mpeg;base64,${data.audioBase64}`).play().catch(() => {});
       })
       .catch(() => {});
     return () => {

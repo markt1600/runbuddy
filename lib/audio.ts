@@ -48,6 +48,15 @@ function makeSilentWavUrl(): string {
   return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
 }
 
+// The engine currently attached to a run. The summary screen checks it so its
+// own closing line waits for the trainer's sign-off instead of talking over it.
+let activeEngine: VoiceEngine | null = null;
+
+/** True while the run's trainer still has something to say. */
+export function coachIsSpeaking(): boolean {
+  return activeEngine?.busy ?? false;
+}
+
 export class VoiceEngine {
   private keepAlive: HTMLAudioElement | null = null;
   private player: HTMLAudioElement | null = null;
@@ -65,13 +74,40 @@ export class VoiceEngine {
 
   /** Must be called from a user gesture (Start Run tap) to unlock audio on iOS. */
   start() {
+    activeEngine = this;
     setAudioSession("ambient");
+    const silence = makeSilentWavUrl();
     if (!this.keepAlive) {
-      this.keepAlive = new Audio(makeSilentWavUrl());
+      this.keepAlive = new Audio(silence);
       this.keepAlive.loop = true;
       this.keepAlive.volume = 0.01;
     }
     this.keepAlive.play().catch(() => {});
+
+    // Unlock the phrase player in the same gesture. iOS only allows a
+    // programmatic play() on an element that has already played once under a
+    // user gesture — and with a delayed start the first phrase is 10 seconds
+    // away, long past the activation window. Without this the very first MP3
+    // is rejected, and because the element never got unlocked every phrase
+    // after it fails too, so the whole run comes out in the robotic fallback
+    // voice. Playing a moment of silence here is what buys the unlock.
+    if (!this.player) this.player = new Audio();
+    this.player.src = silence;
+    this.player.volume = 0.01;
+    void this.player
+      .play()
+      .then(() => {
+        // Only tidy up if nothing real has claimed the element in the meantime.
+        if (this.player && this.player.src === silence) {
+          this.player.pause();
+          this.player.currentTime = 0;
+        }
+        if (this.player) this.player.volume = 1;
+      })
+      .catch(() => {
+        if (this.player) this.player.volume = 1;
+      });
+
     // Prime speechSynthesis inside the gesture so later utterances are allowed
     if ("speechSynthesis" in window) {
       const u = new SpeechSynthesisUtterance(" ");
@@ -81,12 +117,32 @@ export class VoiceEngine {
   }
 
   stop() {
+    if (activeEngine === this) activeEngine = null;
     this.queue = [];
     this.player?.pause();
     this.keepAlive?.pause();
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     this.setSpeaking(false, null);
     setAudioSession("ambient");
+  }
+
+  /**
+   * End of run: drop the keep-alive loop but let whatever is already queued
+   * play out. Calling stop() here would cut the trainer's sign-off off a few
+   * hundred milliseconds in, which is all the time the summary screen takes to
+   * appear.
+   */
+  stopWhenIdle(maxWaitMs = 15_000) {
+    this.keepAlive?.pause();
+    const startedAt = Date.now();
+    const check = () => {
+      if (!this.busy || Date.now() - startedAt > maxWaitMs) {
+        this.stop();
+        return;
+      }
+      setTimeout(check, 200);
+    };
+    check();
   }
 
   /** True while anything is playing OR still waiting its turn. */
