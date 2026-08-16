@@ -1,5 +1,4 @@
-import { PHRASE_LIBRARY, phrasesFor } from "./phrases";
-import { getPhraseUrl, renderedCount } from "./voiceLibrary";
+import { allPhrasesFor, getPhraseUrl, renderedCount } from "./voiceLibrary";
 import type { Persona, Phrase, PhraseCategory, RunStats } from "./types";
 import type { VoiceEngine } from "./audio";
 import type { RunEnvironment } from "./enviro";
@@ -48,7 +47,7 @@ export class CoachEngine {
   /** Library size + how much of it has pre-rendered ElevenLabs audio. */
   libraryStats() {
     return {
-      total: PHRASE_LIBRARY[this.persona.id].length,
+      total: allPhrasesFor(this.persona.id).length,
       rendered: renderedCount(this.persona.id),
     };
   }
@@ -76,7 +75,7 @@ export class CoachEngine {
 
 
   private pick(category: PhraseCategory): Phrase | null {
-    const pool = phrasesFor(this.persona.id, category);
+    const pool = allPhrasesFor(this.persona.id, category);
     if (pool.length === 0) return null;
     const fresh = pool.filter((p) => !this.used.has(p.id));
     const source = fresh.length > 0 ? fresh : pool;
@@ -119,7 +118,7 @@ export class CoachEngine {
 
   /** Round-robin through the intro monologues, persisted across runs. */
   private sayIntroFromLibrary() {
-    const pool = phrasesFor(this.persona.id, "intro");
+    const pool = allPhrasesFor(this.persona.id, "intro");
     if (pool.length === 0) {
       this.sayFromLibrary("start");
       return;

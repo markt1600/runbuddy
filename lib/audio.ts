@@ -1,4 +1,5 @@
 import type { Persona } from "./types";
+import { recordLifetimePlay } from "./voiceLibrary";
 
 // VoiceEngine — plays coach phrases on top of background music.
 //
@@ -130,6 +131,7 @@ export class VoiceEngine {
         }
       }
       this.counts[served]++;
+      recordLifetimePlay(served);
       this.setSpeaking(false, null);
       setAudioSession("ambient"); // un-duck the music
       await new Promise((r) => setTimeout(r, 400));

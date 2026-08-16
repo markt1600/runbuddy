@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import SetupScreen from "./SetupScreen";
 import RunScreen from "./RunScreen";
 import SummaryScreen from "./SummaryScreen";
+import AdminScreen from "./AdminScreen";
 import { PERSONAS } from "@/lib/personas";
 import { ensureVoiceLibrary, type GenerationProgress } from "@/lib/voiceLibrary";
 import type { MusicSource, PersonaId, RunStats } from "@/lib/types";
 
-type Screen = "setup" | "run" | "summary";
+type Screen = "setup" | "run" | "summary" | "admin";
 
 export default function RunBuddyApp() {
   const [screen, setScreen] = useState<Screen>("setup");
@@ -35,9 +36,11 @@ export default function RunBuddyApp() {
           music={music}
           onMusicChange={setMusic}
           onStart={() => setScreen("run")}
+          onAdmin={() => setScreen("admin")}
           genProgress={genProgress}
         />
       )}
+      {screen === "admin" && <AdminScreen onBack={() => setScreen("setup")} />}
       {screen === "run" && (
         <RunScreen
           persona={persona}

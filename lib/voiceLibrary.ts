@@ -1,97 +1,123 @@
 import { PHRASE_LIBRARY } from "./phrases";
-import type { PersonaId } from "./types";
+import type { Persona, Phrase, PersonaId, PhraseCategory } from "./types";
 
-// Client-side registry of which library phrases have real rendered audio and
-// where it lives — committed static files (public/audio/...) or runtime-rendered
-// Vercel Blob URLs. The coach reads it live, so phrases become "pre-rendered"
-// the moment the generator finishes them mid-session.
+// Client-side registry of the full phrase library — static phrases shipped in
+// the bundle plus AI-generated "extra" phrases stored server-side — and which
+// of them have real rendered audio (committed static MP3s or Vercel Blob URLs).
+// The coach reads it live, so phrases become available the moment they render.
 
-const urls = new Map<string, string>(); // "<persona>/<id>" → url
+const urls = new Map<string, string>(); // "<persona>/<id>" → audio url
+const extras: Record<PersonaId, Phrase[]> = { ahbeng: [], coach: [] };
+let flags = { blob: false, elevenlabs: false, canRender: false, statusReached: false };
+let stateLoaded = false;
+
+const key = (persona: PersonaId, id: string) => `${persona}/${id}`;
 
 export function getPhraseUrl(persona: PersonaId, id: string): string | undefined {
-  return urls.get(`${persona}/${id}`);
+  return urls.get(key(persona, id));
+}
+
+export function allPhrasesFor(persona: PersonaId, category?: PhraseCategory): Phrase[] {
+  const merged = [...PHRASE_LIBRARY[persona], ...extras[persona]];
+  return category ? merged.filter((p) => p.category === category) : merged;
 }
 
 export function renderedCount(persona: PersonaId): number {
-  return PHRASE_LIBRARY[persona].filter((p) => urls.has(`${persona}/${p.id}`)).length;
+  return allPhrasesFor(persona).filter((p) => urls.has(key(persona, p.id))).length;
+}
+
+export function libraryFlags() {
+  return { ...flags };
 }
 
 export interface GenerationProgress {
   state: "idle" | "checking" | "generating" | "done" | "unavailable" | "error";
   done: number; // phrases with audio (all personas)
-  total: number; // all library phrases
-  current?: string; // persona name being rendered
+  total: number; // all library phrases (static + extras)
   message?: string;
 }
 
-let started = false;
-
-/**
- * Ensure the whole library has rendered audio. Loads static manifests and the
- * blob status, then renders whatever is missing one phrase at a time through
- * the server (which holds the ElevenLabs key). Safe to call once per app load;
- * progress is reported via the callback.
- */
-export async function ensureVoiceLibrary(
-  onProgress: (p: GenerationProgress) => void
-): Promise<void> {
-  if (started) return;
-  started = true;
-
-  const allPhrases = (Object.keys(PHRASE_LIBRARY) as PersonaId[]).flatMap((persona) =>
-    PHRASE_LIBRARY[persona].map((p) => ({ persona, id: p.id }))
+function allPhrasesAllPersonas(): { persona: PersonaId; id: string }[] {
+  return (Object.keys(PHRASE_LIBRARY) as PersonaId[]).flatMap((persona) =>
+    allPhrasesFor(persona).map((p) => ({ persona, id: p.id }))
   );
-  const total = allPhrases.length;
-  const report = (state: GenerationProgress["state"], extra: Partial<GenerationProgress> = {}) =>
-    onProgress({ state, done: countKnown(), total, ...extra });
+}
 
-  const countKnown = () =>
-    allPhrases.filter(({ persona, id }) => urls.has(`${persona}/${id}`)).length;
+function countKnown(): number {
+  return allPhrasesAllPersonas().filter(({ persona, id }) => urls.has(key(persona, id))).length;
+}
 
-  report("checking");
+function unavailableReason(): string {
+  if (!flags.statusReached) return "Couldn't reach the server to check the voice library.";
+  if (!flags.elevenlabs && !flags.blob)
+    return "Set ELEVENLABS_API_KEY and connect a Vercel Blob store to enable voice rendering.";
+  if (!flags.elevenlabs) return "ELEVENLABS_API_KEY is not set on the server.";
+  if (!flags.blob)
+    return "No Vercel Blob store connected — in Vercel: Storage → Create Database → Blob, then redeploy.";
+  return "Voice rendering is not available.";
+}
 
-  // 1. Static manifests (phrases committed via `npm run generate-library`)
+/** Load static manifests + server status (flags, blob URLs, extra phrases). */
+export async function loadLibraryState(force = false): Promise<void> {
+  if (stateLoaded && !force) return;
+  stateLoaded = true;
+
   for (const persona of Object.keys(PHRASE_LIBRARY) as PersonaId[]) {
     try {
       const res = await fetch(`/audio/${persona}/manifest.json`);
       if (res.ok) {
         const ids: string[] = await res.json();
-        ids.forEach((id) => urls.set(`${persona}/${id}`, `/audio/${persona}/${id}.mp3`));
+        ids.forEach((id) => urls.set(key(persona, id), `/audio/${persona}/${id}.mp3`));
       }
     } catch {
       /* no static library — fine */
     }
   }
 
-  // 2. Blob-rendered phrases + server capability
-  let canRender = false;
   try {
     const res = await fetch("/api/library/status");
     if (res.ok) {
-      const data: { canRender: boolean; rendered: Record<string, string> } = await res.json();
-      canRender = data.canRender;
-      for (const [key, url] of Object.entries(data.rendered)) {
-        if (!urls.has(key)) urls.set(key, url);
+      const data: {
+        blob: boolean;
+        elevenlabs: boolean;
+        canRender: boolean;
+        rendered: Record<string, string>;
+        extras: Record<string, Phrase[]>;
+      } = await res.json();
+      flags = { ...data, statusReached: true };
+      for (const [k, url] of Object.entries(data.rendered)) {
+        if (!urls.has(k)) urls.set(k, url);
+      }
+      for (const persona of Object.keys(extras) as PersonaId[]) {
+        extras[persona] = data.extras?.[persona] ?? [];
       }
     }
   } catch {
-    /* offline or route missing */
+    /* offline or route missing — flags stay pessimistic */
   }
+}
 
-  const missing = allPhrases.filter(({ persona, id }) => !urls.has(`${persona}/${id}`));
+/** Render every phrase that lacks audio, one at a time. Reports progress. */
+export async function renderMissingPhrases(
+  onProgress: (p: GenerationProgress) => void
+): Promise<void> {
+  const report = (state: GenerationProgress["state"], message?: string) =>
+    onProgress({ state, done: countKnown(), total: allPhrasesAllPersonas().length, message });
+
+  const missing = allPhrasesAllPersonas().filter(({ persona, id }) => !urls.has(key(persona, id)));
   if (missing.length === 0) {
     report("done");
     return;
   }
-  if (!canRender) {
-    report("unavailable");
+  if (!flags.canRender) {
+    report("unavailable", unavailableReason());
     return;
   }
 
-  // 3. Render the gaps, one phrase at a time, sequentially (ElevenLabs
-  // concurrency limits are low, and this gives clean per-phrase progress).
+  // Sequential: ElevenLabs concurrency limits are low, and per-phrase progress
+  // is exactly what the UI wants.
   let consecutiveFailures = 0;
-  report("generating", { current: missing[0].persona });
+  report("generating");
   for (const { persona, id } of missing) {
     try {
       const res = await fetch("/api/library/render", {
@@ -101,18 +127,94 @@ export async function ensureVoiceLibrary(
       });
       if (!res.ok) throw new Error(String(res.status));
       const data: { url: string } = await res.json();
-      urls.set(`${persona}/${id}`, data.url);
+      urls.set(key(persona, id), data.url);
       consecutiveFailures = 0;
-      report("generating", { current: persona });
+      report("generating");
     } catch {
       consecutiveFailures++;
       if (consecutiveFailures >= 3) {
-        report("error", {
-          message: "Voice rendering stopped — check ElevenLabs credits. Will retry next launch.",
-        });
+        report("error", "Voice rendering stopped — check ElevenLabs credits, then retry.");
         return;
       }
     }
   }
   report("done");
+}
+
+let autoStarted = false;
+
+/** App-launch hook: load state, then top up the library automatically. */
+export async function ensureVoiceLibrary(
+  onProgress: (p: GenerationProgress) => void
+): Promise<void> {
+  if (autoStarted) return;
+  autoStarted = true;
+  onProgress({ state: "checking", done: 0, total: 0 });
+  await loadLibraryState();
+  await renderMissingPhrases(onProgress);
+}
+
+/** Ask the server for `count` brand-new AI-written phrases, then render them. */
+export async function expandLibrary(
+  persona: PersonaId,
+  count: number,
+  onProgress: (p: GenerationProgress) => void
+): Promise<Phrase[]> {
+  const res = await fetch("/api/library/expand", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ persona, count }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? `expand failed (${res.status})`);
+  }
+  const data: { phrases: Phrase[] } = await res.json();
+  extras[persona] = [...extras[persona], ...data.phrases];
+  await renderMissingPhrases(onProgress);
+  return data.phrases;
+}
+
+// ---- Lifetime play stats (persisted across runs) ----
+
+export type ServeKind = "prerendered" | "live" | "synth";
+const LIFETIME_KEY = "runbuddy-lifetime-plays";
+
+export function recordLifetimePlay(kind: ServeKind) {
+  try {
+    const cur = JSON.parse(localStorage.getItem(LIFETIME_KEY) ?? "{}");
+    cur[kind] = (cur[kind] ?? 0) + 1;
+    localStorage.setItem(LIFETIME_KEY, JSON.stringify(cur));
+  } catch {
+    /* private mode etc. */
+  }
+}
+
+export function lifetimeStats(): Record<ServeKind, number> {
+  try {
+    const cur = JSON.parse(localStorage.getItem(LIFETIME_KEY) ?? "{}");
+    return { prerendered: cur.prerendered ?? 0, live: cur.live ?? 0, synth: cur.synth ?? 0 };
+  } catch {
+    return { prerendered: 0, live: 0, synth: 0 };
+  }
+}
+
+/** Preview a phrase in the admin screen: rendered audio if we have it, else synth. */
+export function playPhrase(persona: Persona, phrase: Phrase) {
+  const url = getPhraseUrl(persona.id, phrase.id);
+  if (url) {
+    void new Audio(url).play().catch(() => speakFallback(persona, phrase.text));
+  } else {
+    speakFallback(persona, phrase.text);
+  }
+}
+
+function speakFallback(persona: Persona, text: string) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = persona.tts.rate;
+  u.pitch = persona.tts.pitch;
+  u.lang = persona.tts.lang;
+  window.speechSynthesis.speak(u);
 }

@@ -1,7 +1,7 @@
 import { list, put } from "@vercel/blob";
 import { PHRASE_LIBRARY } from "../phrases";
 import { renderVoiceBuffer } from "./generate";
-import type { PersonaId } from "../types";
+import type { PersonaId, Phrase } from "../types";
 
 // Runtime voice-library rendering into Vercel Blob. Serverless filesystems are
 // ephemeral, so MP3s rendered after deploy live in Blob storage; phrases
@@ -35,12 +35,50 @@ export async function listRendered(): Promise<Record<string, string>> {
   return out;
 }
 
+// ---- AI-generated "extra" phrases, stored as JSON in Blob ----
+
+const extrasPath = (persona: PersonaId) => `library/${persona}/extras.json`;
+
+export async function readExtras(persona: PersonaId): Promise<Phrase[]> {
+  if (!blobConfigured()) return [];
+  try {
+    const page = await list({ prefix: extrasPath(persona), limit: 1 });
+    const hit = page.blobs.find((b) => b.pathname === extrasPath(persona));
+    if (!hit) return [];
+    const res = await fetch(hit.url, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? (data as Phrase[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function appendExtras(persona: PersonaId, phrases: Phrase[]): Promise<Phrase[]> {
+  const existing = await readExtras(persona);
+  const merged = [...existing, ...phrases];
+  await put(extrasPath(persona), JSON.stringify(merged, null, 2), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+  });
+  return merged;
+}
+
+async function findPhrase(persona: PersonaId, phraseId: string): Promise<Phrase | undefined> {
+  const fromStatic = PHRASE_LIBRARY[persona].find((p) => p.id === phraseId);
+  if (fromStatic) return fromStatic;
+  return (await readExtras(persona)).find((p) => p.id === phraseId);
+}
+
 /** Render one library phrase into Blob (idempotent). Returns its public URL. */
 export async function renderPhraseToBlob(
   persona: PersonaId,
   phraseId: string
 ): Promise<{ url: string; existed: boolean }> {
-  const phrase = PHRASE_LIBRARY[persona].find((p) => p.id === phraseId);
+  const phrase = await findPhrase(persona, phraseId);
   if (!phrase) throw new Error("unknown phrase");
 
   const pathname = `${PREFIX}/${persona}/${phraseId}.mp3`;

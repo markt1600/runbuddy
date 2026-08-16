@@ -630,6 +630,132 @@ body {
   color: rgba(255, 255, 255, 0.25);
 }
 
+/* ---------- Admin ---------- */
+
+.admin-link {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: var(--label-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+.back-link {
+  border: none;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 8px 8px 0;
+}
+
+.admin-title {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.config-card { padding: 6px 14px; }
+
+.config-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.config-row + .config-row { border-top: 0.5px solid var(--separator); }
+.config-row.ok { color: var(--green); }
+.config-row.bad { color: var(--orange); }
+
+.config-hint {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--label-2);
+}
+
+.admin-lib-stats {
+  display: flex;
+  justify-content: space-around;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cta.secondary {
+  background: var(--bg-elevated-2);
+  color: var(--blue);
+}
+
+.admin-notice {
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--label-2);
+}
+
+.admin-notice.ok { color: var(--green); }
+.admin-notice.bad { color: var(--orange); }
+
+.phrase-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.phrase-row + .phrase-row { border-top: 0.5px solid var(--separator); }
+
+.phrase-play {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-elevated-2);
+  color: var(--blue);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.phrase-text {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--label);
+}
+
+.phrase-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--bg-elevated-2);
+  color: var(--label-3);
+  flex-shrink: 0;
+}
+
+.phrase-badge.ok { color: var(--green); }
+.phrase-badge.ai { color: var(--blue); }
+
 /* ---------- Summary ---------- */
 
 .summary-hero {

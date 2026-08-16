@@ -31,6 +31,7 @@ interface Props {
   music: MusicSource;
   onMusicChange: (m: MusicSource) => void;
   onStart: () => void;
+  onAdmin: () => void;
   genProgress: GenerationProgress | null;
 }
 
@@ -79,7 +80,16 @@ function VoiceLibraryBanner({ progress }: { progress: GenerationProgress | null 
       </div>
     );
   }
-  return null; // idle / unavailable → nothing to show
+  if (progress.state === "unavailable" && progress.message) {
+    return (
+      <div className="gen-banner gen-error">
+        <div className="gen-row">
+          <span className="gen-text">🔇 {progress.message}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
 }
 
 export default function SetupScreen({
@@ -88,6 +98,7 @@ export default function SetupScreen({
   music,
   onMusicChange,
   onStart,
+  onAdmin,
   genProgress,
 }: Props) {
   const previewVoice = (id: PersonaId, e: React.MouseEvent) => {
@@ -175,6 +186,9 @@ export default function SetupScreen({
       <div className="footer-cta">
         <button className="cta" onClick={onStart}>
           Start Run
+        </button>
+        <button className="admin-link" onClick={onAdmin}>
+          ⚙ Admin
         </button>
       </div>
     </div>
