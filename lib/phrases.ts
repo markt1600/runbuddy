@@ -51,6 +51,7 @@ const ahbeng: Phrase[] = [
   { id: "ab-pu-14", category: "pace_up", text: "Wah, sightseeing ah? This one not Sentosa. Move your chao chee bye legs!" },
   { id: "ab-pu-15", category: "pace_up", text: "You slow down one more time, I add another kilometre. Try me, chee bye." },
   { id: "ab-pu-16", category: "pace_up", text: "Eh! Somebody switch you to energy saving mode issit? TURBO ON, kanina!" },
+  { id: "ab-pu-17", category: "pace_up", text: "Wah lau — why you run so slow? Did someone transfer their suayness to your lan jiao legs? Faster kanina!" },
   // ---- pace_down (running well / faster) ----
   { id: "ab-pd-1", category: "pace_down", text: "Eh not bad ah chee bye! Who chasing you? Ah Long issit? Whatever it is, keep running from it!" },
   { id: "ab-pd-2", category: "pace_down", text: "Wah lau eh, speed demon issit? Okay lah, I give you one respect. ONE only ah, kanina, don't be greedy." },
@@ -1059,6 +1060,7 @@ const ahlian: Phrase[] = [
   { id: "li-pu-14", category: "pace_up", text: "This pace? Aiyoh. Even my ex's mother walk faster, and she got bad knee!" },
   { id: "li-pu-15", category: "pace_up", text: "Faster leh! Later I lose my voice scolding you, then who going to motivate you, chee bye?" },
   { id: "li-pu-16", category: "pace_up", text: "Kanina, your legs got aircon issit? Why so relaxed? PUSH!" },
+  { id: "li-pu-17", category: "pace_up", text: "Wah lau — why you run so slow? Did someone transfer their suayness to your lan jiao legs? Faster kanina!" },
   // ---- pace_down (running well) ----
   { id: "li-pd-1", category: "pace_down", text: "Eh! Suddenly got power ah? Okay lah chee bye, I allow it. Don't stop!" },
   { id: "li-pd-2", category: "pace_down", text: "Wah, now you running properly! See? Scolding works, kanina!" },
