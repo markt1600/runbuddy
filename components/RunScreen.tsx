@@ -44,6 +44,7 @@ export default function RunScreen({
   const [autoPaused, setAutoPaused] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [resumeCountdown, setResumeCountdown] = useState(0);
+  const [awaitingMovement, setAwaitingMovement] = useState(false);
   const [distanceKm, setDistanceKm] = useState(0);
   const [speeds, setSpeeds] = useState<{
     now: number | null;
@@ -82,6 +83,7 @@ export default function RunScreen({
   const autoPausedRef = useRef(false);
   const countdownRef = useRef(0);
   const resumeCountdownRef = useRef(0);
+  const awaitingMovementRef = useRef(false);
   const finishedRef = useRef(false);
   const splitsRef = useRef<number[]>([]);
   const lastSplitAtRef = useRef(0);
@@ -133,10 +135,13 @@ export default function RunScreen({
   }, []);
 
   /** Everything a resume has to do, however it was triggered. */
-  const resumeRun = useCallback(() => {
+  const resumeRun = useCallback((atMs?: number) => {
     resumeCountdownRef.current = 0;
     setResumeCountdown(0);
-    startAtRef.current = Date.now();
+    awaitingMovementRef.current = false;
+    setAwaitingMovement(false);
+    geoRef.current?.disarmResume();
+    startAtRef.current = atMs ?? Date.now();
     pausedRef.current = false;
     autoPausedRef.current = false;
     setPaused(false);
@@ -190,6 +195,12 @@ export default function RunScreen({
         setAutoPaused(false);
         signalTransition("resume");
         coach.onAutoResume();
+      };
+      // Manual pause, phone back in the sleeve: the clock restarts itself the
+      // moment the runner moves off, back-dated to that fix like auto-resume.
+      geo.onArmedResume = (at) => {
+        if (!awaitingMovementRef.current) return;
+        resumeRun(at);
       };
       geo.start(() => {
         setDistanceKm(geo.distanceKm);
@@ -313,14 +324,22 @@ export default function RunScreen({
   };
 
   /**
-   * Resume on a ten-second delay, locking the screen straight away — you tap
-   * it while the phone is still in your hand and it goes back in the sleeve
-   * before the clock restarts.
+   * "Put it away and go." Locks the screen immediately, then hands the resume
+   * to whatever evidence this mode has: outdoors we wait for the runner to
+   * actually move off; on a treadmill there is no GPS to watch, so it counts
+   * down instead.
    */
   const startDelayedResume = () => {
-    resumeCountdownRef.current = RESUME_DELAY_SEC;
-    setResumeCountdown(RESUME_DELAY_SEC);
     setLocked(true);
+    const sig = geoRef.current?.signal();
+    if (treadmill || !geoRef.current || sig === "denied" || sig === "unavailable") {
+      resumeCountdownRef.current = RESUME_DELAY_SEC;
+      setResumeCountdown(RESUME_DELAY_SEC);
+      return;
+    }
+    awaitingMovementRef.current = true;
+    setAwaitingMovement(true);
+    geoRef.current.armResume();
   };
 
   const endRun = () => {
@@ -476,7 +495,13 @@ export default function RunScreen({
         <>
           <div className={`big-timer${paused ? " paused" : ""}`}>{formatElapsed(elapsedMs)}</div>
           <div className="timer-label">
-            {autoPaused ? "Auto-paused — start moving to resume" : paused ? "Paused" : "Elapsed"}
+            {awaitingMovement
+              ? "Phone in the sleeve — start running to resume"
+              : autoPaused
+                ? "Auto-paused — start moving to resume"
+                : paused
+                  ? "Paused"
+                  : "Elapsed"}
           </div>
         </>
       )}
@@ -588,9 +613,11 @@ export default function RunScreen({
       {/* Hidden rather than unmounted while locked: the buttons are inert under
           the overlay and would otherwise sit right beneath the unlock pad, but
           keeping their space stops everything above from jumping. */}
-      {paused && !autoPaused && resumeCountdown === 0 && !locked && (
+      {paused && !autoPaused && resumeCountdown === 0 && !awaitingMovement && !locked && (
         <button className="cta secondary delayed-resume" onClick={startDelayedResume}>
-          ⏱ Resume in {RESUME_DELAY_SEC}s — locks for the sleeve
+          {treadmill
+            ? `⏱ Resume in ${RESUME_DELAY_SEC}s — locks for the sleeve`
+            : "🔒 Put it away — resumes when I run"}
         </button>
       )}
 

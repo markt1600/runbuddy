@@ -47,6 +47,14 @@ const STALL_GO_KM = 0.015;
 // fixes are genuinely still arriving at a steady rate.
 const STALL_FIX_GAP_MS = 4000;
 const STALL_MIN_SAMPLES = 5;
+// Armed resume, for devices that give us no Doppler speed. The settle delay
+// matters: the position filter lags for a few seconds after an abrupt stop, and
+// that catch-up looks exactly like setting off again. The window is trailing
+// rather than anchored so slow drift over a long pause never accumulates into a
+// false start either.
+const ARM_MOVE_M = 15;
+const ARM_SETTLE_MS = 3000;
+const ARM_WINDOW_MS = 6000;
 
 export function haversineKm(a: GeoSample, b: GeoSample): number {
   const R = 6371;
@@ -99,6 +107,12 @@ export class GeoTracker {
   onAutoPause: ((atMs: number) => void) | null = null;
   /** Called when the run should resume. The argument is when movement actually restarted. */
   onAutoResume: ((atMs: number) => void) | null = null;
+  /** True while a manual pause is waiting for the runner to move off again. */
+  armedForResume = false;
+  private armedAt = 0;
+  private armTrail: { t: number; lat: number; lon: number }[] = [];
+  /** Called when an armed manual pause sees the runner start moving. */
+  onArmedResume: ((atMs: number) => void) | null = null;
   distanceKm = 0;
   lastError: string | null = null;
   /** Most recent fix of any accuracy — good enough for weather / geocoding. */
@@ -241,7 +255,12 @@ export class GeoTracker {
    */
   private detectAutoPause(s: GeoSample, now: number) {
     // A manual pause owns the run state — don't fight it, and don't come back
-    // from it on our own.
+    // from it on our own. The one exception is a resume the runner has armed
+    // by hand, where watching for the go edge is exactly the job.
+    if (this.armedForResume && this.paused) {
+      this.watchForArmedResume(s, now);
+      return;
+    }
     if (!this.autoPauseEnabled || this.paused) {
       this.stillRun = 0;
       this.moveRun = 0;
@@ -292,6 +311,70 @@ export class GeoTracker {
       this.lastAutoResumeAt = now;
       this.onAutoResume?.(this.firstMoveAt);
     }
+  }
+
+  /**
+   * Armed resume: the runner paused by hand, put the phone away, and the clock
+   * should start itself the moment they run again. Distance is frozen while we
+   * wait, so the stall detector has nothing to read — we measure displacement
+   * from a reference fix instead, and lean on Doppler where it exists.
+   */
+  private watchForArmedResume(s: GeoSample, now: number) {
+    this.stillRun = 0;
+    this.autoPaused = false;
+    // Long enough to stow the phone, and for the filter to settle after the
+    // stop that preceded the pause.
+    if (now - this.armedAt < ARM_SETTLE_MS) return;
+
+    let moving: boolean;
+    if (s.speed !== null) {
+      moving = !this.stationary;
+    } else {
+      // Smoothed positions over a trailing window. Raw fixes at 25 m accuracy
+      // wander far enough on their own to clear any gate worth having.
+      this.armTrail.push({ t: now, lat: this.kLat, lon: this.kLon });
+      // Keep the newest entry that is still *older* than the window. Dropping
+      // everything past the cutoff instead would discard the only sample that
+      // can satisfy the check below, and the window would never fill — which
+      // it doesn't, unless fixes happen to land on exact window boundaries.
+      while (this.armTrail.length > 1 && this.armTrail[1].t <= now - ARM_WINDOW_MS) {
+        this.armTrail.shift();
+      }
+      const from = this.armTrail[0];
+      if (now - from.t < ARM_WINDOW_MS) return; // window not filled yet
+      // A bigger gate than the running one: a false start here restarts the
+      // clock while the runner is still fiddling with a sleeve.
+      const movedM =
+        haversineKm({ ...s, lat: from.lat, lon: from.lon }, { ...s, lat: this.kLat, lon: this.kLon }) *
+        1000;
+      moving = movedM > Math.max(ARM_MOVE_M, s.accuracy * ACCURACY_FACTOR);
+    }
+
+    if (moving) {
+      if (this.moveRun === 0) this.firstMoveAt = now;
+      this.moveRun++;
+    } else {
+      this.moveRun = 0;
+    }
+    if (this.moveRun >= AUTO_RESUME_FIXES) {
+      this.disarmResume();
+      this.lastAutoResumeAt = now;
+      this.onArmedResume?.(this.firstMoveAt);
+    }
+  }
+
+  /** Start watching for the runner to move again after a manual pause. */
+  armResume() {
+    this.armedForResume = true;
+    this.armedAt = Date.now();
+    this.armTrail = [];
+    this.moveRun = 0;
+    this.stillRun = 0;
+  }
+
+  disarmResume() {
+    this.armedForResume = false;
+    this.armTrail = [];
   }
 
   stop() {

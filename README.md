@@ -43,9 +43,11 @@ encouragement) — press Start, and get coached over your own music.
   lock, for armband runners.
 - **Sleeve lock** — 🔒 in the run screen's top bar blocks every control so an
   arm sleeve can't pause or end your run; unlock with a deliberate 1.5s hold.
-- **Delayed resume** — after a manual pause, resume on a ten-second count that
-  locks the screen the moment you tap it, so the phone is back in the sleeve
-  before the clock restarts.
+- **Put it away and go** — after a manual pause, one tap locks the screen and
+  hands the resume to whatever evidence the mode has. Outdoors the clock
+  restarts itself the moment you move off, back-dated to that fix (~1s with
+  Doppler). On a treadmill there is no GPS to watch, so it counts down ten
+  seconds instead.
 - **Pause / resume cues** — every transition, manual or automatic, buzzes the
   phone and plays a short two-tone cue (falling for a stop, rising for a go)
   ahead of whatever the trainer says about it. iOS Safari has no Vibration API,
