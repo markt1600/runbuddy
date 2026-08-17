@@ -20,11 +20,9 @@ function setAudioSession(type: AudioSessionType) {
   }
 }
 
-/** Build a 1-second near-silent WAV as a blob URL (keep-alive loop source). */
-function makeSilentWavUrl(): string {
-  const sampleRate = 8000;
-  const samples = sampleRate; // 1 second
-  const dataSize = samples * 2;
+/** Wrap 16-bit mono PCM in a WAV container and hand back a blob URL. */
+function wavBlobUrl(samples: Int16Array, sampleRate: number): string {
+  const dataSize = samples.length * 2;
   const buf = new ArrayBuffer(44 + dataSize);
   const v = new DataView(buf);
   const writeStr = (off: number, s: string) => {
@@ -43,9 +41,59 @@ function makeSilentWavUrl(): string {
   v.setUint16(34, 16, true);
   writeStr(36, "data");
   v.setUint32(40, dataSize, true);
-  // amplitude 1 (out of 32767): inaudible but keeps the session "playing"
-  for (let i = 0; i < samples; i++) v.setInt16(44 + i * 2, i % 2, true);
+  for (let i = 0; i < samples.length; i++) v.setInt16(44 + i * 2, samples[i], true);
   return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+}
+
+/** A 1-second near-silent loop source that keeps the audio session alive. */
+function makeSilentWavUrl(): string {
+  const rate = 8000;
+  const out = new Int16Array(rate);
+  // amplitude 1 (out of 32767): inaudible but keeps the session "playing"
+  for (let i = 0; i < out.length; i++) out[i] = i % 2;
+  return wavBlobUrl(out, rate);
+}
+
+/** Two short beeps at the given pitches — the non-verbal pause / resume cue. */
+function makeCueUrl(freqs: number[]): string {
+  const rate = 22050;
+  const toneN = Math.round(rate * 0.13);
+  const gapN = Math.round(rate * 0.06);
+  const fade = Math.round(rate * 0.012); // no clicks at the edges
+  const out = new Int16Array(freqs.length * toneN + (freqs.length - 1) * gapN);
+  let o = 0;
+  for (let f = 0; f < freqs.length; f++) {
+    for (let i = 0; i < toneN; i++) {
+      const env = Math.min(1, i / fade, (toneN - i) / fade);
+      out[o++] = Math.round(Math.sin((2 * Math.PI * freqs[f] * i) / rate) * 0.35 * env * 32767);
+    }
+    o += f < freqs.length - 1 ? gapN : 0;
+  }
+  return wavBlobUrl(out, rate);
+}
+
+// Built once, on first use — descending for a stop, ascending for a go.
+let pauseCueUrl: string | null = null;
+let resumeCueUrl: string | null = null;
+
+/**
+ * Buzz the phone. iOS Safari does not implement the Vibration API at all, so on
+ * an iPhone this is a no-op and the audible cue is what the runner actually
+ * feels the absence of — hence both, together, everywhere.
+ */
+export function vibrate(pattern: number | number[]) {
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate(pattern);
+    }
+  } catch {
+    /* unsupported or blocked */
+  }
+}
+
+/** Does this device have vibration at all? False on every iPhone. */
+export function vibrationSupported(): boolean {
+  return typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
 }
 
 // The engine currently attached to a run. The summary screen checks it so its
@@ -68,7 +116,7 @@ export type DuckMode = "duck" | "pause";
 export class VoiceEngine {
   private keepAlive: HTMLAudioElement | null = null;
   private player: HTMLAudioElement | null = null;
-  private queue: { text: string; audioUrl?: string }[] = [];
+  private queue: { text: string; audioUrl?: string; cue?: boolean }[] = [];
   private playing = false;
   private persona: Persona;
   private duckMode: DuckMode;
@@ -203,6 +251,23 @@ export class VoiceEngine {
     void this.drain();
   }
 
+  /**
+   * A short two-tone cue for a pause or a resume, queued ahead of whatever the
+   * trainer is about to say about it. This is the part of "buzz on pause" that
+   * an iPhone can actually deliver — Safari has no Vibration API — and it is
+   * what tells you the clock stopped when the phone is in an arm sleeve.
+   */
+  cue(kind: "pause" | "resume") {
+    if (!pauseCueUrl) pauseCueUrl = makeCueUrl([880, 587]); // falling: stopped
+    if (!resumeCueUrl) resumeCueUrl = makeCueUrl([587, 880]); // rising: going
+    this.queue.unshift({
+      text: "",
+      audioUrl: kind === "pause" ? pauseCueUrl : resumeCueUrl,
+      cue: true,
+    });
+    void this.drain();
+  }
+
   private setSpeaking(s: boolean, text: string | null) {
     this.speaking = s;
     this.onSpeakingChange(s, text);
@@ -211,39 +276,48 @@ export class VoiceEngine {
   private async drain() {
     if (this.playing) return;
     this.playing = true;
-    while (this.queue.length > 0) {
-      const item = this.queue.shift()!;
-      setAudioSession(this.speakingSession); // get the music out of the way
-      this.setSpeaking(true, item.text);
-      let served: keyof typeof this.counts = !item.audioUrl
-        ? "synth"
-        : item.audioUrl.startsWith("data:")
-          ? "live"
-          : "prerendered";
-      try {
-        if (item.audioUrl) {
-          await this.playFile(item.audioUrl);
-        } else {
-          await this.speakSynth(item.text);
-        }
-      } catch {
-        // If the rendered file 404s or fails, fall back to synthesis once.
-        if (item.audioUrl) {
-          served = "synth";
-          try {
+    // Hold the music out of the way for the whole burst rather than per line:
+    // a km marker is three queued items back to back, and restoring between
+    // each one made the music stutter in and out three times.
+    setAudioSession(this.speakingSession);
+    try {
+      while (this.queue.length > 0) {
+        const item = this.queue.shift()!;
+        this.setSpeaking(true, item.text);
+        let served: keyof typeof this.counts = !item.audioUrl
+          ? "synth"
+          : item.audioUrl.startsWith("data:")
+            ? "live"
+            : "prerendered";
+        try {
+          if (item.audioUrl) {
+            await this.playFile(item.audioUrl);
+          } else {
             await this.speakSynth(item.text);
-          } catch {
-            /* give up on this phrase */
+          }
+        } catch {
+          // If the rendered file 404s or fails, fall back to synthesis once.
+          // A cue has no words, so there is nothing to fall back to.
+          if (item.audioUrl && !item.cue) {
+            served = "synth";
+            try {
+              await this.speakSynth(item.text);
+            } catch {
+              /* give up on this phrase */
+            }
           }
         }
+        if (!item.cue) {
+          this.counts[served]++;
+          recordLifetimePlay(served);
+        }
+        this.setSpeaking(false, null);
+        await new Promise((r) => setTimeout(r, item.cue ? 120 : 400));
       }
-      this.counts[served]++;
-      recordLifetimePlay(served);
-      this.setSpeaking(false, null);
-      setAudioSession("ambient"); // un-duck the music
-      await new Promise((r) => setTimeout(r, 400));
+    } finally {
+      this.playing = false;
+      setAudioSession("ambient"); // the music can come back now
     }
-    this.playing = false;
   }
 
   private playFile(url: string): Promise<void> {

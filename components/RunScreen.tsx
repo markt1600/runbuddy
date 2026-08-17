@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GeoTracker, formatElapsed, type GpsSignal } from "@/lib/geo";
 import { formatInUnit, unitSuffix, type SpeedUnit } from "@/lib/units";
-import { VoiceEngine, WakeLockManager, type DuckMode } from "@/lib/audio";
+import { VoiceEngine, WakeLockManager, vibrate, type DuckMode } from "@/lib/audio";
 import { CoachEngine } from "@/lib/coach";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
 import type { MusicSource, Persona, RunStats } from "@/lib/types";
+
+/** Long enough to get the phone back into an arm sleeve and set yourself. */
+const RESUME_DELAY_SEC = 10;
 
 interface Props {
   persona: Persona;
@@ -40,6 +43,7 @@ export default function RunScreen({
   const [paused, setPaused] = useState(false);
   const [autoPaused, setAutoPaused] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [resumeCountdown, setResumeCountdown] = useState(0);
   const [distanceKm, setDistanceKm] = useState(0);
   const [speeds, setSpeeds] = useState<{
     now: number | null;
@@ -77,6 +81,7 @@ export default function RunScreen({
   const pausedRef = useRef(false);
   const autoPausedRef = useRef(false);
   const countdownRef = useRef(0);
+  const resumeCountdownRef = useRef(0);
   const finishedRef = useRef(false);
   const splitsRef = useRef<number[]>([]);
   const lastSplitAtRef = useRef(0);
@@ -116,6 +121,34 @@ export default function RunScreen({
     return stats;
   }, []);
 
+  /**
+   * Pause and resume are things you feel rather than see when the phone is in
+   * a sleeve, so every transition gets a buzz and a two-tone cue. The buzz is a
+   * no-op on iOS (Safari has no Vibration API); the cue is what actually
+   * lands there.
+   */
+  const signalTransition = useCallback((kind: "pause" | "resume") => {
+    vibrate(kind === "pause" ? [120, 80, 120] : [220]);
+    voiceRef.current?.cue(kind);
+  }, []);
+
+  /** Everything a resume has to do, however it was triggered. */
+  const resumeRun = useCallback(() => {
+    resumeCountdownRef.current = 0;
+    setResumeCountdown(0);
+    startAtRef.current = Date.now();
+    pausedRef.current = false;
+    autoPausedRef.current = false;
+    setPaused(false);
+    setAutoPaused(false);
+    // Resuming by hand while standing still is a deliberate override — clear
+    // the detector's state so it judges from here rather than re-firing.
+    geoRef.current?.clearAutoPause();
+    if (geoRef.current) geoRef.current.paused = false;
+    signalTransition("resume");
+    coachRef.current?.onResume();
+  }, [signalTransition]);
+
   useEffect(() => {
     const voice = new VoiceEngine(persona, duckMode);
     voice.onSpeakingChange = (s, text) => {
@@ -143,6 +176,7 @@ export default function RunScreen({
         autoPausedRef.current = true;
         setPaused(true);
         setAutoPaused(true);
+        signalTransition("pause");
         coach.onAutoPause();
       };
       geo.onAutoResume = (at) => {
@@ -150,8 +184,11 @@ export default function RunScreen({
         startAtRef.current = at;
         pausedRef.current = false;
         autoPausedRef.current = false;
+        resumeCountdownRef.current = 0;
+        setResumeCountdown(0);
         setPaused(false);
         setAutoPaused(false);
+        signalTransition("resume");
         coach.onAutoResume();
       };
       geo.start(() => {
@@ -235,8 +272,19 @@ export default function RunScreen({
       const lib = coach.libraryStats();
       setPhraseStats({ ...lib, ...voice.counts });
 
-      if (pausedRef.current) coach.tickPaused(stats);
-      else coach.tick(stats);
+      if (pausedRef.current) {
+        if (resumeCountdownRef.current > 0) {
+          const left = resumeCountdownRef.current - 1;
+          resumeCountdownRef.current = left;
+          setResumeCountdown(left);
+          if (left === 5) coach.sayCountdown(1); // the five-second line
+          if (left === 0) resumeRun();
+          return; // no loitering nags while we're counting back in
+        }
+        coach.tickPaused(stats);
+      } else {
+        coach.tick(stats);
+      }
     }, 1000);
 
     return () => {
@@ -253,23 +301,26 @@ export default function RunScreen({
 
   const togglePause = () => {
     if (pausedRef.current) {
-      startAtRef.current = Date.now();
-      pausedRef.current = false;
-      autoPausedRef.current = false;
-      setPaused(false);
-      setAutoPaused(false);
-      // Tapping Resume while standing still is a deliberate override — clear
-      // the detector's state so it judges from here rather than re-firing.
-      geoRef.current?.clearAutoPause();
-      if (geoRef.current) geoRef.current.paused = false;
-      coachRef.current?.onResume();
+      resumeRun();
     } else {
       accumulatedRef.current += Date.now() - startAtRef.current;
       pausedRef.current = true;
       setPaused(true);
       if (geoRef.current) geoRef.current.paused = true;
+      signalTransition("pause");
       coachRef.current?.onPause();
     }
+  };
+
+  /**
+   * Resume on a ten-second delay, locking the screen straight away — you tap
+   * it while the phone is still in your hand and it goes back in the sleeve
+   * before the clock restarts.
+   */
+  const startDelayedResume = () => {
+    resumeCountdownRef.current = RESUME_DELAY_SEC;
+    setResumeCountdown(RESUME_DELAY_SEC);
+    setLocked(true);
   };
 
   const endRun = () => {
@@ -412,10 +463,14 @@ export default function RunScreen({
         </button>
       </div>
 
-      {countdown > 0 ? (
+      {countdown > 0 || resumeCountdown > 0 ? (
         <>
-          <div className="big-timer counting">{countdown}</div>
-          <div className="timer-label">Phone in the sleeve — starting soon</div>
+          <div className="big-timer counting">{countdown > 0 ? countdown : resumeCountdown}</div>
+          <div className="timer-label">
+            {countdown > 0
+              ? "Phone in the sleeve — starting soon"
+              : "Phone in the sleeve — resuming soon"}
+          </div>
         </>
       ) : (
         <>
@@ -533,6 +588,12 @@ export default function RunScreen({
       {/* Hidden rather than unmounted while locked: the buttons are inert under
           the overlay and would otherwise sit right beneath the unlock pad, but
           keeping their space stops everything above from jumping. */}
+      {paused && !autoPaused && resumeCountdown === 0 && !locked && (
+        <button className="cta secondary delayed-resume" onClick={startDelayedResume}>
+          ⏱ Resume in {RESUME_DELAY_SEC}s — locks for the sleeve
+        </button>
+      )}
+
       <div className="run-controls" style={{ visibility: locked ? "hidden" : "visible" }}>
         <button className="control-btn pause" onClick={togglePause}>
           {paused ? "Resume" : "Pause"}
