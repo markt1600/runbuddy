@@ -19,6 +19,7 @@ import {
   storeAdminPin,
   type GenerationProgress,
 } from "@/lib/voiceLibrary";
+import { EXPANDABLE_CATEGORIES, FIXED_CATEGORY_REASON } from "@/lib/phraseCategories";
 import type { PersonaId, PhraseCategory } from "@/lib/types";
 
 const CATEGORY_LABELS: Record<PhraseCategory, string> = {
@@ -49,6 +50,9 @@ const CATEGORY_LABELS: Record<PhraseCategory, string> = {
 
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS) as PhraseCategory[];
 
+/** Phrases written per tap. Small enough to judge the results before adding more. */
+const EXPAND_BATCH = 5;
+
 interface Props {
   onBack: () => void;
 }
@@ -60,7 +64,7 @@ export default function AdminScreen({ onBack }: Props) {
   const [personaId, setPersonaId] = useState<PersonaId>("ahbeng");
   const [ready, setReady] = useState(false);
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
-  const [expanding, setExpanding] = useState(false);
+  const [expanding, setExpanding] = useState<PhraseCategory | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [speeds, setSpeeds] = useState<Record<PersonaId, number>>(
     () =>
@@ -145,7 +149,8 @@ export default function AdminScreen({ onBack }: Props) {
   const life = lifetimeStats();
   const lifeTotal = life.prerendered + life.live + life.synth;
   const hitRate = lifeTotal > 0 ? Math.round((life.prerendered / lifeTotal) * 100) : null;
-  const busy = expanding || progress?.state === "generating" || progress?.state === "checking";
+  const busy =
+    expanding !== null || progress?.state === "generating" || progress?.state === "checking";
 
   const onRenderMissing = async (only?: PersonaId) => {
     setNotice(null);
@@ -173,19 +178,26 @@ export default function AdminScreen({ onBack }: Props) {
     refresh();
   };
 
-  const onExpand = async () => {
+  const onExpandCategory = async (cat: PhraseCategory) => {
     setNotice(null);
-    setExpanding(true);
+    setExpanding(cat);
     try {
-      const fresh = await expandLibrary(personaId, 10, (p) => {
-        setProgress(p);
-        refresh();
-      });
-      setNotice(`✓ Added ${fresh.length} fresh ${persona.name} phrases`);
+      const fresh = await expandLibrary(
+        personaId,
+        EXPAND_BATCH,
+        (p) => {
+          setProgress(p);
+          refresh();
+        },
+        cat
+      );
+      setNotice(
+        `✓ Added ${fresh.length} new ${persona.shortName} "${CATEGORY_LABELS[cat]}" phrases`
+      );
     } catch (err) {
       setNotice(`⚠ ${err instanceof Error ? err.message : "generation failed"}`);
     } finally {
-      setExpanding(false);
+      setExpanding(null);
       refresh();
     }
   };
@@ -299,14 +311,6 @@ export default function AdminScreen({ onBack }: Props) {
           className="cta secondary"
           style={{ marginTop: 10 }}
           disabled={busy}
-          onClick={onExpand}
-        >
-          {expanding ? "Writing fresh phrases…" : `Generate 10 fresh ${persona.shortName} phrases`}
-        </button>
-        <button
-          className="cta secondary"
-          style={{ marginTop: 10 }}
-          disabled={busy}
           onClick={onReRender}
         >
           Re-render ALL {persona.shortName} phrases (voice changed)
@@ -396,8 +400,23 @@ export default function AdminScreen({ onBack }: Props) {
         if (pool.length === 0) return null;
         return (
           <div key={cat}>
-            <div className="section-header">
-              {CATEGORY_LABELS[cat]} · {pool.length}
+            <div className="section-header cat-header">
+              <span>
+                {CATEGORY_LABELS[cat]} · {pool.length}
+              </span>
+              {EXPANDABLE_CATEGORIES.includes(cat) ? (
+                <button
+                  className="cat-add"
+                  disabled={busy}
+                  onClick={() => onExpandCategory(cat)}
+                >
+                  {expanding === cat ? "writing…" : `+ ${EXPAND_BATCH} new`}
+                </button>
+              ) : (
+                <span className="cat-fixed" title={FIXED_CATEGORY_REASON[cat]}>
+                  fixed set
+                </span>
+              )}
             </div>
             <div className="card">
               {pool.map((phrase) => {

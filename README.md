@@ -146,6 +146,9 @@ routes run as serverless functions.
   pace. See "GPS accuracy" below.
 - `lib/enviro.ts` — keyless weather (Open-Meteo) + reverse geocoding
   (BigDataCloud), fetched from the first GPS fix, refreshed every 30 min.
+- `lib/phraseCategories.ts` — which phrase categories the generator can top up,
+  what each one is for, and why the rest are fixed. Shared by the admin screen
+  and the expand endpoint so they can't disagree.
 - `app/api/phrase` / `app/api/chat` — Claude (claude-sonnet-5) writes one line
   in-persona from the live run stats; ElevenLabs voices it; both degrade
   gracefully.

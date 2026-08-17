@@ -263,16 +263,20 @@ export async function ensureVoiceLibrary(
   await renderMissingPhrases(onProgress);
 }
 
-/** Ask the server for `count` brand-new AI-written phrases, then render them. */
+/**
+ * Ask the server for `count` brand-new AI-written phrases, then render them.
+ * Pass a category to top up just that bank rather than a spread.
+ */
 export async function expandLibrary(
   persona: PersonaId,
   count: number,
-  onProgress: (p: GenerationProgress) => void
+  onProgress: (p: GenerationProgress) => void,
+  category?: PhraseCategory
 ): Promise<Phrase[]> {
   const res = await fetch("/api/library/expand", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...adminPinHeaders() },
-    body: JSON.stringify({ persona, count }),
+    body: JSON.stringify({ persona, count, category }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

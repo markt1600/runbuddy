@@ -4,23 +4,15 @@ import { appendExtras, blobConfigured, readExtras } from "@/lib/server/library";
 import { checkPinHeader } from "@/lib/server/adminAuth";
 import { PERSONAS } from "@/lib/personas";
 import { PHRASE_LIBRARY } from "@/lib/phrases";
+import { CATEGORY_BRIEF, EXPANDABLE_CATEGORIES } from "@/lib/phraseCategories";
 import type { PersonaId, Phrase, PhraseCategory } from "@/lib/types";
 
 export const maxDuration = 60;
 
-// Generates a batch of brand-new library phrases for a persona (text only —
-// the client renders audio for them afterwards via /api/library/render) and
-// appends them to the persona's extras.json in Blob.
-
-const EXPANDABLE: PhraseCategory[] = [
-  "encourage",
-  "anecdote",
-  "pace_up",
-  "pace_down",
-  "milestone",
-  "chat",
-  "progress",
-];
+// Generates brand-new library phrases for a persona (text only — the client
+// renders audio for them afterwards via /api/library/render) and appends them
+// to the persona's extras.json in Blob. Pass a category to top up just that
+// bank; omit it for a spread across everything that can be expanded.
 
 export async function POST(req: NextRequest) {
   if (!checkPinHeader(req)) {
@@ -32,7 +24,7 @@ export async function POST(req: NextRequest) {
   if (!blobConfigured()) {
     return NextResponse.json({ error: "Vercel Blob not connected" }, { status: 503 });
   }
-  let body: { persona?: string; count?: number };
+  let body: { persona?: string; count?: number; category?: string };
   try {
     body = await req.json();
   } catch {
@@ -45,12 +37,30 @@ export async function POST(req: NextRequest) {
   const count = Math.min(Math.max(body.count ?? 10, 1), 15);
   const p = PERSONAS[persona];
 
-  // Show the model a sample of what exists so new phrases don't repeat it.
+  const only = body.category as PhraseCategory | undefined;
+  if (only && !EXPANDABLE_CATEGORIES.includes(only)) {
+    return NextResponse.json({ error: `${only} is a fixed set` }, { status: 400 });
+  }
+
+  // Show the model what already exists so it doesn't rewrite it. Scoped to the
+  // category being topped up, which is both a sharper steer and a much better
+  // use of the sample than 40 lines of unrelated material.
   const existing = [...PHRASE_LIBRARY[persona], ...(await readExtras(persona))];
-  const sample = existing
+  const pool = only ? existing.filter((ph) => ph.category === only) : existing;
+  const sample = pool
     .slice(-40)
-    .map((ph) => `- (${ph.category}) ${ph.text}`)
+    .map((ph) => (only ? `- ${ph.text}` : `- (${ph.category}) ${ph.text}`))
     .join("\n");
+
+  const brief = only
+    ? `Write ${count} new phrases for the "${only}" category only. That category is: ` +
+      `${CATEGORY_BRIEF[only]}.\n\nRespond with ONLY a JSON array, no other text: ` +
+      `[{"text": "..."}] — exactly ${count} items.`
+    : "Categories and their meanings:\n" +
+      EXPANDABLE_CATEGORIES.map((c) => `- ${c}: ${CATEGORY_BRIEF[c]}`).join("\n") +
+      "\n\nRespond with ONLY a JSON array, no other text: " +
+      `[{"category": "...", "text": "..."}] — exactly ${count} items, spread across the ` +
+      "categories.";
 
   try {
     const client = new Anthropic();
@@ -60,18 +70,15 @@ export async function POST(req: NextRequest) {
       system:
         `${p.stylePrompt}\n\n` +
         "You are expanding this persona's running-coach phrase library. Each phrase is one " +
-        "spoken line of at most 40 words, no stage directions, no quotes, no emoji. " +
-        `Categories and their meanings: encourage (periodic motivation), anecdote (facts, ` +
-        `stories, nuggets), pace_up (runner slowed down — push them), pace_down (runner sped ` +
-        `up — react), milestone (a kilometre was just completed), chat (reply to a runner ` +
-        `talking to you mid-run).\n\n` +
-        "Respond with ONLY a JSON array, no other text: " +
-        `[{"category": "...", "text": "..."}] — exactly ${count} items, spread across the ` +
-        "categories, all clearly different from the existing phrases you are shown.",
+        "spoken line of at most 40 words, no stage directions, no quotes, no emoji. Every " +
+        "line must be clearly different in idea and wording from the ones you are shown.\n\n" +
+        brief,
       messages: [
         {
           role: "user",
-          content: `Existing phrases (do not repeat these ideas):\n${sample}\n\nGenerate ${count} new phrases.`,
+          content: sample
+            ? `Phrases already in this bank — do not repeat these ideas:\n${sample}\n\nGenerate ${count} new ones.`
+            : `Generate ${count} new phrases.`,
         },
       ],
     });
@@ -92,9 +99,11 @@ export async function POST(req: NextRequest) {
       .slice(0, count)
       .map((item, i) => ({
         id: `xg-${stamp}-${i}`,
-        category: EXPANDABLE.includes(item.category as PhraseCategory)
-          ? (item.category as PhraseCategory)
-          : "encourage",
+        category:
+          only ??
+          (EXPANDABLE_CATEGORIES.includes(item.category as PhraseCategory)
+            ? (item.category as PhraseCategory)
+            : "encourage"),
         text: item.text!.trim(),
       }));
     if (phrases.length === 0) throw new Error("no valid phrases");
