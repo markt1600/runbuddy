@@ -8,11 +8,13 @@ import {
   pickSamplePhrase,
   playPhrase,
 } from "@/lib/voiceLibrary";
-import { audioSessionSupported, type DuckMode } from "@/lib/audio";
+import { audioSessionSupported } from "@/lib/audio";
 import {
   CHATTINESS_MAX,
   CHATTINESS_MIN,
   START_DELAY_SEC,
+  VOICE_GAIN_LABELS,
+  VOICE_GAIN_OPTIONS,
   TARGET_OPTIONS,
   TARGET_TIME_OPTIONS,
   chattinessLabel,
@@ -66,8 +68,8 @@ interface Props {
   onAutoPauseChange: (on: boolean) => void;
   startDelay: boolean;
   onStartDelayChange: (on: boolean) => void;
-  duckMode: DuckMode;
-  onDuckModeChange: (m: DuckMode) => void;
+  voiceGain: number;
+  onVoiceGainChange: (v: number) => void;
 }
 
 export default function SetupScreen({
@@ -89,8 +91,8 @@ export default function SetupScreen({
   onAutoPauseChange,
   startDelay,
   onStartDelayChange,
-  duckMode,
-  onDuckModeChange,
+  voiceGain,
+  onVoiceGainChange,
 }: Props) {
   const [libraryReady, setLibraryReady] = useState(false);
   const mode: "none" | "distance" | "time" =
@@ -295,27 +297,24 @@ export default function SetupScreen({
         </div>
       )}
 
-      <div className="section-header">While Your Buddy Talks</div>
+      <div className="section-header">Trainer Volume</div>
       <div className="segmented">
-        <button
-          className={duckMode === "duck" ? "active" : ""}
-          onClick={() => onDuckModeChange("duck")}
-        >
-          Duck music
-        </button>
-        <button
-          className={duckMode === "pause" ? "active" : ""}
-          onClick={() => onDuckModeChange("pause")}
-        >
-          Pause music
-        </button>
+        {VOICE_GAIN_OPTIONS.map((g, i) => (
+          <button
+            key={g}
+            className={voiceGain === g ? "active" : ""}
+            onClick={() => onVoiceGainChange(g)}
+          >
+            {VOICE_GAIN_LABELS[i]}
+          </button>
+        ))}
       </div>
       <div className="chatter-label" style={{ marginTop: 8 }}>
-        {duckMode === "duck"
-          ? "Your music keeps playing quietly underneath and comes back up on its own. Recommended."
-          : "Clearer to listen to, but a web app can't tell your music app when it may resume — some players stay paused until you restart them by hand."}
+        {voiceGain > 1
+          ? "Your buddy is lifted above your music, with a limiter after it so the boost doesn't distort. Your music ducks under each line and comes straight back."
+          : "Your buddy plays at the recording's own level. Pick a louder setting if they're hard to make out at running effort."}
         {!audioSessionSupported() &&
-          " ⚠ This iOS version doesn't let a web app touch other apps' audio, so your music will play at full volume regardless — turn it down yourself before you start."}
+          " ⚠ This iOS version won't let a web app duck other apps' audio, so your music stays at full volume — turn it down yourself before you start."}
       </div>
 
       <div className="section-header">Getting Going</div>

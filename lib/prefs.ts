@@ -124,26 +124,29 @@ export function saveStartDelay(on: boolean) {
   }
 }
 
-// What happens to the runner's music while the trainer talks. "duck" leaves it
-// playing quietly underneath and is the default, because it is the only one the
-// web can undo reliably. "pause" stops it outright, which is clearer to listen
-// to but relies on the other app noticing it may resume — see releaseSolo() in
-// lib/audio.ts.
-export type DuckMode = "duck" | "pause";
 
-const DUCK_KEY = "runbuddy-duck-mode";
+// How much louder the trainer is than the source material. 1.0 plays the audio
+// element straight, exactly as it always did; anything above routes it through
+// a Web Audio gain stage with a limiter after it, which is the only way to get
+// above the element's own ceiling of 1.0.
+export const VOICE_GAIN_OPTIONS = [1, 1.6, 2.2] as const;
+export const VOICE_GAIN_LABELS = ["Normal", "Loud", "Louder"] as const;
 
-export function loadDuckMode(): DuckMode {
+const VOICE_GAIN_KEY = "runbuddy-voice-gain";
+
+export function loadVoiceGain(): number {
   try {
-    return localStorage.getItem(DUCK_KEY) === "pause" ? "pause" : "duck";
+    const v = Number(localStorage.getItem(VOICE_GAIN_KEY));
+    if (VOICE_GAIN_OPTIONS.includes(v as (typeof VOICE_GAIN_OPTIONS)[number])) return v;
   } catch {
-    return "duck"; // private mode
+    /* private mode */
   }
+  return 1.6;
 }
 
-export function saveDuckMode(mode: DuckMode) {
+export function saveVoiceGain(v: number) {
   try {
-    localStorage.setItem(DUCK_KEY, mode);
+    localStorage.setItem(VOICE_GAIN_KEY, String(v));
   } catch {
     /* private mode */
   }

@@ -11,16 +11,15 @@ import { loadSpeedUnit, saveSpeedUnit, type SpeedUnit } from "@/lib/units";
 import {
   CHATTINESS_DEFAULT,
   START_DELAY_SEC,
-  type DuckMode,
   loadAutoPause,
   loadChattiness,
   loadTargetKm,
   loadTargetMin,
-  loadDuckMode,
+  loadVoiceGain,
   loadStartDelay,
   saveAutoPause,
   saveChattiness,
-  saveDuckMode,
+  saveVoiceGain,
   saveStartDelay,
   saveTargetKm,
   saveTargetMin,
@@ -40,7 +39,7 @@ export default function RunBuddyApp() {
   const [targetMin, setTargetMinState] = useState(0);
   const [autoPause, setAutoPauseState] = useState(true);
   const [startDelay, setStartDelayState] = useState(false);
-  const [duckMode, setDuckModeState] = useState<DuckMode>("pause");
+  const [voiceGain, setVoiceGainState] = useState(1.6);
 
   useEffect(() => {
     setSpeedUnitState(loadSpeedUnit());
@@ -49,7 +48,7 @@ export default function RunBuddyApp() {
     setTargetMinState(loadTargetMin());
     setAutoPauseState(loadAutoPause());
     setStartDelayState(loadStartDelay());
-    setDuckModeState(loadDuckMode());
+    setVoiceGainState(loadVoiceGain());
   }, []);
 
   const setTargetKm = (v: number) => {
@@ -72,9 +71,9 @@ export default function RunBuddyApp() {
     saveStartDelay(on);
   };
 
-  const setDuckMode = (m: DuckMode) => {
-    setDuckModeState(m);
-    saveDuckMode(m);
+  const setVoiceGain = (v: number) => {
+    setVoiceGainState(v);
+    saveVoiceGain(v);
   };
 
   const setSpeedUnit = (unit: SpeedUnit) => {
@@ -118,8 +117,8 @@ export default function RunBuddyApp() {
           onAutoPauseChange={setAutoPause}
           startDelay={startDelay}
           onStartDelayChange={setStartDelay}
-          duckMode={duckMode}
-          onDuckModeChange={setDuckMode}
+          voiceGain={voiceGain}
+          onVoiceGainChange={setVoiceGain}
         />
       )}
       {screen === "admin" && <AdminScreen onBack={() => setScreen("setup")} />}
@@ -135,7 +134,7 @@ export default function RunBuddyApp() {
           targetMin={targetMin}
           autoPause={autoPause}
           startDelaySec={startDelay ? START_DELAY_SEC : 0}
-          duckMode={duckMode}
+          voiceGain={voiceGain}
           onFinish={(stats) => {
             setFinalStats(stats);
             setScreen("summary");

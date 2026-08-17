@@ -38,3 +38,8 @@ interface Window {
   webkitSpeechRecognition?: new () => SpeechRecognitionLike;
   SpeechRecognition?: new () => SpeechRecognitionLike;
 }
+
+interface Window {
+  // Safari still ships the prefixed constructor alongside the standard one.
+  webkitAudioContext?: typeof AudioContext;
+}

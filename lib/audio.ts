@@ -7,6 +7,9 @@ import { recordLifetimePlay } from "./voiceLibrary";
 // - navigator.audioSession.type = "ambient" lets our audio mix with the
 //   Spotify / Podcasts app instead of pausing it. While actually speaking we
 //   switch to "transient" so the music ducks under the voice, then restore.
+//   Not "transient-solo": that INTERRUPTS the other app, and the web has no
+//   setActive(false, .notifyOthersOnDeactivation) to tell it that it may come
+//   back, so players were left paused for the rest of the run.
 // - A looping, near-silent <audio> element keeps the page's audio session
 //   alive so Safari keeps running us (timers + GPS) when the phone is locked.
 // - Pre-rendered ElevenLabs MP3s play via <audio>; if a phrase has no
@@ -110,56 +113,65 @@ export function audioSessionSupported(): boolean {
   return typeof navigator !== "undefined" && !!navigator.audioSession;
 }
 
-/** What should happen to the music while the trainer talks. */
-export type DuckMode = "duck" | "pause";
-
 export class VoiceEngine {
   private keepAlive: HTMLAudioElement | null = null;
   private player: HTMLAudioElement | null = null;
+  private ctx: AudioContext | null = null;
+  private voiceGain: number;
   private queue: { text: string; audioUrl?: string; cue?: boolean }[] = [];
   private playing = false;
   private persona: Persona;
-  private duckMode: DuckMode;
   private intentionalPause = false;
   speaking = false;
   onSpeakingChange: (speaking: boolean, text: string | null) => void = () => {};
   /** How each spoken line was served this run. */
   counts = { prerendered: 0, live: 0, synth: 0 };
 
-  constructor(persona: Persona, duckMode: DuckMode = "duck") {
+  constructor(persona: Persona, voiceGain = 1) {
     this.persona = persona;
-    this.duckMode = duckMode;
+    this.voiceGain = voiceGain;
   }
 
   /**
-   * "transient" asks iOS to duck the music under the voice; "transient-solo"
-   * interrupts it outright, which is clearer to listen to but much harder to
-   * undo from the web — see releaseSolo().
+   * An HTMLAudioElement cannot go above volume 1.0, so making the trainer
+   * genuinely louder than the music means routing it through Web Audio:
+   *
+   *   element -> gain(voiceGain) -> limiter -> speakers
+   *
+   * The limiter matters. ElevenLabs output is already close to full scale, so
+   * a bare 2x gain would clip into distortion, which is harder to understand
+   * rather than easier.
+   *
+   * At gain 1.0 this is skipped entirely and the element plays straight, so
+   * there is always a way back to the plain path if Web Audio misbehaves on a
+   * given iOS build.
    */
-  private get speakingSession(): AudioSessionType {
-    return this.duckMode === "pause" ? "transient-solo" : "transient";
+  private buildGainStage() {
+    if (this.voiceGain <= 1 || this.ctx || !this.player) return;
+    try {
+      const Ctor = window.AudioContext ?? window.webkitAudioContext;
+      if (!Ctor) return;
+      const ctx = new Ctor();
+      const source = ctx.createMediaElementSource(this.player);
+      const gain = ctx.createGain();
+      gain.gain.value = this.voiceGain;
+      const limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -3;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.1;
+      source.connect(gain).connect(limiter).connect(ctx.destination);
+      this.ctx = ctx;
+    } catch {
+      // Routing failed — the element still plays on its own, just no louder.
+      this.ctx = null;
+    }
   }
 
-  /**
-   * Solo mode INTERRUPTS the other app rather than ducking it, and an
-   * interrupted app on iOS only resumes when the interrupting session
-   * deactivates. Native code signals that with
-   * setActive(false, .notifyOthersOnDeactivation); the Web Audio Session API
-   * has no equivalent, and our keep-alive loop means the session never falls
-   * silent on its own, so the music can sit there paused for the rest of the
-   * run. Going quiet for a moment is the only lever we have. Best effort — it
-   * is why ducking is the default.
-   */
-  private releaseSolo() {
-    const ka = this.keepAlive;
-    if (!ka) return;
-    ka.removeEventListener("pause", this.onKeepAlivePause); // don't self-restart
-    ka.pause();
-    setTimeout(() => {
-      if (activeEngine !== this) return;
-      ka.addEventListener("pause", this.onKeepAlivePause);
-      ka.play().catch(() => {});
-    }, 300);
+  /** iOS suspends the context on interruption; nothing plays until it resumes. */
+  private resumeCtx() {
+    if (this.ctx && this.ctx.state !== "running") void this.ctx.resume().catch(() => {});
   }
 
   /**
@@ -169,7 +181,8 @@ export class VoiceEngine {
    */
   private onVisibility = () => {
     if (document.visibilityState !== "visible") return;
-    setAudioSession(this.speaking ? this.speakingSession : "ambient");
+    setAudioSession(this.speaking ? "transient" : "ambient");
+    this.resumeCtx();
     this.keepAlive?.play().catch(() => {});
     if (!this.playing && this.queue.length > 0) void this.drain();
   };
@@ -217,6 +230,11 @@ export class VoiceEngine {
         if (this.player) this.player.volume = 1;
       });
 
+    // Built inside the gesture too: an AudioContext created outside one starts
+    // suspended on iOS and never makes a sound.
+    this.buildGainStage();
+    this.resumeCtx();
+
     // Prime speechSynthesis inside the gesture so later utterances are allowed
     if ("speechSynthesis" in window) {
       const u = new SpeechSynthesisUtterance(" ");
@@ -234,6 +252,8 @@ export class VoiceEngine {
     this.player?.pause();
     this.keepAlive?.pause();
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    void this.ctx?.close().catch(() => {});
+    this.ctx = null;
     this.setSpeaking(false, null);
     setAudioSession("ambient");
   }
@@ -301,7 +321,7 @@ export class VoiceEngine {
     // Hold the music out of the way for the whole burst rather than per line:
     // a km marker is three queued items back to back, and restoring between
     // each one made the music stutter in and out three times.
-    setAudioSession(this.speakingSession);
+    setAudioSession("transient");
     try {
       while (this.queue.length > 0) {
         const item = this.queue.shift()!;
@@ -338,8 +358,7 @@ export class VoiceEngine {
       }
     } finally {
       this.playing = false;
-      setAudioSession("ambient"); // the music can come back now
-      if (this.duckMode === "pause") this.releaseSolo();
+      setAudioSession("ambient"); // the music comes back up
     }
   }
 
@@ -385,6 +404,7 @@ export class VoiceEngine {
         }
       };
       p.src = url;
+      this.resumeCtx();
       p.play().catch((err) => settle(() => reject(err)));
     });
   }

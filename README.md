@@ -39,10 +39,12 @@ encouragement) — press Start, and get coached over your own music.
   of day. Half of km-marker callouts and anecdotes, and a quarter of
   encouragements, are generated live when keys are configured.
 - **Music over-dub** — deep-links into Spotify or Apple Podcasts; the trainer
-  speaks over your music using Safari's Audio Session API. **Ducking** is the
-  default: the music drops under the voice and comes back on its own. Pausing
-  it outright is clearer to listen to but is an opt-in, because the web has no
-  way to tell the other app it may resume — see "Ducking vs pausing" below.
+  speaks over your music using Safari's Audio Session API, which ducks the music
+  under each line and lets it come straight back.
+- **Trainer volume** — Normal / Loud / Louder. Above Normal the voice is routed
+  through a Web Audio gain stage with a limiter after it, which is the only way
+  past an audio element's ceiling of 1.0. Normal skips the routing entirely, so
+  there is always a way back to the plain path.
 - **Keep-alive audio session** — a near-silent loop keeps Safari running the
   app (timers + GPS) when the phone is locked.
 - **Always-on display mode** — dim, AMOLED-friendly orange readout with wake
@@ -211,19 +213,19 @@ Simulated across a 90-second tunnel at running pace, all four signal-loss
 shapes produce zero auto-pauses, and ten minutes of steady running produces no
 false pauses on any device profile.
 
-## Ducking vs pausing the music
+## Why ducking, and not pausing, the music
 
-`transient` ducks other audio; `transient-solo` interrupts it. Ducking is the
-default because it is the only one the web can reliably undo.
+`transient` ducks other audio; `transient-solo` interrupts it. Only ducking is
+used, because only ducking can be reliably undone from a web app.
 
 An interrupted app on iOS resumes when the interrupting session deactivates —
 native code signals that with `setActive(false, .notifyOthersOnDeactivation)`.
 The Web Audio Session API exposes no equivalent, and the keep-alive loop that
 stops Safari suspending the run means our session never falls silent by itself.
-So a player that gets interrupted can sit there paused for the rest of the run.
+Solo mode was tried and left players paused for the rest of the run, so it is
+gone rather than left as a trap.
 
-Pausing is still offered, because it is genuinely clearer at running effort, and
-`releaseSolo()` does what little can be done: it stops the keep-alive for 300ms
-after a burst of speech so the session actually goes quiet and iOS has a chance
-to notify the other app. That is best effort and varies by player, which is why
-the setup screen says so where the choice is made.
+Making the trainer easier to hear is done from our side of the mix instead: the
+Trainer Volume setting lifts the voice through a gain node, with a limiter after
+it so a 2x boost on already-hot ElevenLabs output doesn't clip into distortion —
+which would be harder to understand, not easier.

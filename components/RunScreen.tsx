@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GeoTracker, formatElapsed, type GpsSignal } from "@/lib/geo";
 import { formatInUnit, unitSuffix, type SpeedUnit } from "@/lib/units";
-import { VoiceEngine, WakeLockManager, vibrate, type DuckMode } from "@/lib/audio";
+import { VoiceEngine, WakeLockManager, vibrate } from "@/lib/audio";
 import { CoachEngine } from "@/lib/coach";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
 import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
@@ -23,7 +23,7 @@ interface Props {
   targetMin: number;
   autoPause: boolean;
   startDelaySec: number;
-  duckMode: DuckMode;
+  voiceGain: number;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -38,7 +38,7 @@ export default function RunScreen({
   targetMin,
   autoPause,
   startDelaySec,
-  duckMode,
+  voiceGain,
   onFinish,
 }: Props) {
   const treadmill = targetMin > 0;
@@ -163,7 +163,7 @@ export default function RunScreen({
   }, [signalTransition]);
 
   useEffect(() => {
-    const voice = new VoiceEngine(persona, duckMode);
+    const voice = new VoiceEngine(persona, voiceGain);
     voice.onSpeakingChange = (s, text) => {
       setSpeaking(s);
       if (text) setCoachText(text);
