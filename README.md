@@ -41,10 +41,13 @@ encouragement) — press Start, and get coached over your own music.
 - **Music over-dub** — deep-links into Spotify or Apple Podcasts; the trainer
   speaks over your music using Safari's Audio Session API, which ducks the music
   under each line and lets it come straight back.
-- **Trainer volume** — Normal / Loud / Louder. Above Normal the voice is routed
-  through a Web Audio gain stage with a limiter after it, which is the only way
-  past an audio element's ceiling of 1.0. Normal skips the routing entirely, so
-  there is always a way back to the plain path.
+- **Trainer volume** — Normal / Loud / Louder, set before the run and adjustable
+  during it from under the coach bubble, right beside the chatter dial. Above
+  Normal the voice is routed through a Web Audio gain stage with a limiter after
+  it, which is the only way past an audio element's ceiling of 1.0. Normal skips
+  the routing entirely, so there is always a way back to the plain path. Every
+  change plays a short tone at the new level, since a volume you can't hear is a
+  volume you can't set.
 - **Keep-alive audio session** — a near-silent loop keeps Safari running the
   app (timers + GPS) when the phone is locked.
 - **Always-on display mode** — dim, AMOLED-friendly orange readout with wake

@@ -135,6 +135,7 @@ export default function RunBuddyApp() {
           autoPause={autoPause}
           startDelaySec={startDelay ? START_DELAY_SEC : 0}
           voiceGain={voiceGain}
+          onVoiceGainChange={setVoiceGain}
           onFinish={(stats) => {
             setFinalStats(stats);
             setScreen("summary");

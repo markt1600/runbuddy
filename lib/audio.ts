@@ -75,9 +75,11 @@ function makeCueUrl(freqs: number[]): string {
   return wavBlobUrl(out, rate);
 }
 
-// Built once, on first use — descending for a stop, ascending for a go.
+// Built once, on first use — descending for a stop, ascending for a go, and a
+// single neutral tone for auditioning the trainer volume.
 let pauseCueUrl: string | null = null;
 let resumeCueUrl: string | null = null;
+let levelCueUrl: string | null = null;
 
 /**
  * Buzz the phone. iOS Safari does not implement the Vibration API at all, so on
@@ -117,6 +119,7 @@ export class VoiceEngine {
   private keepAlive: HTMLAudioElement | null = null;
   private player: HTMLAudioElement | null = null;
   private ctx: AudioContext | null = null;
+  private gainNode: GainNode | null = null;
   private voiceGain: number;
   private queue: { text: string; audioUrl?: string; cue?: boolean }[] = [];
   private playing = false;
@@ -163,10 +166,26 @@ export class VoiceEngine {
       limiter.release.value = 0.1;
       source.connect(gain).connect(limiter).connect(ctx.destination);
       this.ctx = ctx;
+      this.gainNode = gain;
     } catch {
       // Routing failed — the element still plays on its own, just no louder.
       this.ctx = null;
     }
+  }
+
+  /**
+   * Retune mid-run. Building the stage late is fine — this is always called
+   * from a tap, so the context is allowed to start. Going back down to Normal
+   * only turns the gain to 1; it does NOT tear the graph down, because once an
+   * element has been through createMediaElementSource its audio never returns
+   * to the default output and unhooking it would silence the trainer for the
+   * rest of the run.
+   */
+  setVoiceGain(v: number) {
+    this.voiceGain = v;
+    if (!this.ctx && v > 1) this.buildGainStage();
+    if (this.gainNode) this.gainNode.gain.value = v;
+    this.resumeCtx();
   }
 
   /** iOS suspends the context on interruption; nothing plays until it resumes. */
@@ -254,6 +273,7 @@ export class VoiceEngine {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     void this.ctx?.close().catch(() => {});
     this.ctx = null;
+    this.gainNode = null;
     this.setSpeaking(false, null);
     setAudioSession("ambient");
   }
@@ -299,12 +319,14 @@ export class VoiceEngine {
    * an iPhone can actually deliver — Safari has no Vibration API — and it is
    * what tells you the clock stopped when the phone is in an arm sleeve.
    */
-  cue(kind: "pause" | "resume") {
+  cue(kind: "pause" | "resume" | "level") {
     if (!pauseCueUrl) pauseCueUrl = makeCueUrl([880, 587]); // falling: stopped
     if (!resumeCueUrl) resumeCueUrl = makeCueUrl([587, 880]); // rising: going
+    if (!levelCueUrl) levelCueUrl = makeCueUrl([740]); // flat: just a level
     this.queue.unshift({
       text: "",
-      audioUrl: kind === "pause" ? pauseCueUrl : resumeCueUrl,
+      audioUrl:
+        kind === "pause" ? pauseCueUrl : kind === "resume" ? resumeCueUrl : levelCueUrl,
       cue: true,
     });
     void this.drain();

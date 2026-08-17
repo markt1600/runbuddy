@@ -6,7 +6,13 @@ import { formatInUnit, unitSuffix, type SpeedUnit } from "@/lib/units";
 import { VoiceEngine, WakeLockManager, vibrate } from "@/lib/audio";
 import { CoachEngine } from "@/lib/coach";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
-import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
+import {
+  CHATTINESS_MAX,
+  CHATTINESS_MIN,
+  VOICE_GAIN_LABELS,
+  VOICE_GAIN_OPTIONS,
+  chattinessLabel,
+} from "@/lib/prefs";
 import type { MusicSource, Persona, RunStats } from "@/lib/types";
 
 /** Long enough to get the phone back into an arm sleeve and set yourself. */
@@ -24,6 +30,7 @@ interface Props {
   autoPause: boolean;
   startDelaySec: number;
   voiceGain: number;
+  onVoiceGainChange: (v: number) => void;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -39,6 +46,7 @@ export default function RunScreen({
   autoPause,
   startDelaySec,
   voiceGain,
+  onVoiceGainChange,
   onFinish,
 }: Props) {
   const treadmill = targetMin > 0;
@@ -140,6 +148,14 @@ export default function RunScreen({
   const changeChattiness = (v: number) => {
     coachRef.current?.setChattiness(v);
     onChattinessChange(v); // also remembered for next run
+  };
+
+  const changeVoiceGain = (v: number) => {
+    voiceRef.current?.setVoiceGain(v);
+    onVoiceGainChange(v); // also remembered for next run
+    // A level you can't hear is a level you can't set — play a tone at the new
+    // one straight away. Queued, so it never lands on top of a phrase.
+    voiceRef.current?.cue("level");
   };
 
   /** Everything a resume has to do, however it was triggered. */
@@ -657,6 +673,25 @@ export default function RunScreen({
             onChange={(e) => changeChattiness(Number(e.target.value))}
           />
           <span className="chatter-inline-label">{chattinessLabel(chattiness)}</span>
+        </div>
+      )}
+
+      {!locked && (
+        <div className="chatter-inline">
+          <span className="chatter-inline-icon" aria-hidden>
+            🔊
+          </span>
+          <div className="segmented compact volume-inline">
+            {VOICE_GAIN_OPTIONS.map((g, i) => (
+              <button
+                key={g}
+                className={voiceGain === g ? "active" : ""}
+                onClick={() => changeVoiceGain(g)}
+              >
+                {VOICE_GAIN_LABELS[i]}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
