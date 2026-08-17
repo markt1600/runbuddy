@@ -15,11 +15,9 @@ import {
   loadChattiness,
   loadTargetKm,
   loadTargetMin,
-  loadVoiceGain,
   loadStartDelay,
   saveAutoPause,
   saveChattiness,
-  saveVoiceGain,
   saveStartDelay,
   saveTargetKm,
   saveTargetMin,
@@ -39,7 +37,6 @@ export default function RunBuddyApp() {
   const [targetMin, setTargetMinState] = useState(0);
   const [autoPause, setAutoPauseState] = useState(true);
   const [startDelay, setStartDelayState] = useState(false);
-  const [voiceGain, setVoiceGainState] = useState(1);
 
   useEffect(() => {
     setSpeedUnitState(loadSpeedUnit());
@@ -48,7 +45,6 @@ export default function RunBuddyApp() {
     setTargetMinState(loadTargetMin());
     setAutoPauseState(loadAutoPause());
     setStartDelayState(loadStartDelay());
-    setVoiceGainState(loadVoiceGain());
   }, []);
 
   const setTargetKm = (v: number) => {
@@ -71,10 +67,6 @@ export default function RunBuddyApp() {
     saveStartDelay(on);
   };
 
-  const setVoiceGain = (v: number) => {
-    setVoiceGainState(v);
-    saveVoiceGain(v);
-  };
 
   const setSpeedUnit = (unit: SpeedUnit) => {
     setSpeedUnitState(unit);
@@ -117,8 +109,6 @@ export default function RunBuddyApp() {
           onAutoPauseChange={setAutoPause}
           startDelay={startDelay}
           onStartDelayChange={setStartDelay}
-          voiceGain={voiceGain}
-          onVoiceGainChange={setVoiceGain}
         />
       )}
       {screen === "admin" && <AdminScreen onBack={() => setScreen("setup")} />}
@@ -134,8 +124,6 @@ export default function RunBuddyApp() {
           targetMin={targetMin}
           autoPause={autoPause}
           startDelaySec={startDelay ? START_DELAY_SEC : 0}
-          voiceGain={voiceGain}
-          onVoiceGainChange={setVoiceGain}
           onFinish={(stats) => {
             setFinalStats(stats);
             setScreen("summary");

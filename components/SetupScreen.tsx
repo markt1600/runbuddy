@@ -13,8 +13,6 @@ import {
   CHATTINESS_MAX,
   CHATTINESS_MIN,
   START_DELAY_SEC,
-  VOICE_GAIN_LABELS,
-  VOICE_GAIN_OPTIONS,
   TARGET_OPTIONS,
   TARGET_TIME_OPTIONS,
   chattinessLabel,
@@ -68,8 +66,6 @@ interface Props {
   onAutoPauseChange: (on: boolean) => void;
   startDelay: boolean;
   onStartDelayChange: (on: boolean) => void;
-  voiceGain: number;
-  onVoiceGainChange: (v: number) => void;
 }
 
 export default function SetupScreen({
@@ -91,8 +87,6 @@ export default function SetupScreen({
   onAutoPauseChange,
   startDelay,
   onStartDelayChange,
-  voiceGain,
-  onVoiceGainChange,
 }: Props) {
   const [libraryReady, setLibraryReady] = useState(false);
   const mode: "none" | "distance" | "time" =
@@ -297,26 +291,6 @@ export default function SetupScreen({
         </div>
       )}
 
-      <div className="section-header">Trainer Volume</div>
-      <div className="segmented">
-        {VOICE_GAIN_OPTIONS.map((g, i) => (
-          <button
-            key={g}
-            className={voiceGain === g ? "active" : ""}
-            onClick={() => onVoiceGainChange(g)}
-          >
-            {VOICE_GAIN_LABELS[i]}
-          </button>
-        ))}
-      </div>
-      <div className="chatter-label" style={{ marginTop: 8 }}>
-        {voiceGain > 1
-          ? "Your buddy is lifted above your music, with a limiter after it so the boost doesn't distort. Adjustable mid-run too, from under the coach bubble. If your iOS build won't allow it, this falls back to Normal rather than going silent."
-          : "Your buddy plays at the recording's own level — the plain, always-audible path. Pick a louder setting if they're hard to make out at running effort; you can also change it mid-run."}
-        {!audioSessionSupported() &&
-          " ⚠ This iOS version won't let a web app duck other apps' audio, so your music stays at full volume — turn it down yourself before you start."}
-      </div>
-
       <div className="section-header">Getting Going</div>
       <div className="card" style={{ padding: "12px 16px" }}>
         <label className="switch-row">
@@ -384,6 +358,15 @@ export default function SetupScreen({
 
       <div className="section-header">Before You Go</div>
       <div className="card" style={{ padding: "12px 16px", fontSize: 13, color: "var(--label-2)", lineHeight: 1.5 }}>
+        {!audioSessionSupported() && (
+          <>
+            ⚠ This iOS version won&apos;t let a web app duck other apps&apos; audio, so your
+            music will stay at full volume while your buddy talks — turn it down yourself
+            before you start.
+            <br />
+            <br />
+          </>
+        )}
         Start your music first, then hit Start Run — the voice mixes over it.
         Flip your ringer switch ON so you can hear your buddy. Keep the screen
         on (we&apos;ll dim it into a runner-friendly always-on mode).

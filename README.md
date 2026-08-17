@@ -41,13 +41,6 @@ encouragement) — press Start, and get coached over your own music.
 - **Music over-dub** — deep-links into Spotify or Apple Podcasts; the trainer
   speaks over your music using Safari's Audio Session API, which ducks the music
   under each line and lets it come straight back.
-- **Trainer volume** — Normal / Loud / Louder, set before the run and adjustable
-  during it from under the coach bubble. Normal is the default and plays the
-  audio element straight. Above it the voice goes through a Web Audio gain stage
-  with a limiter, the only way past an element's ceiling of 1.0 — and the
-  element is only ever committed to that graph once the AudioContext is
-  confirmed running, because routing is one-way. Every change plays a short tone
-  at the new level, since a volume you can't hear is a volume you can't set.
 - **Keep-alive audio session** — a near-silent loop keeps Safari running the
   app (timers + GPS) when the phone is locked.
 - **Always-on display mode** — dim, AMOLED-friendly orange readout with wake
@@ -228,7 +221,13 @@ stops Safari suspending the run means our session never falls silent by itself.
 Solo mode was tried and left players paused for the rest of the run, so it is
 gone rather than left as a trap.
 
-Making the trainer easier to hear is done from our side of the mix instead: the
-Trainer Volume setting lifts the voice through a gain node, with a limiter after
-it so a 2x boost on already-hot ElevenLabs output doesn't clip into distortion —
-which would be harder to understand, not easier.
+Boosting the voice through a Web Audio gain node was tried as the alternative
+and also removed. Routing an element through `createMediaElementSource` is
+one-way, and on the target device the `AudioContext` reported `running` while
+producing no audible output once the element was routed — so phrases "played"
+perfectly, in silence, with nothing to fall back from. Guarding on the context
+state wasn't enough, because the context lied.
+
+The trainer now always plays straight off the audio element. If the voice is
+hard to make out, the levers are your music's own volume and the phone's media
+volume.

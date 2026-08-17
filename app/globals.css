@@ -1255,8 +1255,3 @@ body {
   flex-shrink: 0;
 }
 
-/* Volume picker on the run screen — same shell as the chatter dial. */
-.chatter-inline .volume-inline {
-  flex: 1;
-  background: var(--bg-elevated-2);
-}

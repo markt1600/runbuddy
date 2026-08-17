@@ -75,11 +75,9 @@ function makeCueUrl(freqs: number[]): string {
   return wavBlobUrl(out, rate);
 }
 
-// Built once, on first use — descending for a stop, ascending for a go, and a
-// single neutral tone for auditioning the trainer volume.
+// Built once, on first use — descending for a stop, ascending for a go.
 let pauseCueUrl: string | null = null;
 let resumeCueUrl: string | null = null;
-let levelCueUrl: string | null = null;
 
 /**
  * Buzz the phone. iOS Safari does not implement the Vibration API at all, so on
@@ -118,9 +116,6 @@ export function audioSessionSupported(): boolean {
 export class VoiceEngine {
   private keepAlive: HTMLAudioElement | null = null;
   private player: HTMLAudioElement | null = null;
-  private ctx: AudioContext | null = null;
-  private gainNode: GainNode | null = null;
-  private voiceGain: number;
   private queue: { text: string; audioUrl?: string; cue?: boolean }[] = [];
   private playing = false;
   private persona: Persona;
@@ -130,93 +125,10 @@ export class VoiceEngine {
   /** How each spoken line was served this run. */
   counts = { prerendered: 0, live: 0, synth: 0 };
 
-  constructor(persona: Persona, voiceGain = 1) {
+  constructor(persona: Persona) {
     this.persona = persona;
-    this.voiceGain = voiceGain;
   }
 
-  /**
-   * An HTMLAudioElement cannot go above volume 1.0, so making the trainer
-   * genuinely louder than the music means routing it through Web Audio:
-   *
-   *   element -> gain(voiceGain) -> limiter -> speakers
-   *
-   * The limiter matters. ElevenLabs output is already close to full scale, so
-   * a bare 2x gain would clip into distortion, which is harder to understand
-   * rather than easier.
-   *
-   * At gain 1.0 this is skipped entirely and the element plays straight.
-   *
-   * The order below is the whole safety story. Routing is ONE WAY: once an
-   * element has been through createMediaElementSource its audio never reaches
-   * the default output again. An AudioContext on iOS starts suspended and only
-   * resumes inside a user gesture, and start() runs from a React effect, which
-   * is close enough for play() but not reliably for resume(). Committing the
-   * element first and hoping meant that when the resume didn't take, phrases
-   * "played" perfectly — promise resolved, onended fired, counters ticked — in
-   * total silence, with no error to fall back from. So: create, resume, and
-   * only commit the element once the context is genuinely running.
-   */
-  private async buildGainStage() {
-    if (this.voiceGain <= 1 || this.ctx || !this.player) return;
-    const Ctor = window.AudioContext ?? window.webkitAudioContext;
-    if (!Ctor) return;
-    let ctx: AudioContext;
-    try {
-      ctx = new Ctor();
-    } catch {
-      return;
-    }
-    try {
-      await ctx.resume();
-    } catch {
-      /* fall through to the state check */
-    }
-    if (ctx.state !== "running") {
-      void ctx.close().catch(() => {}); // stay on the plain, audible path
-      return;
-    }
-    try {
-      const source = ctx.createMediaElementSource(this.player);
-      const gain = ctx.createGain();
-      gain.gain.value = this.voiceGain;
-      const limiter = ctx.createDynamicsCompressor();
-      limiter.threshold.value = -3;
-      limiter.knee.value = 0;
-      limiter.ratio.value = 20;
-      limiter.attack.value = 0.003;
-      limiter.release.value = 0.1;
-      source.connect(gain).connect(limiter).connect(ctx.destination);
-      this.ctx = ctx;
-      this.gainNode = gain;
-    } catch {
-      void ctx.close().catch(() => {});
-      this.ctx = null;
-      this.gainNode = null;
-    }
-  }
-
-  /**
-   * Retune mid-run. Building the stage late is fine — this is always called
-   * from a tap, so the context is allowed to start. Going back down to Normal
-   * only turns the gain to 1; it does NOT tear the graph down, because once an
-   * element has been through createMediaElementSource its audio never returns
-   * to the default output and unhooking it would silence the trainer for the
-   * rest of the run.
-   */
-  setVoiceGain(v: number) {
-    this.voiceGain = v;
-    if (this.gainNode) this.gainNode.gain.value = v;
-    // Building late is the better moment for it: this always runs from a tap,
-    // which is exactly when iOS will let an AudioContext start.
-    if (!this.ctx && v > 1) void this.buildGainStage();
-    this.resumeCtx();
-  }
-
-  /** iOS suspends the context on interruption; nothing plays until it resumes. */
-  private resumeCtx() {
-    if (this.ctx && this.ctx.state !== "running") void this.ctx.resume().catch(() => {});
-  }
 
   /**
    * Coming back from the camera roll or the lock button. iOS has torn the
@@ -226,7 +138,6 @@ export class VoiceEngine {
   private onVisibility = () => {
     if (document.visibilityState !== "visible") return;
     setAudioSession(this.speaking ? "transient" : "ambient");
-    this.resumeCtx();
     this.keepAlive?.play().catch(() => {});
     if (!this.playing && this.queue.length > 0) void this.drain();
   };
@@ -274,10 +185,6 @@ export class VoiceEngine {
         if (this.player) this.player.volume = 1;
       });
 
-    // Built inside the gesture too: an AudioContext created outside one starts
-    // suspended on iOS and never makes a sound. buildGainStage() refuses to
-    // route the element at all unless the context actually reaches "running".
-    void this.buildGainStage();
 
     // Prime speechSynthesis inside the gesture so later utterances are allowed
     if ("speechSynthesis" in window) {
@@ -296,9 +203,6 @@ export class VoiceEngine {
     this.player?.pause();
     this.keepAlive?.pause();
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-    void this.ctx?.close().catch(() => {});
-    this.ctx = null;
-    this.gainNode = null;
     this.setSpeaking(false, null);
     setAudioSession("ambient");
   }
@@ -344,14 +248,12 @@ export class VoiceEngine {
    * an iPhone can actually deliver — Safari has no Vibration API — and it is
    * what tells you the clock stopped when the phone is in an arm sleeve.
    */
-  cue(kind: "pause" | "resume" | "level") {
+  cue(kind: "pause" | "resume") {
     if (!pauseCueUrl) pauseCueUrl = makeCueUrl([880, 587]); // falling: stopped
     if (!resumeCueUrl) resumeCueUrl = makeCueUrl([587, 880]); // rising: going
-    if (!levelCueUrl) levelCueUrl = makeCueUrl([740]); // flat: just a level
     this.queue.unshift({
       text: "",
-      audioUrl:
-        kind === "pause" ? pauseCueUrl : kind === "resume" ? resumeCueUrl : levelCueUrl,
+      audioUrl: kind === "pause" ? pauseCueUrl : resumeCueUrl,
       cue: true,
     });
     void this.drain();
@@ -451,7 +353,6 @@ export class VoiceEngine {
         }
       };
       p.src = url;
-      this.resumeCtx();
       p.play().catch((err) => settle(() => reject(err)));
     });
   }
