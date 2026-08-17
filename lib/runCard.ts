@@ -19,8 +19,18 @@ function familyFrom(varName: string, fallback: string): string {
   return v ? `${v}, ${fallback}` : fallback;
 }
 
-const DISPLAY = () => familyFrom("--font-display", `Georgia, serif`);
-const MONO = () => familyFrom("--font-mono", `ui-monospace, monospace`);
+/** Both families, resolved once per draw — familyFrom hits getComputedStyle,
+ *  which is not something the per-cell font-shrink loop should be paying for. */
+interface CardFonts {
+  display: string;
+  mono: string;
+}
+function resolveFonts(): CardFonts {
+  return {
+    display: familyFrom("--font-display", `Georgia, serif`),
+    mono: familyFrom("--font-mono", `ui-monospace, monospace`),
+  };
+}
 
 /** Paper palette, matching :root in globals.css. */
 const PAPER = "#f5efe2";
@@ -86,11 +96,12 @@ function drawRoute(
   ctx: CanvasRenderingContext2D,
   route: RunStats["route"],
   accent: string,
-  box: { x: number; y: number; w: number; h: number }
+  box: { x: number; y: number; w: number; h: number },
+  fonts: CardFonts
 ) {
   if (route.length < 2) {
     ctx.fillStyle = INK_FAINT;
-    ctx.font = `500 28px ${MONO()}`;
+    ctx.font = `500 28px ${fonts.mono}`;
     ctx.textAlign = "center";
     ctx.fillText("No GPS route recorded", box.x + box.w / 2, box.y + box.h / 2);
     return;
@@ -157,7 +168,8 @@ function drawTimeRing(
   ctx: CanvasRenderingContext2D,
   stats: RunStats,
   accent: string,
-  box: { x: number; y: number; w: number; h: number }
+  box: { x: number; y: number; w: number; h: number },
+  fonts: CardFonts
 ) {
   const cx = box.x + box.w / 2;
   const cy = box.y + box.h / 2;
@@ -183,10 +195,10 @@ function drawTimeRing(
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `600 84px ${DISPLAY()}`;
+  ctx.font = `600 84px ${fonts.display}`;
   ctx.fillStyle = INK;
   ctx.fillText(`${Math.round(frac * 100)}%`, cx, cy - 12);
-  ctx.font = `500 22px ${MONO()}`;
+  ctx.font = `500 22px ${fonts.mono}`;
   ctx.fillStyle = INK_FAINT;
   ctx.fillText("TREADMILL RUN", cx, cy + 52);
 }
@@ -206,6 +218,7 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   canvas.height = S;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
+  const fonts = resolveFonts();
 
   // ---- background ----
   ctx.fillStyle = PAPER;
@@ -223,7 +236,7 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   // ---- header ----
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  ctx.font = `400 54px ${DISPLAY()}`;
+  ctx.font = `600 54px ${fonts.display}`;
   ctx.fillStyle = INK;
   ctx.fillText(persona.emoji, PAD, PAD + 26);
 
@@ -233,7 +246,7 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
     month: "short",
     year: "numeric",
   });
-  ctx.font = `500 22px ${MONO()}`;
+  ctx.font = `500 22px ${fonts.mono}`;
   const dateW = ctx.measureText(dateText).width;
   ctx.textAlign = "right";
   ctx.fillStyle = INK_FAINT;
@@ -242,7 +255,7 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   // Trim the name if it would run into the date
   const nameX = PAD + 76;
   const nameMax = S - PAD - dateW - 32 - nameX;
-  ctx.font = `600 36px ${DISPLAY()}`;
+  ctx.font = `600 36px ${fonts.display}`;
   ctx.fillStyle = INK;
   ctx.textAlign = "left";
   let name = persona.name;
@@ -259,7 +272,7 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
 
   if (stats.treadmill) {
     // Indoors there's no route to draw — show progress against the clock.
-    drawTimeRing(ctx, stats, persona.accent, box);
+    drawTimeRing(ctx, stats, persona.accent, box, fonts);
     cells = [
       { label: "TIME", value: formatElapsed(stats.elapsedMs), unit: "" },
       {
@@ -269,7 +282,7 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
       },
     ];
   } else {
-    drawRoute(ctx, stats.route, persona.accent, box);
+    drawRoute(ctx, stats.route, persona.accent, box, fonts);
     const avgSpeedKmh =
       stats.elapsedMs > 0 ? stats.distanceKm / (stats.elapsedMs / 3_600_000) : null;
     cells = [
@@ -297,11 +310,11 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
     let valueW = 0;
     let unitW = 0;
     for (;;) {
-      ctx.font = `600 ${valueSize}px ${DISPLAY()}`;
+      ctx.font = `600 ${valueSize}px ${fonts.display}`;
       valueW = ctx.measureText(cell.value).width;
       unitW = 0;
       if (cell.unit) {
-        ctx.font = `500 ${unitSize}px ${MONO()}`;
+        ctx.font = `500 ${unitSize}px ${fonts.mono}`;
         unitW = ctx.measureText(` ${cell.unit}`).width;
       }
       if (valueW + unitW <= cellMax || valueSize <= 34) break;
@@ -313,19 +326,19 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
     if (cell.unit) {
       const startX = cx - (valueW + unitW) / 2;
       ctx.textAlign = "left";
-      ctx.font = `600 ${valueSize}px ${DISPLAY()}`;
+      ctx.font = `600 ${valueSize}px ${fonts.display}`;
       ctx.fillText(cell.value, startX, rowY);
-      ctx.font = `500 ${unitSize}px ${MONO()}`;
+      ctx.font = `500 ${unitSize}px ${fonts.mono}`;
       ctx.fillStyle = INK_FAINT;
       ctx.fillText(` ${cell.unit}`, startX + valueW, rowY);
     } else {
       ctx.textAlign = "center";
-      ctx.font = `600 ${valueSize}px ${DISPLAY()}`;
+      ctx.font = `600 ${valueSize}px ${fonts.display}`;
       ctx.fillText(cell.value, cx, rowY);
     }
 
     ctx.textAlign = "center";
-    ctx.font = `500 20px ${MONO()}`;
+    ctx.font = `500 20px ${fonts.mono}`;
     ctx.fillStyle = INK_FAINT;
     ctx.fillText(cell.label, cx, rowY + 44);
   });
@@ -339,7 +352,7 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   ctx.fillStyle = persona.accent;
   ctx.fillRect(PAD, boxY, 8, boxH);
 
-  ctx.font = `italic 500 32px ${DISPLAY()}`;
+  ctx.font = `italic 500 32px ${fonts.display}`;
   ctx.fillStyle = INK;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
@@ -350,7 +363,7 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
 
   // ---- footer ----
   ctx.textAlign = "center";
-  ctx.font = `600 20px ${MONO()}`;
+  ctx.font = `600 20px ${fonts.mono}`;
   ctx.fillStyle = INK_FAINT;
   ctx.fillText("R U N   B U D D Y", S / 2, S - 46);
 }

@@ -20,7 +20,9 @@
   --separator-strong: #b6a988;
   --label: #211c15;
   --label-2: #5a5142;
-  --label-3: #8a7f6c;
+  /* Carries 9.5px mono labels, so it has to clear AA for small text (4.5:1).
+     This is 5.2:1 on the paper ground — don't lighten it back for looks. */
+  --label-3: #6d6350;
 
   /* The one brand colour, straight from marktan.ai. */
   --accent: #bb3b22;
@@ -64,7 +66,7 @@
   --separator-strong: #5f5442;
   --label: #f5efe2;
   --label-2: #bcae95;
-  --label-3: #8a7f6c;
+  --label-3: #958a75; /* 5.0:1 on the ink ground — same AA floor as paper */
 
   /* Rust darkens badly against ink — lift it so it still reads at arm's length. */
   --accent: #e05a3a;
@@ -1052,13 +1054,13 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: -0.03em;
   line-height: 0.9;
   font-variant-numeric: tabular-nums;
-  color: #e05a3a;
+  color: var(--accent);
 }
 
 .aod .aod-stats {
   display: flex;
   gap: 30px;
-  color: rgba(224, 90, 58, 0.6);
+  color: color-mix(in srgb, var(--accent) 60%, transparent);
   font-family: var(--ff-mono);
   font-size: 15px;
   letter-spacing: 0.06em;

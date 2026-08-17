@@ -42,12 +42,13 @@ your own music.
   no manual step needed. Falls back to on-device speech synthesis for phrases
   not yet rendered, so the app works with zero API keys.
 - **Stale-audio detection** — every render drops a marker blob whose pathname
-  carries a fingerprint of the exact words it voiced. Reword a phrase without
-  changing its id and the gap-filling pass would skip it forever, since a file
-  already sits at that path; instead admin marks the row "old" and offers to
-  re-cut just the affected phrases. Phrases voiced before this existed carry no
-  marker and are left alone rather than guessed at, so the warning only ever
-  appears on a mismatch that can be proven.
+  carries a fingerprint of the exact words it voiced, sweeping that phrase's
+  superseded markers so the store stays at one marker per phrase. Reword a
+  phrase without changing its id and the gap-filling pass would skip it
+  forever, since a file already sits at that path; instead admin marks the row
+  "old" and offers to re-cut just the affected phrases. Phrases voiced before
+  this existed carry no marker and are left alone rather than guessed at, so
+  the warning only ever appears on a mismatch that can be proven.
 - **Live phrase generation** — mid-run, the coach asks the server for brand-new
   material (Claude Sonnet 5 writes the line in-persona, ElevenLabs voices it),
   fed with live context: current weather, the neighbourhood you're running
@@ -100,6 +101,12 @@ npm run dev
 ```
 
 The app is fully functional with no API keys (library phrases + on-device TTS).
+
+`npm test` runs the simulation suites — the GPS tracker against jittered fake
+fixes, the voice engine against iOS-style interruptions, the stale-audio
+bookkeeping against a lagging CDN. `npm run test:ui` drives a production build
+in a real browser. Every scenario in there earned its place by catching a real
+bug; see `tests/README.md`.
 
 ## Environment variables (optional, unlock the good stuff)
 

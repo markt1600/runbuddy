@@ -268,7 +268,12 @@ export class GeoTracker {
       return;
     }
     this.stallLog.push({ t: now, km: this.distanceKm });
-    while (this.stallLog.length > 1 && this.stallLog[0].t < now - STALL_WINDOW_MS) {
+    // Keep the newest entry that is still *older* than the window — the same
+    // trailing-window pruning as the armed-resume trail, and for the same
+    // reason: dropping everything past the cutoff discards the only sample
+    // that can prove the window is filled, so the "window not filled" guard
+    // below returns on every fix and the no-Doppler stall path never fires.
+    while (this.stallLog.length > 1 && this.stallLog[1].t <= now - STALL_WINDOW_MS) {
       this.stallLog.shift();
     }
 

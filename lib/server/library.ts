@@ -1,4 +1,4 @@
-import { list, put } from "@vercel/blob";
+import { del, list, put } from "@vercel/blob";
 import { PHRASE_LIBRARY } from "../phrases";
 import { phraseHash } from "../phraseHash";
 import { renderVoiceBuffer } from "./generate";
@@ -110,13 +110,27 @@ export async function readRenderHashes(persona: PersonaId): Promise<Record<strin
 
 /** Record what a freshly rendered phrase says. Independent per phrase. */
 async function recordRenderHash(persona: PersonaId, phraseId: string, hash: string) {
-  await put(markerPath(persona, phraseId, hash), "", {
+  const fresh = markerPath(persona, phraseId, hash);
+  await put(fresh, "", {
     access: "public",
     contentType: "text/plain",
     addRandomSuffix: false,
     allowOverwrite: true,
     cacheControlMaxAge: 0,
   });
+  // Sweep this phrase's superseded markers, so the store stays at one marker
+  // per phrase and resolution never has to fall back to comparing upload
+  // times. Only after the new marker is safely up: losing a cleanup is a few
+  // orphaned zero-byte blobs, losing the record would be a phrase whose audio
+  // reads as stale forever. The `__` in the prefix keeps li-pu-1 from ever
+  // matching li-pu-17's markers.
+  try {
+    const page = await list({ prefix: `${markerPrefix(persona)}${phraseId}__` });
+    const stale = page.blobs.filter((b) => b.pathname !== fresh).map((b) => b.url);
+    if (stale.length > 0) await del(stale);
+  } catch {
+    /* best effort — the newest-wins read still resolves correctly */
+  }
 }
 
 async function findPhrase(persona: PersonaId, phraseId: string): Promise<Phrase | undefined> {

@@ -6,9 +6,13 @@ import "./globals.css";
 // installed PWA that runs outdoors on flaky mobile data, so an external
 // stylesheet request would be the one thing standing between a runner and
 // legible numbers.
+// Weights are trimmed to what the stylesheet and run card actually set —
+// this loads on a phone, outdoors, so every unused cut is dead weight on the
+// first install. If you add a new weight in CSS, add it here too, or the
+// browser will synthesize a faux version without telling you.
 const fraunces = Fraunces({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "800"],
+  weight: ["500", "600", "800"],
   style: ["normal", "italic"],
   variable: "--font-display",
   display: "swap",
@@ -16,7 +20,7 @@ const fraunces = Fraunces({
 
 const newsreader = Newsreader({
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400"],
   style: ["normal", "italic"],
   variable: "--font-body",
   display: "swap",
@@ -24,7 +28,7 @@ const newsreader = Newsreader({
 
 const jetbrains = JetBrains_Mono({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["500", "600"],
   variable: "--font-mono",
   display: "swap",
 });

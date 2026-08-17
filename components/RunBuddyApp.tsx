@@ -78,6 +78,14 @@ export default function RunBuddyApp() {
     saveChattiness(v);
   };
 
+  // Keep the browser chrome (iOS status bar, PWA title bar) on the same ground
+  // as the screen under it. The static viewport export can only name one
+  // colour, and this app has two grounds — paper everywhere, ink during a run.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", screen === "run" ? "#211c15" : "#f5efe2");
+  }, [screen]);
+
   // First launch after deploy: quietly top up the voice library through the
   // server's ElevenLabs key. No-ops when everything is already rendered or
   // rendering isn't configured; the admin screen has the visible controls.

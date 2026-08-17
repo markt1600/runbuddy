@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate-library": "node scripts/generate-library.mjs"
+    "generate-library": "node scripts/generate-library.mjs",
+    "test": "node tests/run-all.mjs",
+    "test:ui": "node --import ./tests/ts-resolve.mjs tests/ui/stale-admin.mjs && node --import ./tests/ts-resolve.mjs tests/ui/screens.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",
