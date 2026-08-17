@@ -4,6 +4,7 @@ import {
   elevenLabsConfigured,
   listRendered,
   readExtras,
+  readRenderHashes,
 } from "@/lib/server/library";
 import { readVoiceSettings } from "@/lib/server/voiceSettings";
 import { PERSONAS } from "@/lib/personas";
@@ -18,18 +19,23 @@ export async function GET() {
     const canRender = blobConfigured() && elevenLabsConfigured();
     const rendered = blobConfigured() ? await listRendered() : {};
     const personaIds = Object.keys(PERSONAS) as PersonaId[];
-    const [voiceSettings, ...extrasList] = await Promise.all([
+    const [voiceSettings, extrasList, hashList] = await Promise.all([
       readVoiceSettings(),
-      ...personaIds.map((p) => readExtras(p)),
+      Promise.all(personaIds.map((p) => readExtras(p))),
+      Promise.all(personaIds.map((p) => readRenderHashes(p))),
     ]);
     const extras = Object.fromEntries(
       personaIds.map((p, i) => [p, extrasList[i]])
     ) as Record<PersonaId, Awaited<ReturnType<typeof readExtras>>>;
+    const renderHashes = Object.fromEntries(
+      personaIds.map((p, i) => [p, hashList[i]])
+    ) as Record<PersonaId, Record<string, string>>;
     return NextResponse.json({
       elevenlabs: elevenLabsConfigured(),
       blob: blobConfigured(),
       canRender,
       rendered, // { "<persona>/<id>": url }
+      renderHashes, // { <persona>: { <id>: textHash } } — what the audio says
       extras,
       voiceSettings,
     });

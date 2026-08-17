@@ -1,5 +1,6 @@
 import { list, put } from "@vercel/blob";
 import { PHRASE_LIBRARY } from "../phrases";
+import { phraseHash } from "../phraseHash";
 import { renderVoiceBuffer } from "./generate";
 import type { PersonaId, Phrase } from "../types";
 
@@ -67,6 +68,45 @@ export async function appendExtras(persona: PersonaId, phrases: Phrase[]): Promi
   return merged;
 }
 
+// ---- render manifest: which text each rendered MP3 was actually cut from ----
+
+const manifestPath = (persona: PersonaId) => `library/${persona}/renders.json`;
+
+/** `{ "<phraseId>": "<textHash>" }` for one persona's blob-rendered audio. */
+export async function readRenderHashes(persona: PersonaId): Promise<Record<string, string>> {
+  if (!blobConfigured()) return {};
+  try {
+    const page = await list({ prefix: manifestPath(persona), limit: 1 });
+    const hit = page.blobs.find((b) => b.pathname === manifestPath(persona));
+    if (!hit) return {};
+    const res = await fetch(hit.url, { cache: "no-store" });
+    if (!res.ok) return {};
+    const data = await res.json();
+    return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Record what a freshly rendered phrase says. Read-modify-write on a single
+ * JSON blob, so two renders finishing at the same instant can drop one of the
+ * two entries — that only costs a phrase its "up to date" mark until the next
+ * render, which is cheaper than serialising every render behind a lock.
+ */
+async function recordRenderHash(persona: PersonaId, phraseId: string, hash: string) {
+  const current = await readRenderHashes(persona);
+  if (current[phraseId] === hash) return;
+  current[phraseId] = hash;
+  await put(manifestPath(persona), JSON.stringify(current, null, 2), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+  });
+}
+
 async function findPhrase(persona: PersonaId, phraseId: string): Promise<Phrase | undefined> {
   const fromStatic = PHRASE_LIBRARY[persona].find((p) => p.id === phraseId);
   if (fromStatic) return fromStatic;
@@ -102,5 +142,8 @@ export async function renderPhraseToBlob(
     allowOverwrite: true, // benign if two clients race on the same phrase
     cacheControlMaxAge: 31536000,
   });
+  // Only after the audio is actually in place — a recorded hash claims the
+  // MP3 speaks this text, and a failed put must not leave that claim behind.
+  await recordRenderHash(persona, phraseId, phraseHash(phrase.text));
   return { url: blob.url, existed: false };
 }

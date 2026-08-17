@@ -1273,3 +1273,38 @@ body {
   opacity: 0.35;
   cursor: default;
 }
+
+/* Reworded after it was voiced: the MP3 still speaks the old line. */
+.phrase-redo.urgent {
+  background: var(--orange);
+  color: #1c1c1e;
+}
+
+.phrase-badge.stale {
+  color: var(--orange);
+}
+
+.phrase-row.stale {
+  background: rgba(255, 159, 10, 0.08);
+}
+
+.stale-banner {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 159, 10, 0.35);
+  border-radius: 12px;
+  background: rgba(255, 159, 10, 0.1);
+}
+
+.stale-head {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--orange);
+}
+
+.stale-sub {
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--label-2);
+}

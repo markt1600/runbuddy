@@ -16,7 +16,10 @@ import {
   reRenderPersona,
   renderMissingPhrases,
   reRenderPhrase,
+  reRenderStale,
   renderedCount,
+  isPhraseStale,
+  stalePhrases,
   saveVoiceSpeed,
   saveVoiceVolume,
   storeAdminPin,
@@ -227,6 +230,29 @@ export default function AdminScreen({ onBack }: Props) {
     refresh();
   };
 
+  // Phrases whose wording was edited after they were voiced — the file exists,
+  // so "render missing" skips them and the old audio would play forever.
+  const staleHere = stalePhrases(personaId);
+  const staleAll = stalePhrases();
+
+  const onRenderStale = async (only?: PersonaId) => {
+    const list = stalePhrases(only);
+    if (
+      !window.confirm(
+        `Re-render ${list.length} outdated phrase${list.length === 1 ? "" : "s"}` +
+          `${only ? ` for ${persona.name}` : " across all trainers"}? ` +
+          "This spends ElevenLabs credits."
+      )
+    )
+      return;
+    setNotice(null);
+    await reRenderStale((p) => {
+      setProgress(p);
+      refresh();
+    }, only);
+    refresh();
+  };
+
   const onExpandCategory = async (cat: PhraseCategory) => {
     setNotice(null);
     setExpanding(cat);
@@ -338,6 +364,39 @@ export default function AdminScreen({ onBack }: Props) {
             );
           })}
         </div>
+        {staleAll.length > 0 && (
+          <div className="stale-banner">
+            <div className="stale-head">
+              ⚠ {staleAll.length} phrase{staleAll.length === 1 ? "" : "s"} reworded since
+              {staleAll.length === 1 ? " it was" : " they were"} voiced
+            </div>
+            <div className="stale-sub">
+              The audio still says the old words. Look for the “old” tag in the phrase list
+              below.
+            </div>
+            {staleHere.length > 0 && (
+              <button
+                className="cta"
+                style={{ marginTop: 10 }}
+                disabled={busy}
+                onClick={() => onRenderStale(personaId)}
+              >
+                Re-render {staleHere.length} outdated {persona.shortName} phrase
+                {staleHere.length === 1 ? "" : "s"}
+              </button>
+            )}
+            {staleAll.length > staleHere.length && (
+              <button
+                className="cta secondary"
+                style={{ marginTop: 10 }}
+                disabled={busy}
+                onClick={() => onRenderStale()}
+              >
+                Re-render all {staleAll.length} outdated — every trainer
+              </button>
+            )}
+          </div>
+        )}
         <button
           className="cta"
           style={{ marginTop: 12 }}
@@ -505,8 +564,9 @@ export default function AdminScreen({ onBack }: Props) {
               {pool.map((phrase) => {
                 const rendered = !!getPhraseUrl(personaId, phrase.id);
                 const isAI = phrase.id.startsWith("xg-");
+                const stale = isPhraseStale(personaId, phrase.id);
                 return (
-                  <div className="phrase-row" key={phrase.id}>
+                  <div className={`phrase-row${stale ? " stale" : ""}`} key={phrase.id}>
                     <button
                       className="phrase-play"
                       aria-label="Play phrase"
@@ -519,8 +579,16 @@ export default function AdminScreen({ onBack }: Props) {
                       {rendered ? "MP3" : "TTS"}
                     </span>
                     {isAI && <span className="phrase-badge ai">AI</span>}
+                    {stale && (
+                      <span
+                        className="phrase-badge stale"
+                        title="The wording changed after this was voiced — the MP3 still says the old line"
+                      >
+                        old
+                      </span>
+                    )}
                     <button
-                      className="phrase-redo"
+                      className={`phrase-redo${stale ? " urgent" : ""}`}
                       aria-label="Re-render this phrase"
                       title="Re-render just this phrase"
                       disabled={busy || redoing !== null}

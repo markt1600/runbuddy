@@ -1,5 +1,7 @@
 import { PHRASE_LIBRARY } from "./phrases";
 import { PERSONAS } from "./personas";
+import { phraseHash } from "./phraseHash";
+import { RENDER_BASELINE } from "./renderBaseline";
 import type { Persona, Phrase, PersonaId, PhraseCategory } from "./types";
 
 // Client-side registry of the full phrase library — static phrases shipped in
@@ -21,6 +23,9 @@ const voiceSpeeds = Object.fromEntries(
 const voiceVolumes = Object.fromEntries(
   PERSONA_IDS.map((p) => [p, PERSONAS[p].playbackVolume])
 ) as Record<PersonaId, number>;
+const renderHashes = Object.fromEntries(
+  PERSONA_IDS.map((p) => [p, {} as Record<string, string>])
+) as Record<PersonaId, Record<string, string>>;
 let stateLoaded = false;
 
 const key = (persona: PersonaId, id: string) => `${persona}/${id}`;
@@ -117,6 +122,7 @@ export async function loadLibraryState(force = false): Promise<void> {
         elevenlabs: boolean;
         canRender: boolean;
         rendered: Record<string, string>;
+        renderHashes?: Record<string, Record<string, string>>;
         extras: Record<string, Phrase[]>;
         voiceSettings?: Record<PersonaId, { speed: number; volume: number }>;
       } = await res.json();
@@ -126,6 +132,7 @@ export async function loadLibraryState(force = false): Promise<void> {
       }
       for (const persona of Object.keys(extras) as PersonaId[]) {
         extras[persona] = data.extras?.[persona] ?? [];
+        renderHashes[persona] = data.renderHashes?.[persona] ?? {};
         const speed = data.voiceSettings?.[persona]?.speed;
         if (typeof speed === "number") voiceSpeeds[persona] = speed;
         const volume = data.voiceSettings?.[persona]?.volume;
@@ -135,6 +142,79 @@ export async function loadLibraryState(force = false): Promise<void> {
   } catch {
     /* offline or route missing — flags stay pessimistic */
   }
+}
+
+// ---- stale audio: the MP3 exists, but it says the old words ----
+
+/**
+ * True when a phrase has rendered audio that was cut from different text than
+ * the phrase carries now. Editing wording without changing the id leaves the
+ * old recording in place, because the gap-filling pass only looks for missing
+ * files.
+ *
+ * Provenance comes from the render manifest, falling back to the baseline
+ * captured when hash tracking was added. A phrase in neither — an AI-generated
+ * extra, or audio from before the baseline — reports false rather than
+ * guessing, so this only ever flags a mismatch it can actually prove.
+ */
+export function isPhraseStale(persona: PersonaId, id: string): boolean {
+  if (!urls.has(key(persona, id))) return false; // nothing rendered to be stale
+  const known = renderHashes[persona]?.[id] ?? RENDER_BASELINE[persona]?.[id];
+  if (!known) return false;
+  const phrase = allPhrasesFor(persona).find((p) => p.id === id);
+  return !!phrase && phraseHash(phrase.text) !== known;
+}
+
+/** Every phrase whose audio is provably out of date, across one or all personas. */
+export function stalePhrases(only?: PersonaId): { persona: PersonaId; id: string }[] {
+  const personas = only ? [only] : PERSONA_IDS;
+  return personas.flatMap((persona) =>
+    allPhrasesFor(persona)
+      .filter((p) => isPhraseStale(persona, p.id))
+      .map((p) => ({ persona, id: p.id }))
+  );
+}
+
+/**
+ * Re-cut every out-of-date phrase. Sequential and force-rendering, same shape
+ * as the gap-filling pass — this spends ElevenLabs credits, one call per phrase.
+ */
+export async function reRenderStale(
+  onProgress: (p: GenerationProgress) => void,
+  only?: PersonaId
+): Promise<void> {
+  const stale = stalePhrases(only);
+  const total = stale.length;
+  let done = 0;
+  const report = (state: GenerationProgress["state"], message?: string) =>
+    onProgress({ state, done, total, message });
+
+  if (total === 0) {
+    report("done");
+    return;
+  }
+  if (!flags.canRender) {
+    report("unavailable", unavailableReason());
+    return;
+  }
+
+  let consecutiveFailures = 0;
+  report("generating");
+  for (const { persona, id } of stale) {
+    try {
+      await reRenderPhrase(persona, id); // records the new hash locally too
+      done++;
+      consecutiveFailures = 0;
+      report("generating");
+    } catch {
+      consecutiveFailures++;
+      if (consecutiveFailures >= 3) {
+        report("error", "Voice rendering stopped — check ElevenLabs credits, then retry.");
+        return;
+      }
+    }
+  }
+  report("done");
 }
 
 /**
@@ -292,6 +372,10 @@ export async function reRenderPhrase(persona: PersonaId, id: string): Promise<vo
   // Cache-buster: the blob path is unchanged, so the browser would happily
   // keep serving the old audio.
   urls.set(key(persona, id), `${data.url}?v=${Date.now()}`);
+  // Mirror the hash the server just recorded, so the row stops reading as
+  // stale without waiting for a status refetch.
+  const text = allPhrasesFor(persona).find((p) => p.id === id)?.text;
+  if (text !== undefined) renderHashes[persona][id] = phraseHash(text);
 }
 
 let autoStarted = false;

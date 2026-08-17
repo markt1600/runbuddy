@@ -41,6 +41,12 @@ your own music.
   server's ElevenLabs key into Vercel Blob, with an on-screen progress bar —
   no manual step needed. Falls back to on-device speech synthesis for phrases
   not yet rendered, so the app works with zero API keys.
+- **Stale-audio detection** — every render records a fingerprint of the exact
+  words it voiced. Reword a phrase without changing its id and the gap-filling
+  pass would skip it forever, since a file already sits at that path; instead
+  admin marks the row "old" and offers to re-cut just the affected phrases.
+  Provenance for audio rendered before this existed comes from
+  `lib/renderBaseline.ts`.
 - **Live phrase generation** — mid-run, the coach asks the server for brand-new
   material (Claude Sonnet 5 writes the line in-persona, ElevenLabs voices it),
   fed with live context: current weather, the neighbourhood you're running
