@@ -15,6 +15,7 @@ import {
   playPhrase,
   reRenderPersona,
   renderMissingPhrases,
+  reRenderPhrase,
   renderedCount,
   saveVoiceSpeed,
   saveVoiceVolume,
@@ -83,6 +84,7 @@ export default function AdminScreen({ onBack }: Props) {
       >
   );
   const [savingVolume, setSavingVolume] = useState<PersonaId | null>(null);
+  const [redoing, setRedoing] = useState<string | null>(null);
   const [, bump] = useState(0); // re-render as the registry mutates
   const refresh = () => bump((n) => n + 1);
 
@@ -155,6 +157,21 @@ export default function AdminScreen({ onBack }: Props) {
       setNotice(`⚠ ${err instanceof Error ? err.message : "save failed"}`);
     } finally {
       setSavingVolume(null);
+    }
+  };
+
+  // Re-render a single phrase, for wording that changed after it was voiced.
+  const onRedoPhrase = async (id: string) => {
+    setRedoing(id);
+    setNotice(null);
+    try {
+      await reRenderPhrase(personaId, id);
+      setNotice(`✓ Re-rendered ${id}`);
+    } catch (err) {
+      setNotice(`⚠ ${err instanceof Error ? err.message : "render failed"}`);
+    } finally {
+      setRedoing(null);
+      refresh();
     }
   };
 
@@ -502,6 +519,15 @@ export default function AdminScreen({ onBack }: Props) {
                       {rendered ? "MP3" : "TTS"}
                     </span>
                     {isAI && <span className="phrase-badge ai">AI</span>}
+                    <button
+                      className="phrase-redo"
+                      aria-label="Re-render this phrase"
+                      title="Re-render just this phrase"
+                      disabled={busy || redoing !== null}
+                      onClick={() => onRedoPhrase(phrase.id)}
+                    >
+                      {redoing === phrase.id ? "…" : "↻"}
+                    </button>
                   </div>
                 );
               })}

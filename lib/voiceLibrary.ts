@@ -273,6 +273,27 @@ export async function reRenderPersona(
   report("done", done);
 }
 
+/**
+ * Force one phrase to be re-rendered — for when its wording changed but its id
+ * did not, which the "render missing" pass would otherwise skip entirely
+ * because a file already exists at that path.
+ */
+export async function reRenderPhrase(persona: PersonaId, id: string): Promise<void> {
+  const res = await fetch("/api/library/render", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...adminPinHeaders() },
+    body: JSON.stringify({ persona, id, force: true }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? `render failed (${res.status})`);
+  }
+  const data: { url: string } = await res.json();
+  // Cache-buster: the blob path is unchanged, so the browser would happily
+  // keep serving the old audio.
+  urls.set(key(persona, id), `${data.url}?v=${Date.now()}`);
+}
+
 let autoStarted = false;
 
 /** App-launch hook: load state, then top up the library automatically. */

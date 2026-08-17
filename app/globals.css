@@ -1255,3 +1255,21 @@ body {
   flex-shrink: 0;
 }
 
+
+/* Re-render a single phrase — for wording edited after it was already voiced. */
+.phrase-redo {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-elevated-2);
+  color: var(--label-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.phrase-redo:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

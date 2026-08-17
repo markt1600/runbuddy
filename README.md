@@ -9,7 +9,7 @@ your own music.
 
 - **Personas** — five, each with its own voice, 227-phrase library and attitude.
   Ah Lian is Ah Beng's equal in vulgarity, with a running joke about her useless
-  ex-boyfriend Kelvin that she brings up whenever you slack off.
+  ex — never named, just "my ex" — that she brings up whenever you slack off.
 - **Per-persona voice settings** — speed (applies at render time) and playback
   level (applies at play time, no re-render), both in admin. Every voice ships
   at 100%; the level control only pulls one down, for a voice that ever renders
