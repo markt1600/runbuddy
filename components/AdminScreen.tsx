@@ -429,9 +429,9 @@ export default function AdminScreen({ onBack }: Props) {
           </div>
         ))}
         <div className="gen-hint" style={{ padding: "2px 0 10px" }}>
-          Balances the personas against each other. An audio element can&apos;t play above
-          100%, so making one stand out means turning the others down. Applies on your next
-          run — no re-render needed.
+          Every voice ships at 100%. An audio element can&apos;t play above that, so this can
+          only pull a voice down — useful if one ever renders hot. Applies on your next run,
+          no re-render needed.
         </div>
       </div>
 

@@ -352,9 +352,9 @@ export class VoiceEngine {
           settle(() => reject(new Error("interrupted")));
         }
       };
-      // Per-persona level, set in admin. An element can only attenuate, so
-      // this balances the personas against each other rather than lifting any
-      // of them — which is the part that cannot be done from a web app.
+      // Per-persona level, set in admin. Everyone is at full by default; this
+      // only exists to pull a voice down if one ever renders hot, since an
+      // element cannot go above 1 and so cannot lift one.
       p.volume = getVoiceVolume(this.persona.id);
       p.src = url;
       p.play().catch((err) => settle(() => reject(err)));

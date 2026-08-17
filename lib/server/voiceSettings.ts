@@ -10,9 +10,9 @@ export interface VoiceSettings {
   speed: number; // ElevenLabs voice_settings.speed, valid ~0.7–1.2
   /**
    * Playback level for this persona, 0–1. Applied to the audio element at play
-   * time, so it needs no re-render — but an element cannot go ABOVE 1, so this
-   * balances personas against each other rather than making any of them louder
-   * in absolute terms. Making one stand out means turning the others down.
+   * time, so it needs no re-render. Everyone ships at 1; the control exists to
+   * pull a voice DOWN if one ever renders hot, since an element cannot go above
+   * 1 and so cannot lift one either.
    */
   volume: number;
 }

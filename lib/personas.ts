@@ -12,7 +12,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     // Placeholder — swap for a cloned Singlish voice in your ElevenLabs account
     elevenLabsVoiceId: "TxGEqnHWrfWFTfGW9XjX",
     elevenLabsSpeed: 1.2, // Ah Beng talks 20% faster — angry people don't dawdle
-    playbackVolume: 0.85, // a notch down so Ah Lian can stand out — nothing can go above 1
+    playbackVolume: 1,
     tts: { rate: 1.3, pitch: 0.85, lang: "en-SG" },
     stylePrompt:
       "You are an Angry Ah Beng from Singapore acting as a running coach for an adult runner " +
@@ -35,7 +35,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     // Placeholder — swap for a cloned Singlish female voice
     elevenLabsVoiceId: "21m00Tcm4TlvDq8ikWAM",
     elevenLabsSpeed: 1.2, // same clip as Ah Beng — she doesn't dawdle either
-    playbackVolume: 1, // the loudest of the set, as asked
+    playbackVolume: 1,
     tts: { rate: 1.3, pitch: 1.2, lang: "en-SG" },
     stylePrompt:
       "You are Ah Lian, a loud, brash Singaporean woman acting as a running coach for an " +
@@ -60,7 +60,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     positive: true,
     elevenLabsVoiceId: "EXAVITQu4vr4xnSDxMaL",
     elevenLabsSpeed: 1.0,
-    playbackVolume: 0.85,
+    playbackVolume: 1,
     tts: { rate: 1.0, pitch: 1.08, lang: "en-US" },
     stylePrompt:
       "You are Coach Christine, a warm, upbeat, endlessly encouraging personal running trainer. " +
@@ -78,7 +78,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     // Placeholder — pick a warm, sultry voice in your ElevenLabs account
     elevenLabsVoiceId: "AZnzlk1XvdvUeBnXmlld",
     elevenLabsSpeed: 0.95, // slower, more languid delivery
-    playbackVolume: 0.85,
+    playbackVolume: 1,
     tts: { rate: 0.96, pitch: 1.15, lang: "en-US" },
     stylePrompt:
       "You are Coach Cassie, a flirtatious, playful female running coach with a warm, teasing " +
@@ -99,7 +99,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     // Placeholder — a gruff, menacing voice works best here
     elevenLabsVoiceId: "VR6AewLTigWG4xSOukaG",
     elevenLabsSpeed: 1.1, // menacing, but not as manic as Ah Beng
-    playbackVolume: 0.85,
+    playbackVolume: 1,
     tts: { rate: 1.18, pitch: 0.8, lang: "en-SG" },
     stylePrompt:
       "You are Ah Long, a Singaporean loan shark chasing an adult runner who owes you money — " +

@@ -69,7 +69,7 @@ export interface Persona {
   elevenLabsVoiceId: string;
   /** ElevenLabs playback speed (1.0 normal; API accepts ~0.7–1.2). */
   elevenLabsSpeed: number;
-  /** Default playback level, 0–1. Balances personas against each other. */
+  /** Default playback level, 0–1. Every persona ships at full. */
   playbackVolume: number;
   // Fallback speechSynthesis tuning when no rendered audio is available
   tts: { rate: number; pitch: number; lang: string };
