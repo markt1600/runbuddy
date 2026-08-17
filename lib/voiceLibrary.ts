@@ -1,7 +1,6 @@
 import { PHRASE_LIBRARY } from "./phrases";
 import { PERSONAS } from "./personas";
 import { phraseHash } from "./phraseHash";
-import { RENDER_BASELINE } from "./renderBaseline";
 import type { Persona, Phrase, PersonaId, PhraseCategory } from "./types";
 
 // Client-side registry of the full phrase library — static phrases shipped in
@@ -152,14 +151,17 @@ export async function loadLibraryState(force = false): Promise<void> {
  * old recording in place, because the gap-filling pass only looks for missing
  * files.
  *
- * Provenance comes from the render manifest, falling back to the baseline
- * captured when hash tracking was added. A phrase in neither — an AI-generated
- * extra, or audio from before the baseline — reports false rather than
- * guessing, so this only ever flags a mismatch it can actually prove.
+ * Provenance only ever comes from a render that actually happened. Audio cut
+ * before this tracking existed has none, and is reported current rather than
+ * guessed at — an earlier version assumed such audio matched the text as it
+ * read at a fixed commit, which flagged phrases that had since been correctly
+ * re-rendered. Silence beats a false alarm: this now only flags a mismatch it
+ * can prove, at the cost of saying nothing until a phrase has been voiced once
+ * under the new bookkeeping.
  */
 export function isPhraseStale(persona: PersonaId, id: string): boolean {
   if (!urls.has(key(persona, id))) return false; // nothing rendered to be stale
-  const known = renderHashes[persona]?.[id] ?? RENDER_BASELINE[persona]?.[id];
+  const known = renderHashes[persona]?.[id];
   if (!known) return false;
   const phrase = allPhrasesFor(persona).find((p) => p.id === id);
   return !!phrase && phraseHash(phrase.text) !== known;

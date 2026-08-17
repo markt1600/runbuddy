@@ -70,37 +70,49 @@ export async function appendExtras(persona: PersonaId, phrases: Phrase[]): Promi
 
 // ---- render manifest: which text each rendered MP3 was actually cut from ----
 
-const manifestPath = (persona: PersonaId) => `library/${persona}/renders.json`;
+// One empty marker blob per render, with the phrase id and the text
+// fingerprint encoded in its pathname. Deliberately not a single JSON manifest:
+// that needs read-modify-write, and the read goes through the CDN, which serves
+// the pre-overwrite copy for a while. A run of renders seconds apart would each
+// read a stale map and write back a copy missing its predecessors, so all but
+// the last few entries evaporate. Pathname-as-data has no read step to be stale.
+const markerPrefix = (persona: PersonaId) => `library/${persona}/rendered/`;
+const markerPath = (persona: PersonaId, phraseId: string, hash: string) =>
+  `${markerPrefix(persona)}${phraseId}__${hash}`;
 
-/** `{ "<phraseId>": "<textHash>" }` for one persona's blob-rendered audio. */
+/** `{ "<phraseId>": "<textHash>" }` — what one persona's rendered audio says. */
 export async function readRenderHashes(persona: PersonaId): Promise<Record<string, string>> {
   if (!blobConfigured()) return {};
+  const out: Record<string, string> = {};
+  const seenAt: Record<string, number> = {};
   try {
-    const page = await list({ prefix: manifestPath(persona), limit: 1 });
-    const hit = page.blobs.find((b) => b.pathname === manifestPath(persona));
-    if (!hit) return {};
-    const res = await fetch(hit.url, { cache: "no-store" });
-    if (!res.ok) return {};
-    const data = await res.json();
-    return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+    let cursor: string | undefined;
+    do {
+      const page = await list({ prefix: markerPrefix(persona), cursor });
+      for (const blob of page.blobs) {
+        const m = blob.pathname.match(/\/rendered\/(.+)__([0-9a-f]{8})$/);
+        if (!m) continue;
+        const [, id, hash] = m;
+        // Re-rendering the same text overwrites its own marker, so a phrase only
+        // collects more than one when its wording actually changed. Newest wins.
+        const at = blob.uploadedAt.getTime();
+        if (seenAt[id] !== undefined && seenAt[id] >= at) continue;
+        seenAt[id] = at;
+        out[id] = hash;
+      }
+      cursor = page.hasMore ? page.cursor : undefined;
+    } while (cursor);
   } catch {
     return {};
   }
+  return out;
 }
 
-/**
- * Record what a freshly rendered phrase says. Read-modify-write on a single
- * JSON blob, so two renders finishing at the same instant can drop one of the
- * two entries — that only costs a phrase its "up to date" mark until the next
- * render, which is cheaper than serialising every render behind a lock.
- */
+/** Record what a freshly rendered phrase says. Independent per phrase. */
 async function recordRenderHash(persona: PersonaId, phraseId: string, hash: string) {
-  const current = await readRenderHashes(persona);
-  if (current[phraseId] === hash) return;
-  current[phraseId] = hash;
-  await put(manifestPath(persona), JSON.stringify(current, null, 2), {
+  await put(markerPath(persona, phraseId, hash), "", {
     access: "public",
-    contentType: "application/json",
+    contentType: "text/plain",
     addRandomSuffix: false,
     allowOverwrite: true,
     cacheControlMaxAge: 0,
