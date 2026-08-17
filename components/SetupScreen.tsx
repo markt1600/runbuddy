@@ -298,22 +298,22 @@ export default function SetupScreen({
       <div className="section-header">While Your Buddy Talks</div>
       <div className="segmented">
         <button
-          className={duckMode === "pause" ? "active" : ""}
-          onClick={() => onDuckModeChange("pause")}
-        >
-          Pause music
-        </button>
-        <button
           className={duckMode === "duck" ? "active" : ""}
           onClick={() => onDuckModeChange("duck")}
         >
           Duck music
         </button>
+        <button
+          className={duckMode === "pause" ? "active" : ""}
+          onClick={() => onDuckModeChange("pause")}
+        >
+          Pause music
+        </button>
       </div>
       <div className="chatter-label" style={{ marginTop: 8 }}>
-        {duckMode === "pause"
-          ? "Your music stops for the length of each line, the way turn-by-turn directions do — clearest at running effort."
-          : "Your music keeps playing quietly underneath. Harder to make out when you're breathing hard."}
+        {duckMode === "duck"
+          ? "Your music keeps playing quietly underneath and comes back up on its own. Recommended."
+          : "Clearer to listen to, but a web app can't tell your music app when it may resume — some players stay paused until you restart them by hand."}
         {!audioSessionSupported() &&
           " ⚠ This iOS version doesn't let a web app touch other apps' audio, so your music will play at full volume regardless — turn it down yourself before you start."}
       </div>

@@ -126,18 +126,40 @@ export class VoiceEngine {
   /** How each spoken line was served this run. */
   counts = { prerendered: 0, live: 0, synth: 0 };
 
-  constructor(persona: Persona, duckMode: DuckMode = "pause") {
+  constructor(persona: Persona, duckMode: DuckMode = "duck") {
     this.persona = persona;
     this.duckMode = duckMode;
   }
 
   /**
    * "transient" asks iOS to duck the music under the voice; "transient-solo"
-   * pauses it outright for the length of the line, which is what turn-by-turn
-   * navigation does and is far easier to make out at running effort.
+   * interrupts it outright, which is clearer to listen to but much harder to
+   * undo from the web — see releaseSolo().
    */
   private get speakingSession(): AudioSessionType {
     return this.duckMode === "pause" ? "transient-solo" : "transient";
+  }
+
+  /**
+   * Solo mode INTERRUPTS the other app rather than ducking it, and an
+   * interrupted app on iOS only resumes when the interrupting session
+   * deactivates. Native code signals that with
+   * setActive(false, .notifyOthersOnDeactivation); the Web Audio Session API
+   * has no equivalent, and our keep-alive loop means the session never falls
+   * silent on its own, so the music can sit there paused for the rest of the
+   * run. Going quiet for a moment is the only lever we have. Best effort — it
+   * is why ducking is the default.
+   */
+  private releaseSolo() {
+    const ka = this.keepAlive;
+    if (!ka) return;
+    ka.removeEventListener("pause", this.onKeepAlivePause); // don't self-restart
+    ka.pause();
+    setTimeout(() => {
+      if (activeEngine !== this) return;
+      ka.addEventListener("pause", this.onKeepAlivePause);
+      ka.play().catch(() => {});
+    }, 300);
   }
 
   /**
@@ -317,6 +339,7 @@ export class VoiceEngine {
     } finally {
       this.playing = false;
       setAudioSession("ambient"); // the music can come back now
+      if (this.duckMode === "pause") this.releaseSolo();
     }
   }
 
