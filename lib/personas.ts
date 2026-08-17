@@ -7,7 +7,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     shortName: "Ah Beng",
     tagline: "Extremely vulgar. You have been warned, chee bye 🔞",
     emoji: "😤",
-    accent: "#FF453A",
+    accent: "#A8391E",
     positive: false,
     // Placeholder — swap for a cloned Singlish voice in your ElevenLabs account
     elevenLabsVoiceId: "TxGEqnHWrfWFTfGW9XjX",
@@ -30,7 +30,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     shortName: "Ah Lian",
     tagline: "Ah Beng's equal. Zero patience, kanina 🔞",
     emoji: "💅",
-    accent: "#BF5AF2",
+    accent: "#7B4FA0",
     positive: false,
     // Placeholder — swap for a cloned Singlish female voice
     elevenLabsVoiceId: "21m00Tcm4TlvDq8ikWAM",
@@ -57,7 +57,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     shortName: "Christine",
     tagline: "Warm, relentless encouragement",
     emoji: "🌟",
-    accent: "#30D158",
+    accent: "#A87722",
     positive: true,
     elevenLabsVoiceId: "EXAVITQu4vr4xnSDxMaL",
     elevenLabsSpeed: 1.0,
@@ -74,7 +74,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     shortName: "Cassie",
     tagline: "Playful, teasing, a little too charming 😏",
     emoji: "💋",
-    accent: "#FF375F",
+    accent: "#B8496E",
     positive: true,
     // Placeholder — pick a warm, sultry voice in your ElevenLabs account
     elevenLabsVoiceId: "AZnzlk1XvdvUeBnXmlld",
@@ -95,7 +95,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     shortName: "Ah Long",
     tagline: "You owe him money. He's right behind you 🔞",
     emoji: "💸",
-    accent: "#FF9F0A",
+    accent: "#3F6B4A",
     positive: false,
     // Placeholder — a gruff, menacing voice works best here
     elevenLabsVoiceId: "VR6AewLTigWG4xSOukaG",

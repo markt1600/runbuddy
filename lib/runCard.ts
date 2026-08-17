@@ -8,7 +8,27 @@ import type { Persona, RunStats } from "./types";
 
 export const CARD_SIZE = 1080;
 
-const FONT = `-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif`;
+// The card is the one artefact that leaves the app, so it carries the full
+// system: paper ground, Fraunces figures, mono labels. Families are read from
+// the same custom properties the stylesheet uses — next/font mangles the family
+// name at build time, so hardcoding "Fraunces" here would silently draw the
+// fallback. Falls back to a plain stack if the vars are missing (SSR, tests).
+function familyFrom(varName: string, fallback: string): string {
+  if (typeof document === "undefined") return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  return v ? `${v}, ${fallback}` : fallback;
+}
+
+const DISPLAY = () => familyFrom("--font-display", `Georgia, serif`);
+const MONO = () => familyFrom("--font-mono", `ui-monospace, monospace`);
+
+/** Paper palette, matching :root in globals.css. */
+const PAPER = "#f5efe2";
+const PAPER_2 = "#e9dec9";
+const INK = "#211c15";
+const INK_SOFT = "#5a5142";
+const INK_FAINT = "#8a7f6c";
+const RULE = "#cdc1a9";
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -69,8 +89,8 @@ function drawRoute(
   box: { x: number; y: number; w: number; h: number }
 ) {
   if (route.length < 2) {
-    ctx.fillStyle = "rgba(235,235,245,0.25)";
-    ctx.font = `500 30px ${FONT}`;
+    ctx.fillStyle = INK_FAINT;
+    ctx.font = `500 28px ${MONO()}`;
     ctx.textAlign = "center";
     ctx.fillText("No GPS route recorded", box.x + box.w / 2, box.y + box.h / 2);
     return;
@@ -125,11 +145,11 @@ function drawRoute(
     ctx.fillStyle = fill;
     ctx.fill();
     ctx.lineWidth = 5;
-    ctx.strokeStyle = "#0b0b0d";
+    ctx.strokeStyle = PAPER;
     ctx.stroke();
   };
-  dot(pts[0], "#30d158");
-  dot(pts[pts.length - 1], "#ff453a");
+  dot(pts[0], "#3f7d3f");
+  dot(pts[pts.length - 1], "#b3271b");
 }
 
 /** Treadmill runs have no route — draw a ring of time completed instead. */
@@ -147,7 +167,7 @@ function drawTimeRing(
 
   ctx.lineWidth = 22;
   ctx.lineCap = "round";
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.strokeStyle = RULE;
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.stroke();
@@ -163,11 +183,11 @@ function drawTimeRing(
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `800 84px ${FONT}`;
-  ctx.fillStyle = "#ffffff";
+  ctx.font = `600 84px ${DISPLAY()}`;
+  ctx.fillStyle = INK;
   ctx.fillText(`${Math.round(frac * 100)}%`, cx, cy - 12);
-  ctx.font = `700 26px ${FONT}`;
-  ctx.fillStyle = "rgba(235,235,245,0.55)";
+  ctx.font = `500 22px ${MONO()}`;
+  ctx.fillStyle = INK_FAINT;
   ctx.fillText("TREADMILL RUN", cx, cy + 52);
 }
 
@@ -188,12 +208,14 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   if (!ctx) return;
 
   // ---- background ----
-  ctx.fillStyle = "#0b0b0d";
+  ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, S, S);
-  const glow = ctx.createRadialGradient(S / 2, S * 0.42, 40, S / 2, S * 0.42, S * 0.62);
-  glow.addColorStop(0, `${persona.accent}26`);
-  glow.addColorStop(1, "#0b0b0d00");
-  ctx.fillStyle = glow;
+  // A whisper of the persona's colour, not a glow — on paper this reads as a
+  // wash in the stock rather than a light source.
+  const wash = ctx.createRadialGradient(S / 2, S * 0.42, 40, S / 2, S * 0.42, S * 0.62);
+  wash.addColorStop(0, `${persona.accent}14`);
+  wash.addColorStop(1, `${PAPER}00`);
+  ctx.fillStyle = wash;
   ctx.fillRect(0, 0, S, S);
 
   const PAD = 76;
@@ -201,8 +223,8 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   // ---- header ----
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  ctx.font = `400 54px ${FONT}`;
-  ctx.fillStyle = "#ffffff";
+  ctx.font = `400 54px ${DISPLAY()}`;
+  ctx.fillStyle = INK;
   ctx.fillText(persona.emoji, PAD, PAD + 26);
 
   const date = opts.date ?? new Date();
@@ -211,17 +233,17 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
     month: "short",
     year: "numeric",
   });
-  ctx.font = `600 28px ${FONT}`;
+  ctx.font = `500 22px ${MONO()}`;
   const dateW = ctx.measureText(dateText).width;
   ctx.textAlign = "right";
-  ctx.fillStyle = "rgba(235,235,245,0.6)";
+  ctx.fillStyle = INK_FAINT;
   ctx.fillText(dateText, S - PAD, PAD + 22);
 
   // Trim the name if it would run into the date
   const nameX = PAD + 76;
   const nameMax = S - PAD - dateW - 32 - nameX;
-  ctx.font = `700 34px ${FONT}`;
-  ctx.fillStyle = "#ffffff";
+  ctx.font = `600 36px ${DISPLAY()}`;
+  ctx.fillStyle = INK;
   ctx.textAlign = "left";
   let name = persona.name;
   if (ctx.measureText(name).width > nameMax) {
@@ -275,11 +297,11 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
     let valueW = 0;
     let unitW = 0;
     for (;;) {
-      ctx.font = `700 ${valueSize}px ${FONT}`;
+      ctx.font = `600 ${valueSize}px ${DISPLAY()}`;
       valueW = ctx.measureText(cell.value).width;
       unitW = 0;
       if (cell.unit) {
-        ctx.font = `600 ${unitSize}px ${FONT}`;
+        ctx.font = `500 ${unitSize}px ${MONO()}`;
         unitW = ctx.measureText(` ${cell.unit}`).width;
       }
       if (valueW + unitW <= cellMax || valueSize <= 34) break;
@@ -287,39 +309,38 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
       unitSize = Math.max(20, Math.round(valueSize * 0.42));
     }
 
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = INK;
     if (cell.unit) {
       const startX = cx - (valueW + unitW) / 2;
       ctx.textAlign = "left";
-      ctx.font = `700 ${valueSize}px ${FONT}`;
+      ctx.font = `600 ${valueSize}px ${DISPLAY()}`;
       ctx.fillText(cell.value, startX, rowY);
-      ctx.font = `600 ${unitSize}px ${FONT}`;
-      ctx.fillStyle = "rgba(235,235,245,0.6)";
+      ctx.font = `500 ${unitSize}px ${MONO()}`;
+      ctx.fillStyle = INK_FAINT;
       ctx.fillText(` ${cell.unit}`, startX + valueW, rowY);
     } else {
       ctx.textAlign = "center";
-      ctx.font = `700 ${valueSize}px ${FONT}`;
+      ctx.font = `600 ${valueSize}px ${DISPLAY()}`;
       ctx.fillText(cell.value, cx, rowY);
     }
 
     ctx.textAlign = "center";
-    ctx.font = `700 24px ${FONT}`;
-    ctx.fillStyle = "rgba(235,235,245,0.5)";
+    ctx.font = `500 20px ${MONO()}`;
+    ctx.fillStyle = INK_FAINT;
     ctx.fillText(cell.label, cx, rowY + 44);
   });
 
   // ---- coach comment ----
   const boxY = 806;
   const boxH = 158;
-  ctx.fillStyle = "rgba(255,255,255,0.05)";
-  roundRect(ctx, PAD, boxY, S - PAD * 2, boxH, 28);
+  ctx.fillStyle = PAPER_2;
+  roundRect(ctx, PAD, boxY, S - PAD * 2, boxH, 4);
   ctx.fill();
   ctx.fillStyle = persona.accent;
-  roundRect(ctx, PAD, boxY, 8, boxH, 4);
-  ctx.fill();
+  ctx.fillRect(PAD, boxY, 8, boxH);
 
-  ctx.font = `italic 500 32px ${FONT}`;
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.font = `italic 500 32px ${DISPLAY()}`;
+  ctx.fillStyle = INK;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   const lines = wrapLines(ctx, `“${comment}”`, S - PAD * 2 - 80, 3);
@@ -329,9 +350,9 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
 
   // ---- footer ----
   ctx.textAlign = "center";
-  ctx.font = `800 26px ${FONT}`;
-  ctx.fillStyle = "rgba(235,235,245,0.35)";
-  ctx.fillText("RUN BUDDY", S / 2, S - 46);
+  ctx.font = `600 20px ${MONO()}`;
+  ctx.fillStyle = INK_FAINT;
+  ctx.fillText("R U N   B U D D Y", S / 2, S - 46);
 }
 
 export function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {

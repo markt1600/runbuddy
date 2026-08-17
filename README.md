@@ -168,6 +168,32 @@ routes run as serverless functions.
   in-persona from the live run stats; ElevenLabs voices it; both degrade
   gracefully.
 
+## Design system
+
+Shared with [marktan.ai](https://marktan.ai): warm newsprint ground, rust
+accent, near-square corners, Fraunces for figures and headlines, Newsreader for
+prose, JetBrains Mono for the wide-tracked uppercase labels that carry the
+structure. Fonts are self-hosted via `next/font` rather than linked from Google,
+because this is an installed PWA that runs outdoors on unreliable mobile data.
+
+Two grounds, one system. `:root` is paper — setup, summary, admin. `.theme-ink`
+inverts *only* the ground and ink tokens for the live run screen; the accent,
+the type and the radii carry across untouched, so it reads as a mode rather than
+a second theme. The run screen is dark on purpose: a full-brightness cream
+screen glares on a night run and costs real OLED battery over an hour. The
+always-on sleeve display stays true black for the same reason, only more so.
+
+Two things to know before editing:
+
+- `color` is declared on `.app`, not only on `body`. Inheritance passes down the
+  *computed* colour, and `body` sits outside `.theme-ink` — declare it only on
+  `body` and the entire run screen inherits paper-dark ink onto an ink-dark
+  ground.
+- `--accent` is the brand rust and owns all chrome and actions. A trainer's own
+  colour is `--persona`, injected per-run, and is used only where it marks
+  *which trainer this is* — the avatar tint, the selected card's edge, the route
+  line on the run card.
+
 ## GPS accuracy
 
 A phone standing still still reports a position that wanders, and because that

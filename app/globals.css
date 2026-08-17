@@ -1,20 +1,81 @@
-/* Run Buddy — iOS-native dark design system */
+/* Run Buddy — editorial design system, shared with marktan.ai
+ *
+ * Ink on paper: warm newsprint ground, near-square corners, a rust accent,
+ * Fraunces for figures and headlines, Newsreader for prose, and JetBrains Mono
+ * for the wide-tracked uppercase labels that carry the structure.
+ *
+ * The live run screen inverts the same tokens (see .theme-ink) instead of
+ * introducing a second palette. Cream at full brightness is the wrong surface
+ * for a night run — it glares, and it costs real battery on OLED over an hour —
+ * but the typography, accent and shapes carry straight across, so the two
+ * halves read as one system rather than two apps.
+ */
 
 :root {
-  --bg: #000000;
-  --bg-elevated: #1c1c1e;
-  --bg-elevated-2: #2c2c2e;
-  --separator: rgba(84, 84, 88, 0.65);
-  --label: #ffffff;
-  --label-2: rgba(235, 235, 245, 0.6);
-  --label-3: rgba(235, 235, 245, 0.3);
-  --blue: #0a84ff;
-  --green: #30d158;
-  --red: #ff453a;
-  --orange: #ff9f0a;
-  --yellow: #ffd60a;
-  --radius: 16px;
-  --radius-lg: 22px;
+  /* Paper — the reading surface: setup, summary, admin. */
+  --bg: #f5efe2;
+  --bg-elevated: #efe6d5;
+  --bg-elevated-2: #e9dec9;
+  --separator: #cdc1a9;
+  --separator-strong: #b6a988;
+  --label: #211c15;
+  --label-2: #5a5142;
+  --label-3: #8a7f6c;
+
+  /* The one brand colour, straight from marktan.ai. */
+  --accent: #bb3b22;
+  --accent-deep: #8f2c18;
+  /* Ink laid on the accent — reads on both rust and every persona colour. */
+  --on-accent: #f5efe2;
+
+  /* Status colours, warmed to sit on newsprint rather than glass. */
+  --blue: #2f5d8c;
+  --green: #3f7d3f;
+  --red: #b3271b;
+  --orange: #b06a15;
+  --yellow: #8a6a12;
+
+  /* Near-square: the newsprint tell. Pills stay pills. */
+  --radius: 3px;
+  --radius-lg: 4px;
+  --radius-pill: 999px;
+
+  /* next/font sets --font-display / --font-body / --font-mono on <html>. These
+     wrap them with a fallback chain, under separate names so the two never
+     collide — both would otherwise land on the root element at equal
+     specificity, and which one won would come down to stylesheet order. */
+  --ff-display: var(--font-display), "Fraunces", Georgia, serif;
+  --ff-body: var(--font-body), "Newsreader", Georgia, serif;
+  --ff-mono: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+
+  --shadow: rgba(40, 30, 15, 0.1);
+}
+
+/*
+ * Ink — the running surface. Same system, inverted ground. Only the ground and
+ * ink tokens move; the accent, the fonts and the radii are untouched, which is
+ * what keeps this a mode rather than a second theme.
+ */
+.theme-ink {
+  --bg: #211c15;
+  --bg-elevated: #2b251c;
+  --bg-elevated-2: #383024;
+  --separator: #4a4133;
+  --separator-strong: #5f5442;
+  --label: #f5efe2;
+  --label-2: #bcae95;
+  --label-3: #8a7f6c;
+
+  /* Rust darkens badly against ink — lift it so it still reads at arm's length. */
+  --accent: #e05a3a;
+  --accent-deep: #bb3b22;
+  --on-accent: #211c15;
+
+  --blue: #7ba7d4;
+  --green: #7cc47c;
+  --red: #d9503d;
+  --orange: #e8a33f;
+  --yellow: #e8c84f;
 }
 
 * {
@@ -30,54 +91,82 @@ body {
   overscroll-behavior: none;
 }
 
+/* Paper grain, composited as a background layer over the ground colour rather
+   than as an overlay element. An overlay would need to sit above .app, which
+   paints its own opaque background, and anything stacked above the app is one
+   z-index mistake away from swallowing taps. */
+:root {
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
 body {
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: var(--grain);
   color: var(--label);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
-    "Helvetica Neue", "Segoe UI", sans-serif;
+  font-family: var(--ff-body);
+  font-size: 17px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
 }
 
+/* Re-declare `color` here, not only on body. Inheritance passes down the
+   *computed* colour, and body sits outside .theme-ink — so without this the
+   whole run screen inherits paper-dark ink onto an ink-dark ground. */
 .app {
+  color: var(--label);
+  position: relative;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   padding: calc(env(safe-area-inset-top) + 12px) 20px calc(env(safe-area-inset-bottom) + 16px);
   max-width: 480px;
   margin: 0 auto;
+  background-color: var(--bg);
+  background-image: var(--grain);
 }
 
 /* ---------- Typography ---------- */
 
 .large-title {
-  font-size: 34px;
+  font-family: var(--ff-display);
+  font-size: 40px;
   font-weight: 800;
-  letter-spacing: 0.37px;
-  line-height: 1.2;
+  font-optical-sizing: auto;
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 
 .subtitle {
-  font-size: 15px;
+  font-size: 16px;
+  font-style: italic;
   color: var(--label-2);
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
+/* The rule-and-label pairing that carries structure on marktan.ai. */
 .section-header {
-  font-size: 13px;
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--label-2);
-  margin: 28px 4px 8px;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  margin: 30px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--separator);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 /* ---------- Voice library generation banner ---------- */
 
 .gen-banner {
   background: var(--bg-elevated);
+  border: 1px solid var(--separator);
   border-radius: var(--radius);
   padding: 12px 14px;
   margin-top: 16px;
@@ -97,8 +186,8 @@ body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid var(--label-3);
-  border-top-color: var(--blue);
+  border: 2px solid var(--separator);
+  border-top-color: var(--accent);
   animation: gen-spin 0.8s linear infinite;
   flex-shrink: 0;
 }
@@ -106,44 +195,51 @@ body {
 @keyframes gen-spin { to { transform: rotate(360deg); } }
 
 .gen-text {
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   flex: 1;
 }
 
 .gen-pct {
-  font-size: 13px;
-  font-weight: 700;
+  font-family: var(--ff-display);
+  font-size: 16px;
+  font-weight: 600;
   color: var(--label-2);
   font-variant-numeric: tabular-nums;
 }
 
 .gen-bar {
   height: 4px;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--bg-elevated-2);
+  border: 1px solid var(--separator);
   margin-top: 10px;
   overflow: hidden;
 }
 
 .gen-bar-fill {
   height: 100%;
-  border-radius: 2px;
-  background: var(--blue);
+  border-radius: 0;
+  background: var(--accent);
   transition: width 0.4s ease;
 }
 
 .gen-hint {
-  font-size: 11px;
+  font-size: 14px;
+  font-style: italic;
   color: var(--label-2);
   margin-top: 8px;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 /* ---------- Cards & lists ---------- */
 
 .card {
   background: var(--bg-elevated);
+  border: 1px solid var(--separator);
   border-radius: var(--radius);
   overflow: hidden;
 }
@@ -155,7 +251,8 @@ body {
   width: 100%;
   padding: 14px;
   background: var(--bg-elevated);
-  border: 2px solid transparent;
+  border: 1px solid var(--separator);
+  border-left: 3px solid transparent;
   border-radius: var(--radius);
   color: var(--label);
   text-align: left;
@@ -172,31 +269,40 @@ body {
   transform: scale(0.98);
 }
 
+/* The persona's own colour marks the edge — the only place a non-brand hue
+   leads, because it is identity rather than chrome. */
 .persona-card.selected {
-  border-color: var(--accent, var(--blue));
+  border-color: var(--separator-strong);
+  border-left-color: var(--persona, var(--accent));
   background: var(--bg-elevated-2);
 }
 
 .persona-avatar {
   width: 52px;
   height: 52px;
-  border-radius: 14px;
+  border-radius: var(--radius);
   display: grid;
   place-items: center;
   font-size: 28px;
-  background: color-mix(in srgb, var(--accent, var(--blue)) 22%, transparent);
+  background: color-mix(in srgb, var(--persona, var(--accent)) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--persona, var(--accent)) 35%, transparent);
   flex-shrink: 0;
 }
 
 .persona-name {
-  font-size: 17px;
+  font-family: var(--ff-display);
+  font-size: 21px;
   font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
 }
 
 .persona-tagline {
-  font-size: 13px;
+  font-size: 14px;
+  font-style: italic;
   color: var(--label-2);
-  margin-top: 2px;
+  margin-top: 3px;
+  line-height: 1.35;
 }
 
 .persona-check {
@@ -204,17 +310,17 @@ body {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  border: 1.5px solid var(--label-3);
+  border: 1px solid var(--separator-strong);
   display: grid;
   place-items: center;
   font-size: 13px;
-  color: #fff;
+  color: var(--on-accent);
   flex-shrink: 0;
 }
 
 .persona-card.selected .persona-check {
-  background: var(--accent, var(--blue));
-  border-color: var(--accent, var(--blue));
+  background: var(--persona, var(--accent));
+  border-color: var(--persona, var(--accent));
 }
 
 .preview-btn {
@@ -222,7 +328,7 @@ body {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: none;
+  border: 1px solid var(--separator);
   background: var(--bg-elevated-2);
   color: var(--label);
   font-size: 14px;
@@ -240,85 +346,111 @@ body {
 .segmented {
   display: flex;
   background: var(--bg-elevated);
-  border-radius: 10px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
   padding: 2px;
 }
 
 .segmented button {
   flex: 1;
-  padding: 8px 4px;
+  padding: 9px 4px;
   border: none;
-  border-radius: 8px;
+  border-radius: 2px;
   background: transparent;
   color: var(--label-2);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .segmented button.active {
-  background: #636366;
-  color: #fff;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
 }
 
 .segmented.compact button {
-  font-size: 11px;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
   line-height: 1.5;
-  padding: 6px 2px;
+  padding: 7px 2px;
 }
 
 /* ---------- Target distance ---------- */
 
 .target-value {
   text-align: center;
-  font-size: 30px;
-  font-weight: 800;
+  font-family: var(--ff-display);
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
-.target-unit { font-size: 16px; font-weight: 600; color: var(--label-2); }
-.target-off { font-size: 22px; font-weight: 700; color: var(--label-2); }
+.target-unit {
+  font-family: var(--ff-mono);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--label-2);
+}
+.target-off {
+  font-family: var(--ff-display);
+  font-size: 26px;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--label-2);
+}
 
 .target-slider {
   width: 100%;
   margin-top: 10px;
-  accent-color: var(--accent, var(--blue));
+  accent-color: var(--accent);
 }
 
 .target-ticks {
   display: flex;
   justify-content: space-between;
-  margin-top: 2px;
-  font-size: 11px;
-  font-weight: 700;
+  margin-top: 4px;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   color: var(--label-3);
 }
 
-.target-ticks .on { color: var(--accent, var(--blue)); }
+.target-ticks .on { color: var(--accent); }
 
 .target-progress { margin-top: 14px; }
 
 .target-bar {
   height: 6px;
-  border-radius: 3px;
-  background: var(--bg-elevated);
+  border-radius: 0;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--separator);
   overflow: hidden;
 }
 
 .target-bar-fill {
   height: 100%;
-  border-radius: 3px;
-  background: var(--accent, var(--blue));
+  border-radius: 0;
+  background: var(--accent);
   transition: width 0.5s ease;
 }
 
 .target-progress-label {
-  margin-top: 6px;
+  margin-top: 7px;
   text-align: center;
-  font-size: 12px;
-  font-weight: 600;
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--label-2);
   font-variant-numeric: tabular-nums;
 }
@@ -333,23 +465,63 @@ body {
 
 .chatter-row input[type="range"] {
   flex: 1;
-  accent-color: var(--accent, var(--blue));
+  accent-color: var(--accent);
+  background: transparent;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  background: var(--separator-strong);
+  border-radius: 0;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -7.5px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1px solid var(--bg);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 3px;
+  background: var(--separator-strong);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1px solid var(--bg);
 }
 
 .chatter-end {
-  font-size: 11px;
-  font-weight: 700;
+  font-family: var(--ff-mono);
+  font-size: 9.5px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--label-2);
+  letter-spacing: 0.16em;
+  color: var(--label-3);
   flex-shrink: 0;
 }
 
 .chatter-label {
-  margin-top: 8px;
-  font-size: 12px;
+  margin-top: 9px;
+  font-size: 14px;
+  font-style: italic;
   color: var(--label-2);
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 /* ---------- Music widget ---------- */
@@ -364,7 +536,7 @@ body {
 .music-icon {
   width: 44px;
   height: 44px;
-  border-radius: 11px;
+  border-radius: var(--radius);
   display: grid;
   place-items: center;
   font-size: 22px;
@@ -376,20 +548,35 @@ body {
 .music-icon.podcasts { background: linear-gradient(180deg, #b150e2, #7e3ff2); }
 
 .music-meta { flex: 1; min-width: 0; }
-.music-title { font-size: 15px; font-weight: 600; }
-.music-sub { font-size: 12px; color: var(--label-2); margin-top: 2px; }
+.music-title {
+  font-family: var(--ff-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.music-sub {
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--label-3);
+  margin-top: 3px;
+}
 
 .open-pill {
-  padding: 7px 16px;
-  border: none;
-  border-radius: 999px;
-  background: var(--bg-elevated-2);
-  color: var(--blue);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 700;
+  padding: 7px 15px;
+  border: 1px solid var(--separator-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
   cursor: pointer;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 /* ---------- Buttons ---------- */
@@ -397,16 +584,25 @@ body {
 .cta {
   display: block;
   width: 100%;
-  padding: 17px;
-  border: none;
+  padding: 16px;
+  border: 1px solid var(--accent);
   border-radius: var(--radius);
-  background: var(--accent, var(--blue));
-  color: #fff;
-  font: inherit;
-  font-size: 17px;
-  font-weight: 700;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--ff-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
   cursor: pointer;
-  transition: transform 0.12s ease, opacity 0.15s ease;
+  transition: transform 0.12s ease, opacity 0.15s ease, background 0.15s ease;
+}
+
+/* Secondary reads as an outline on paper, not a second filled block. */
+.cta.secondary {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--separator-strong);
 }
 
 .cta:active { transform: scale(0.98); }
@@ -442,10 +638,14 @@ body {
   align-items: center;
   gap: 8px;
   background: var(--bg-elevated);
-  border-radius: 999px;
-  padding: 6px 14px 6px 8px;
-  font-size: 14px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-pill);
+  padding: 5px 14px 5px 6px;
+  font-family: var(--ff-mono);
+  font-size: 10px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 
 .chip-emoji {
@@ -455,7 +655,7 @@ body {
   display: grid;
   place-items: center;
   font-size: 15px;
-  background: color-mix(in srgb, var(--accent, var(--blue)) 25%, transparent);
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 .gps-pill {
@@ -465,11 +665,14 @@ body {
   margin-left: auto;
   margin-right: 10px;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--separator);
   background: var(--bg-elevated);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 .gps-dot {
@@ -492,8 +695,9 @@ body {
 .treadmill-warning {
   margin-top: 10px;
   padding: 10px 12px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--orange) 14%, transparent);
+  border-radius: var(--radius);
+  border: 1px dashed color-mix(in srgb, var(--orange) 45%, transparent);
+  background: color-mix(in srgb, var(--orange) 12%, transparent);
   color: var(--orange);
   font-size: 12px;
   font-weight: 600;
@@ -513,8 +717,11 @@ body {
 
 .aod .aod-gps {
   margin-top: 10px;
-  font-size: 15px;
-  color: rgba(255, 69, 58, 0.8);
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--red);
   animation: gps-pulse 1.2s ease-in-out infinite;
 }
 
@@ -522,7 +729,7 @@ body {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: none;
+  border: 1px solid var(--separator);
   background: var(--bg-elevated);
   color: var(--label);
   font-size: 17px;
@@ -530,17 +737,21 @@ body {
 }
 
 .icon-btn.active {
-  background: var(--yellow);
-  color: #000;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }
 
 .big-timer {
-  font-size: 76px;
-  font-weight: 800;
-  letter-spacing: -1px;
+  font-family: var(--ff-display);
+  font-size: 82px;
+  font-weight: 600;
+  font-optical-sizing: auto;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
   font-variant-numeric: tabular-nums;
   text-align: center;
-  margin: 12px 0 2px;
+  margin: 16px 0 4px;
 }
 
 /* A frozen clock should look frozen — you glance at this from arm's length. */
@@ -557,11 +768,13 @@ body {
 
 .timer-label {
   text-align: center;
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--label-2);
+  letter-spacing: 0.28em;
+  color: var(--accent);
+  padding-left: 0.28em;
 }
 
 /* Settings toggle row: label + description on the left, iOS switch on the right. */
@@ -574,16 +787,19 @@ body {
 }
 
 .switch-text {
-  font-size: 15px;
+  font-family: var(--ff-display);
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .switch-sub {
   display: block;
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 14px;
+  font-style: italic;
   font-weight: 400;
-  line-height: 1.45;
+  line-height: 1.4;
   color: var(--label-2);
 }
 
@@ -594,8 +810,8 @@ body {
   width: 51px;
   height: 31px;
   margin: 2px 0 0;
-  border-radius: 16px;
-  background: var(--fill-2, rgba(120, 120, 128, 0.32));
+  border-radius: var(--radius-pill);
+  background: var(--separator-strong);
   transition: background 0.2s ease;
   position: relative;
 }
@@ -608,8 +824,8 @@ body {
   width: 27px;
   height: 27px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
+  background: var(--bg);
+  box-shadow: 0 1px 3px var(--shadow);
   transition: transform 0.2s ease;
 }
 
@@ -636,62 +852,91 @@ body {
 
 .stat-grid.tappable:active .stat-cell { background: var(--bg-elevated-2); }
 
+/* Label above figure, mono over serif — the market-tile pairing. Both screens
+   emit the value first, so reverse the column here rather than reordering the
+   markup in two components; reading order is label-then-figure either way. */
 .stat-cell {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 6px;
   background: var(--bg-elevated);
+  border: 1px solid var(--separator);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 13px 15px;
+}
+
+.stat-label {
+  font-family: var(--ff-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--label-3);
 }
 
 .stat-value {
-  font-size: 30px;
-  font-weight: 700;
+  font-family: var(--ff-display);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
-.stat-unit { font-size: 15px; font-weight: 600; color: var(--label-2); }
-
-.stat-label {
-  font-size: 12px;
-  font-weight: 600;
+.stat-unit {
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--label-2);
-  margin-top: 2px;
+  letter-spacing: 0.1em;
+  color: var(--label-3);
 }
 
 .gps-note {
   text-align: center;
-  font-size: 12px;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
   color: var(--orange);
   min-height: 16px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .env-line {
   text-align: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--label-2);
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--label-3);
   min-height: 16px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 /* ---------- Coach bubble ---------- */
 
 .coach-bubble {
   display: flex;
-  gap: 10px;
+  gap: 11px;
   align-items: flex-start;
-  background: var(--bg-elevated);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  margin-top: 14px;
+  background: transparent;
+  border: none;
+  border-left: 2px solid var(--accent);
+  border-radius: 0;
+  padding: 4px 0 4px 13px;
+  margin-top: 16px;
   min-height: 64px;
 }
 
 .coach-bubble .text {
-  font-size: 14px;
-  line-height: 1.45;
+  font-family: var(--ff-display);
+  font-size: 17px;
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
   color: var(--label);
 }
 
@@ -708,8 +953,8 @@ body {
 
 .eq span {
   width: 3.5px;
-  border-radius: 2px;
-  background: var(--accent, var(--blue));
+  border-radius: 0;
+  background: var(--accent);
   height: 4px;
 }
 
@@ -734,25 +979,31 @@ body {
 
 .control-btn {
   flex: 1;
-  padding: 16px;
-  border: none;
+  padding: 15px;
+  border: 1px solid transparent;
   border-radius: var(--radius);
-  font: inherit;
-  font-size: 16px;
-  font-weight: 700;
+  font-family: var(--ff-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
   cursor: pointer;
   transition: transform 0.12s ease;
 }
 
 .control-btn:active { transform: scale(0.97); }
-.control-btn.pause { background: var(--bg-elevated); color: var(--label); }
-.control-btn.end { background: var(--red); color: #fff; }
+.control-btn.pause {
+  background: transparent;
+  border-color: var(--separator-strong);
+  color: var(--label);
+}
+.control-btn.end { background: var(--red); border-color: var(--red); color: var(--on-accent); }
 
 .ptt-btn {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  border: none;
+  border: 1px solid var(--separator-strong);
   background: var(--bg-elevated);
   color: var(--label);
   font-size: 24px;
@@ -764,8 +1015,9 @@ body {
 
 .ptt-btn.listening {
   background: var(--red);
+  border-color: var(--red);
   transform: scale(1.08);
-  box-shadow: 0 0 0 8px rgba(255, 69, 58, 0.25);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--red) 25%, transparent);
 }
 
 .phrase-stats {
@@ -794,25 +1046,33 @@ body {
 @keyframes aod-fade { from { opacity: 0; } to { opacity: 1; } }
 
 .aod .aod-time {
-  font-size: 84px;
-  font-weight: 300;
+  font-family: var(--ff-display);
+  font-size: 96px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 159, 10, 0.85);
+  color: #e05a3a;
 }
 
 .aod .aod-stats {
   display: flex;
-  gap: 32px;
-  color: rgba(255, 159, 10, 0.55);
-  font-size: 20px;
+  gap: 30px;
+  color: rgba(224, 90, 58, 0.6);
+  font-family: var(--ff-mono);
+  font-size: 15px;
+  letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
 }
 
 .aod .aod-hint {
   position: absolute;
   bottom: calc(env(safe-area-inset-bottom) + 28px);
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.25);
+  font-family: var(--ff-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(245, 239, 226, 0.28);
 }
 
 /* ---------- Admin ---------- */
@@ -824,10 +1084,12 @@ body {
   padding: 10px;
   border: none;
   background: transparent;
-  color: var(--label-2);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  color: var(--label-3);
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
   cursor: pointer;
 }
 
@@ -841,17 +1103,21 @@ body {
 .back-link {
   border: none;
   background: transparent;
-  color: var(--blue);
-  font: inherit;
-  font-size: 17px;
+  color: var(--accent);
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
   cursor: pointer;
   padding: 8px 8px 8px 0;
 }
 
 .admin-title {
-  font-size: 22px;
+  font-family: var(--ff-display);
+  font-size: 26px;
   font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .pin-gate {
@@ -865,19 +1131,24 @@ body {
 
 .pin-emoji { font-size: 40px; }
 
-.pin-title { font-size: 17px; font-weight: 700; }
+.pin-title {
+  font-family: var(--ff-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
 
 .pin-input {
   width: 100%;
   padding: 14px;
-  border: none;
-  border-radius: 12px;
+  border: 1px solid var(--separator-strong);
+  border-radius: var(--radius);
   background: var(--bg-elevated-2);
   color: var(--label);
-  font: inherit;
+  font-family: var(--ff-mono);
   font-size: 20px;
   text-align: center;
-  letter-spacing: 6px;
+  letter-spacing: 0.4em;
   outline: none;
 }
 
@@ -951,11 +1222,6 @@ body {
 .admin-lib-stats .full { color: var(--green); }
 .admin-lib-stats .empty { color: var(--orange); }
 
-.cta.secondary {
-  background: var(--bg-elevated-2);
-  color: var(--blue);
-}
-
 .admin-notice {
   margin-top: 12px;
   font-size: 13px;
@@ -996,11 +1262,12 @@ body {
 }
 
 .phrase-badge {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  font-family: var(--ff-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   padding: 3px 7px;
-  border-radius: 6px;
+  border-radius: 2px;
   background: var(--bg-elevated-2);
   color: var(--label-3);
   flex-shrink: 0;
@@ -1031,11 +1298,13 @@ body {
 }
 
 .lock-badge {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
   color: var(--label-2);
-  background: rgba(28, 28, 30, 0.9);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
   padding: 8px 16px;
   border-radius: 999px;
 }
@@ -1059,7 +1328,7 @@ body {
 .unlock-fill {
   position: absolute;
   inset: 0;
-  background: var(--accent, var(--blue));
+  background: var(--accent);
   transform-origin: left center;
   transform: scaleX(0);
   opacity: 0.85;
@@ -1080,16 +1349,25 @@ body {
 .summary-emoji { font-size: 64px; }
 
 .summary-headline {
-  font-size: 28px;
+  font-family: var(--ff-display);
+  font-size: clamp(32px, 9vw, 42px);
   font-weight: 800;
-  margin-top: 12px;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+  margin-top: 14px;
 }
 
-.summary-sub { color: var(--label-2); margin-top: 6px; font-size: 15px; }
+.summary-sub {
+  color: var(--label-2);
+  margin-top: 8px;
+  font-size: 17px;
+  font-style: italic;
+  line-height: 1.4;
+}
 
 .route-card {
   padding: 8px;
-  background: linear-gradient(160deg, #16161a, #101014);
+  background: var(--bg-elevated-2);
 }
 
 .route-map {
@@ -1199,7 +1477,7 @@ body {
 
 .chatter-inline input[type="range"] {
   flex: 1;
-  accent-color: var(--accent, var(--blue));
+  accent-color: var(--accent);
 }
 
 .chatter-inline-icon {
@@ -1208,10 +1486,11 @@ body {
 }
 
 .chatter-inline-label {
-  font-size: 11px;
-  font-weight: 700;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.14em;
   color: var(--label-2);
   flex-shrink: 0;
   min-width: 62px;
@@ -1230,8 +1509,8 @@ body {
   border: none;
   border-radius: 999px;
   padding: 5px 12px;
-  background: color-mix(in srgb, var(--accent, var(--blue)) 22%, transparent);
-  color: var(--accent, var(--blue));
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
   font: inherit;
   font-size: 12px;
   font-weight: 700;
@@ -1277,7 +1556,7 @@ body {
 /* Reworded after it was voiced: the MP3 still speaks the old line. */
 .phrase-redo.urgent {
   background: var(--orange);
-  color: #1c1c1e;
+  color: var(--on-accent);
 }
 
 .phrase-badge.stale {
@@ -1291,9 +1570,9 @@ body {
 .stale-banner {
   margin-top: 12px;
   padding: 12px;
-  border: 1px solid rgba(255, 159, 10, 0.35);
-  border-radius: 12px;
-  background: rgba(255, 159, 10, 0.1);
+  border: 1px dashed color-mix(in srgb, var(--orange) 45%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--orange) 10%, transparent);
 }
 
 .stale-head {

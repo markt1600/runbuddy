@@ -142,15 +142,30 @@ export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Pro
 
   // Redraw whenever the coach's line lands, so the saved card carries it.
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    drawRunCard(canvas, {
-      persona,
-      stats,
-      unit: speedUnit,
-      comment: comment ?? fallbackSub,
-    });
-    setCardUrl(canvas.toDataURL("image/png"));
+    let cancelled = false;
+    const draw = () => {
+      const canvas = canvasRef.current;
+      if (!canvas || cancelled) return;
+      drawRunCard(canvas, {
+        persona,
+        stats,
+        unit: speedUnit,
+        comment: comment ?? fallbackSub,
+      });
+      setCardUrl(canvas.toDataURL("image/png"));
+    };
+    // Canvas silently falls back to a system font for any family that has not
+    // finished loading, and the card is a PNG — whatever it draws is baked in.
+    // Draw once now so the card is never blank, then again once the webfonts
+    // land. Everything downstream keys off cardUrl, so the second draw just
+    // replaces the image.
+    draw();
+    if (typeof document !== "undefined" && document.fonts?.status !== "loaded") {
+      void document.fonts.ready.then(draw).catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
   }, [comment, persona, stats, speedUnit, fallbackSub]);
 
   const saveCard = useCallback(async () => {

@@ -88,7 +88,12 @@ export default function RunBuddyApp() {
   const persona = PERSONAS[personaId];
 
   return (
-    <div className="app" style={{ "--accent": persona.accent } as React.CSSProperties}>
+    // --persona, not --accent: the brand rust owns chrome and actions, and the
+    // trainer's own colour is reserved for marking which trainer this is.
+    <div
+      className={`app${screen === "run" ? " theme-ink" : ""}`}
+      style={{ "--persona": persona.accent } as React.CSSProperties}
+    >
       {screen === "setup" && (
         <SetupScreen
           personaId={personaId}
