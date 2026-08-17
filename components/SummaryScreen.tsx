@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatElapsed, formatPace } from "@/lib/geo";
 import { coachIsSpeaking } from "@/lib/audio";
+import { getVoiceVolume } from "@/lib/voiceLibrary";
 import type { SpeedUnit } from "@/lib/units";
 import { drawRunCard, shareOrDownloadCard } from "@/lib/runCard";
 import type { Persona, RunStats } from "@/lib/types";
@@ -128,7 +129,9 @@ export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Pro
           await new Promise((r) => setTimeout(r, 250));
         }
         if (cancelled) return;
-        void new Audio(`data:audio/mpeg;base64,${data.audioBase64}`).play().catch(() => {});
+        const closing = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+        closing.volume = getVoiceVolume(persona.id); // same level as the run
+        void closing.play().catch(() => {});
       })
       .catch(() => {});
     return () => {

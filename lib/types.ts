@@ -1,4 +1,4 @@
-export type PersonaId = "ahbeng" | "coach" | "flirty" | "loanshark";
+export type PersonaId = "ahbeng" | "ahlian" | "coach" | "flirty" | "loanshark";
 
 export type PhraseCategory =
   | "intro" // ~10s opening monologue at the start line
@@ -69,6 +69,8 @@ export interface Persona {
   elevenLabsVoiceId: string;
   /** ElevenLabs playback speed (1.0 normal; API accepts ~0.7–1.2). */
   elevenLabsSpeed: number;
+  /** Default playback level, 0–1. Balances personas against each other. */
+  playbackVolume: number;
   // Fallback speechSynthesis tuning when no rendered audio is available
   tts: { rate: number; pitch: number; lang: string };
   // Prompt persona description used for live phrase generation

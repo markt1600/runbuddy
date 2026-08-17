@@ -1,5 +1,5 @@
 import type { Persona } from "./types";
-import { recordLifetimePlay } from "./voiceLibrary";
+import { getVoiceVolume, recordLifetimePlay } from "./voiceLibrary";
 
 // VoiceEngine — plays coach phrases on top of background music.
 //
@@ -175,15 +175,15 @@ export class VoiceEngine {
       .play()
       .then(() => {
         // Only tidy up if nothing real has claimed the element in the meantime.
+        // Volume is deliberately not restored here: playFile sets the persona's
+        // level before every phrase, and this promise can resolve after one has
+        // already started, which would stomp it back to full.
         if (this.player && this.player.src === silence) {
           this.player.pause();
           this.player.currentTime = 0;
         }
-        if (this.player) this.player.volume = 1;
       })
-      .catch(() => {
-        if (this.player) this.player.volume = 1;
-      });
+      .catch(() => {});
 
 
     // Prime speechSynthesis inside the gesture so later utterances are allowed
@@ -352,6 +352,10 @@ export class VoiceEngine {
           settle(() => reject(new Error("interrupted")));
         }
       };
+      // Per-persona level, set in admin. An element can only attenuate, so
+      // this balances the personas against each other rather than lifting any
+      // of them — which is the part that cannot be done from a web app.
+      p.volume = getVoiceVolume(this.persona.id);
       p.src = url;
       p.play().catch((err) => settle(() => reject(err)));
     });
@@ -364,6 +368,7 @@ export class VoiceEngine {
       u.rate = this.persona.tts.rate;
       u.pitch = this.persona.tts.pitch;
       u.lang = this.persona.tts.lang;
+      u.volume = getVoiceVolume(this.persona.id); // same level as the recordings
       const voices = window.speechSynthesis.getVoices();
       const match =
         voices.find((v) => v.lang === this.persona.tts.lang) ??

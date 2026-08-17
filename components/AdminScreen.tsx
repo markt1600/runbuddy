@@ -8,6 +8,7 @@ import {
   expandLibrary,
   getPhraseUrl,
   getVoiceSpeed,
+  getVoiceVolume,
   libraryFlags,
   lifetimeStats,
   loadLibraryState,
@@ -16,6 +17,7 @@ import {
   renderMissingPhrases,
   renderedCount,
   saveVoiceSpeed,
+  saveVoiceVolume,
   storeAdminPin,
   type GenerationProgress,
 } from "@/lib/voiceLibrary";
@@ -73,6 +75,14 @@ export default function AdminScreen({ onBack }: Props) {
       ) as Record<PersonaId, number>
   );
   const [savingSpeed, setSavingSpeed] = useState<PersonaId | null>(null);
+  const [volumes, setVolumes] = useState<Record<PersonaId, number>>(
+    () =>
+      Object.fromEntries(PERSONA_LIST.map((p) => [p.id, p.playbackVolume])) as Record<
+        PersonaId,
+        number
+      >
+  );
+  const [savingVolume, setSavingVolume] = useState<PersonaId | null>(null);
   const [, bump] = useState(0); // re-render as the registry mutates
   const refresh = () => bump((n) => n + 1);
 
@@ -106,6 +116,12 @@ export default function AdminScreen({ onBack }: Props) {
           number
         >
       );
+      setVolumes(
+        Object.fromEntries(PERSONA_LIST.map((p) => [p.id, getVoiceVolume(p.id)])) as Record<
+          PersonaId,
+          number
+        >
+      );
       refresh();
     });
   }, []);
@@ -123,6 +139,22 @@ export default function AdminScreen({ onBack }: Props) {
       setNotice(`⚠ ${err instanceof Error ? err.message : "save failed"}`);
     } finally {
       setSavingSpeed(null);
+    }
+  };
+
+  const onSaveVolume = async (id: PersonaId) => {
+    setSavingVolume(id);
+    setNotice(null);
+    try {
+      await saveVoiceVolume(id, volumes[id]);
+      setNotice(
+        `✓ ${PERSONAS[id].name} level saved (${Math.round(volumes[id] * 100)}%). ` +
+          "Applies on your next run — no re-render needed."
+      );
+    } catch (err) {
+      setNotice(`⚠ ${err instanceof Error ? err.message : "save failed"}`);
+    } finally {
+      setSavingVolume(null);
     }
   };
 
@@ -366,6 +398,40 @@ export default function AdminScreen({ onBack }: Props) {
         <div className="gen-hint" style={{ padding: "2px 0 10px" }}>
           1.00× is the voice&apos;s natural pace; 1.20× is ElevenLabs&apos; max. Saved speed
           applies to live phrases immediately — hit Re-render to redo existing audio.
+        </div>
+
+        <div className="section-header" style={{ marginTop: 6 }}>
+          Playback level
+        </div>
+        {PERSONA_LIST.map((p) => (
+          <div className="speed-row" key={p.id}>
+            <span className="speed-name">
+              {p.emoji} {p.shortName}
+            </span>
+            <input
+              type="range"
+              min={0.4}
+              max={1}
+              step={0.05}
+              value={volumes[p.id]}
+              onChange={(e) =>
+                setVolumes((v) => ({ ...v, [p.id]: Number(e.target.value) }))
+              }
+            />
+            <span className="speed-value">{Math.round(volumes[p.id] * 100)}%</span>
+            <button
+              className="open-pill"
+              disabled={savingVolume !== null || volumes[p.id] === getVoiceVolume(p.id)}
+              onClick={() => onSaveVolume(p.id)}
+            >
+              {savingVolume === p.id ? "…" : "Save"}
+            </button>
+          </div>
+        ))}
+        <div className="gen-hint" style={{ padding: "2px 0 10px" }}>
+          Balances the personas against each other. An audio element can&apos;t play above
+          100%, so making one stand out means turning the others down. Applies on your next
+          run — no re-render needed.
         </div>
       </div>
 

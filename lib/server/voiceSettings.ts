@@ -8,17 +8,29 @@ import type { PersonaId } from "../types";
 
 export interface VoiceSettings {
   speed: number; // ElevenLabs voice_settings.speed, valid ~0.7–1.2
+  /**
+   * Playback level for this persona, 0–1. Applied to the audio element at play
+   * time, so it needs no re-render — but an element cannot go ABOVE 1, so this
+   * balances personas against each other rather than making any of them louder
+   * in absolute terms. Making one stand out means turning the others down.
+   */
+  volume: number;
 }
 
 const PATH = "library/voice-settings.json";
 
 export const SPEED_MIN = 0.7;
 export const SPEED_MAX = 1.2;
+export const VOLUME_MIN = 0.4;
+export const VOLUME_MAX = 1;
 
 function defaults(): Record<PersonaId, VoiceSettings> {
   const out = {} as Record<PersonaId, VoiceSettings>;
   for (const persona of Object.keys(PERSONAS) as PersonaId[]) {
-    out[persona] = { speed: PERSONAS[persona].elevenLabsSpeed };
+    out[persona] = {
+      speed: PERSONAS[persona].elevenLabsSpeed,
+      volume: PERSONAS[persona].playbackVolume,
+    };
   }
   return out;
 }
@@ -38,6 +50,10 @@ export async function readVoiceSettings(): Promise<Record<PersonaId, VoiceSettin
       if (isFinite(speed)) {
         base[persona].speed = Math.min(SPEED_MAX, Math.max(SPEED_MIN, speed));
       }
+      const volume = Number(stored?.[persona]?.volume);
+      if (isFinite(volume)) {
+        base[persona].volume = Math.min(VOLUME_MAX, Math.max(VOLUME_MIN, volume));
+      }
     }
     return base;
   } catch {
@@ -45,12 +61,17 @@ export async function readVoiceSettings(): Promise<Record<PersonaId, VoiceSettin
   }
 }
 
-export async function writeVoiceSpeed(
+export async function writeVoiceSettings(
   persona: PersonaId,
-  speed: number
+  patch: { speed?: number; volume?: number }
 ): Promise<Record<PersonaId, VoiceSettings>> {
   const settings = await readVoiceSettings();
-  settings[persona].speed = Math.min(SPEED_MAX, Math.max(SPEED_MIN, speed));
+  if (patch.speed !== undefined) {
+    settings[persona].speed = Math.min(SPEED_MAX, Math.max(SPEED_MIN, patch.speed));
+  }
+  if (patch.volume !== undefined) {
+    settings[persona].volume = Math.min(VOLUME_MAX, Math.max(VOLUME_MIN, patch.volume));
+  }
   await put(PATH, JSON.stringify(settings, null, 2), {
     access: "public",
     contentType: "application/json",

@@ -18,6 +18,9 @@ let flags = { blob: false, elevenlabs: false, canRender: false, statusReached: f
 const voiceSpeeds = Object.fromEntries(
   PERSONA_IDS.map((p) => [p, PERSONAS[p].elevenLabsSpeed])
 ) as Record<PersonaId, number>;
+const voiceVolumes = Object.fromEntries(
+  PERSONA_IDS.map((p) => [p, PERSONAS[p].playbackVolume])
+) as Record<PersonaId, number>;
 let stateLoaded = false;
 
 const key = (persona: PersonaId, id: string) => `${persona}/${id}`;
@@ -115,7 +118,7 @@ export async function loadLibraryState(force = false): Promise<void> {
         canRender: boolean;
         rendered: Record<string, string>;
         extras: Record<string, Phrase[]>;
-        voiceSettings?: Record<PersonaId, { speed: number }>;
+        voiceSettings?: Record<PersonaId, { speed: number; volume: number }>;
       } = await res.json();
       flags = { ...data, statusReached: true };
       for (const [k, url] of Object.entries(data.rendered)) {
@@ -125,6 +128,8 @@ export async function loadLibraryState(force = false): Promise<void> {
         extras[persona] = data.extras?.[persona] ?? [];
         const speed = data.voiceSettings?.[persona]?.speed;
         if (typeof speed === "number") voiceSpeeds[persona] = speed;
+        const volume = data.voiceSettings?.[persona]?.volume;
+        if (typeof volume === "number") voiceVolumes[persona] = volume;
       }
     }
   } catch {
@@ -192,18 +197,36 @@ export function getVoiceSpeed(persona: PersonaId): number {
   return voiceSpeeds[persona];
 }
 
+/** Playback level for this persona, 0–1. Applied to the element at play time. */
+export function getVoiceVolume(persona: PersonaId): number {
+  return voiceVolumes[persona];
+}
+
 /** Admin: persist a new voice speed server-side. Takes effect on future renders. */
 export async function saveVoiceSpeed(persona: PersonaId, speed: number): Promise<void> {
+  await saveVoiceSetting(persona, { speed });
+  voiceSpeeds[persona] = speed;
+}
+
+/** Admin: persist a playback level. Applies on the next run, no re-render. */
+export async function saveVoiceVolume(persona: PersonaId, volume: number): Promise<void> {
+  await saveVoiceSetting(persona, { volume });
+  voiceVolumes[persona] = volume;
+}
+
+async function saveVoiceSetting(
+  persona: PersonaId,
+  patch: { speed?: number; volume?: number }
+): Promise<void> {
   const res = await fetch("/api/library/voice-settings", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...adminPinHeaders() },
-    body: JSON.stringify({ persona, speed }),
+    body: JSON.stringify({ persona, ...patch }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error ?? `save failed (${res.status})`);
   }
-  voiceSpeeds[persona] = speed;
 }
 
 /**
@@ -331,6 +354,7 @@ export function playPhrase(persona: Persona, phrase: Phrase) {
   const url = getPhraseUrl(persona.id, phrase.id);
   if (url) {
     if (!previewAudio) previewAudio = new Audio();
+    previewAudio.volume = voiceVolumes[persona.id];
     previewAudio.src = url;
     void previewAudio.play().catch(() => speakFallback(persona, phrase.text));
   } else {
