@@ -11,13 +11,16 @@ import { loadSpeedUnit, saveSpeedUnit, type SpeedUnit } from "@/lib/units";
 import {
   CHATTINESS_DEFAULT,
   START_DELAY_SEC,
+  type DuckMode,
   loadAutoPause,
   loadChattiness,
   loadTargetKm,
   loadTargetMin,
+  loadDuckMode,
   loadStartDelay,
   saveAutoPause,
   saveChattiness,
+  saveDuckMode,
   saveStartDelay,
   saveTargetKm,
   saveTargetMin,
@@ -37,6 +40,7 @@ export default function RunBuddyApp() {
   const [targetMin, setTargetMinState] = useState(0);
   const [autoPause, setAutoPauseState] = useState(true);
   const [startDelay, setStartDelayState] = useState(false);
+  const [duckMode, setDuckModeState] = useState<DuckMode>("pause");
 
   useEffect(() => {
     setSpeedUnitState(loadSpeedUnit());
@@ -45,6 +49,7 @@ export default function RunBuddyApp() {
     setTargetMinState(loadTargetMin());
     setAutoPauseState(loadAutoPause());
     setStartDelayState(loadStartDelay());
+    setDuckModeState(loadDuckMode());
   }, []);
 
   const setTargetKm = (v: number) => {
@@ -65,6 +70,11 @@ export default function RunBuddyApp() {
   const setStartDelay = (on: boolean) => {
     setStartDelayState(on);
     saveStartDelay(on);
+  };
+
+  const setDuckMode = (m: DuckMode) => {
+    setDuckModeState(m);
+    saveDuckMode(m);
   };
 
   const setSpeedUnit = (unit: SpeedUnit) => {
@@ -108,6 +118,8 @@ export default function RunBuddyApp() {
           onAutoPauseChange={setAutoPause}
           startDelay={startDelay}
           onStartDelayChange={setStartDelay}
+          duckMode={duckMode}
+          onDuckModeChange={setDuckMode}
         />
       )}
       {screen === "admin" && <AdminScreen onBack={() => setScreen("setup")} />}
@@ -122,6 +134,7 @@ export default function RunBuddyApp() {
           targetMin={targetMin}
           autoPause={autoPause}
           startDelaySec={startDelay ? START_DELAY_SEC : 0}
+          duckMode={duckMode}
           onFinish={(stats) => {
             setFinalStats(stats);
             setScreen("summary");

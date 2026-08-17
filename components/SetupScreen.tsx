@@ -8,6 +8,7 @@ import {
   pickSamplePhrase,
   playPhrase,
 } from "@/lib/voiceLibrary";
+import { audioSessionSupported, type DuckMode } from "@/lib/audio";
 import {
   CHATTINESS_MAX,
   CHATTINESS_MIN,
@@ -65,6 +66,8 @@ interface Props {
   onAutoPauseChange: (on: boolean) => void;
   startDelay: boolean;
   onStartDelayChange: (on: boolean) => void;
+  duckMode: DuckMode;
+  onDuckModeChange: (m: DuckMode) => void;
 }
 
 export default function SetupScreen({
@@ -86,6 +89,8 @@ export default function SetupScreen({
   onAutoPauseChange,
   startDelay,
   onStartDelayChange,
+  duckMode,
+  onDuckModeChange,
 }: Props) {
   const [libraryReady, setLibraryReady] = useState(false);
   const mode: "none" | "distance" | "time" =
@@ -289,6 +294,29 @@ export default function SetupScreen({
           )}
         </div>
       )}
+
+      <div className="section-header">While Your Buddy Talks</div>
+      <div className="segmented">
+        <button
+          className={duckMode === "pause" ? "active" : ""}
+          onClick={() => onDuckModeChange("pause")}
+        >
+          Pause music
+        </button>
+        <button
+          className={duckMode === "duck" ? "active" : ""}
+          onClick={() => onDuckModeChange("duck")}
+        >
+          Duck music
+        </button>
+      </div>
+      <div className="chatter-label" style={{ marginTop: 8 }}>
+        {duckMode === "pause"
+          ? "Your music stops for the length of each line, the way turn-by-turn directions do — clearest at running effort."
+          : "Your music keeps playing quietly underneath. Harder to make out when you're breathing hard."}
+        {!audioSessionSupported() &&
+          " ⚠ This iOS version doesn't let a web app touch other apps' audio, so your music will play at full volume regardless — turn it down yourself before you start."}
+      </div>
 
       <div className="section-header">Getting Going</div>
       <div className="card" style={{ padding: "12px 16px" }}>

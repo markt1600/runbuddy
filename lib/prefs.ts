@@ -123,3 +123,26 @@ export function saveStartDelay(on: boolean) {
     /* private mode */
   }
 }
+
+// What happens to the runner's music while the trainer talks. "pause" briefly
+// stops it (what turn-by-turn navigation does — much easier to make out at
+// running effort); "duck" leaves it playing underneath.
+export type DuckMode = "duck" | "pause";
+
+const DUCK_KEY = "runbuddy-duck-mode";
+
+export function loadDuckMode(): DuckMode {
+  try {
+    return localStorage.getItem(DUCK_KEY) === "duck" ? "duck" : "pause";
+  } catch {
+    return "pause"; // private mode
+  }
+}
+
+export function saveDuckMode(mode: DuckMode) {
+  try {
+    localStorage.setItem(DUCK_KEY, mode);
+  } catch {
+    /* private mode */
+  }
+}

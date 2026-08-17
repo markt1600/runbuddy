@@ -32,9 +32,11 @@ encouragement) — press Start, and get coached over your own music.
   through, your pace and speed, distance, km markers, elapsed time, and time
   of day. Half of km-marker callouts and anecdotes, and a quarter of
   encouragements, are generated live when keys are configured.
-- **Music over-dub** — deep-links into Spotify or Apple Podcasts; the trainer's
-  voice mixes *over* the music using Safari's Audio Session API (music ducks
-  while the coach speaks, then comes back).
+- **Music over-dub** — deep-links into Spotify or Apple Podcasts; the trainer
+  speaks over your music using Safari's Audio Session API. Choose whether the
+  music **pauses** for the length of each line (what turn-by-turn navigation
+  does — much clearer at running effort, and the default) or **ducks** and
+  keeps playing underneath.
 - **Keep-alive audio session** — a near-silent loop keeps Safari running the
   app (timers + GPS) when the phone is locked.
 - **Always-on display mode** — dim, AMOLED-friendly orange readout with wake
@@ -112,6 +114,11 @@ routes run as serverless functions.
 - Start your music/podcast first, then hit Start Run.
 - Keep the phone unlocked-ish: the always-on mode (moon button) dims the screen
   while keeping GPS and the coach alive.
+- Locking the screen or switching apps (to take a photo, say) silences the
+  trainer while you're away — iOS suspends mixable web audio in the background,
+  and there's no way around that without taking your music over completely. The
+  run picks straight back up when you return; GPS fixes and coach lines during
+  those seconds are simply lost.
 
 ## Architecture notes
 
