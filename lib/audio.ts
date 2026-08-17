@@ -145,16 +145,38 @@ export class VoiceEngine {
    * a bare 2x gain would clip into distortion, which is harder to understand
    * rather than easier.
    *
-   * At gain 1.0 this is skipped entirely and the element plays straight, so
-   * there is always a way back to the plain path if Web Audio misbehaves on a
-   * given iOS build.
+   * At gain 1.0 this is skipped entirely and the element plays straight.
+   *
+   * The order below is the whole safety story. Routing is ONE WAY: once an
+   * element has been through createMediaElementSource its audio never reaches
+   * the default output again. An AudioContext on iOS starts suspended and only
+   * resumes inside a user gesture, and start() runs from a React effect, which
+   * is close enough for play() but not reliably for resume(). Committing the
+   * element first and hoping meant that when the resume didn't take, phrases
+   * "played" perfectly — promise resolved, onended fired, counters ticked — in
+   * total silence, with no error to fall back from. So: create, resume, and
+   * only commit the element once the context is genuinely running.
    */
-  private buildGainStage() {
+  private async buildGainStage() {
     if (this.voiceGain <= 1 || this.ctx || !this.player) return;
+    const Ctor = window.AudioContext ?? window.webkitAudioContext;
+    if (!Ctor) return;
+    let ctx: AudioContext;
     try {
-      const Ctor = window.AudioContext ?? window.webkitAudioContext;
-      if (!Ctor) return;
-      const ctx = new Ctor();
+      ctx = new Ctor();
+    } catch {
+      return;
+    }
+    try {
+      await ctx.resume();
+    } catch {
+      /* fall through to the state check */
+    }
+    if (ctx.state !== "running") {
+      void ctx.close().catch(() => {}); // stay on the plain, audible path
+      return;
+    }
+    try {
       const source = ctx.createMediaElementSource(this.player);
       const gain = ctx.createGain();
       gain.gain.value = this.voiceGain;
@@ -168,8 +190,9 @@ export class VoiceEngine {
       this.ctx = ctx;
       this.gainNode = gain;
     } catch {
-      // Routing failed — the element still plays on its own, just no louder.
+      void ctx.close().catch(() => {});
       this.ctx = null;
+      this.gainNode = null;
     }
   }
 
@@ -183,8 +206,10 @@ export class VoiceEngine {
    */
   setVoiceGain(v: number) {
     this.voiceGain = v;
-    if (!this.ctx && v > 1) this.buildGainStage();
     if (this.gainNode) this.gainNode.gain.value = v;
+    // Building late is the better moment for it: this always runs from a tap,
+    // which is exactly when iOS will let an AudioContext start.
+    if (!this.ctx && v > 1) void this.buildGainStage();
     this.resumeCtx();
   }
 
@@ -250,9 +275,9 @@ export class VoiceEngine {
       });
 
     // Built inside the gesture too: an AudioContext created outside one starts
-    // suspended on iOS and never makes a sound.
-    this.buildGainStage();
-    this.resumeCtx();
+    // suspended on iOS and never makes a sound. buildGainStage() refuses to
+    // route the element at all unless the context actually reaches "running".
+    void this.buildGainStage();
 
     // Prime speechSynthesis inside the gesture so later utterances are allowed
     if ("speechSynthesis" in window) {

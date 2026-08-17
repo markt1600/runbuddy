@@ -141,7 +141,7 @@ export function loadVoiceGain(): number {
   } catch {
     /* private mode */
   }
-  return 1.6;
+  return 1; // the plain, always-audible path
 }
 
 export function saveVoiceGain(v: number) {

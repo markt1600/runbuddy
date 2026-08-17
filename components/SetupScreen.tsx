@@ -311,8 +311,8 @@ export default function SetupScreen({
       </div>
       <div className="chatter-label" style={{ marginTop: 8 }}>
         {voiceGain > 1
-          ? "Your buddy is lifted above your music, with a limiter after it so the boost doesn't distort. Adjustable mid-run too, from under the coach bubble."
-          : "Your buddy plays at the recording's own level. Pick a louder setting if they're hard to make out at running effort — you can also change it mid-run."}
+          ? "Your buddy is lifted above your music, with a limiter after it so the boost doesn't distort. Adjustable mid-run too, from under the coach bubble. If your iOS build won't allow it, this falls back to Normal rather than going silent."
+          : "Your buddy plays at the recording's own level — the plain, always-audible path. Pick a louder setting if they're hard to make out at running effort; you can also change it mid-run."}
         {!audioSessionSupported() &&
           " ⚠ This iOS version won't let a web app duck other apps' audio, so your music stays at full volume — turn it down yourself before you start."}
       </div>

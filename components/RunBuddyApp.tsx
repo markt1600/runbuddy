@@ -39,7 +39,7 @@ export default function RunBuddyApp() {
   const [targetMin, setTargetMinState] = useState(0);
   const [autoPause, setAutoPauseState] = useState(true);
   const [startDelay, setStartDelayState] = useState(false);
-  const [voiceGain, setVoiceGainState] = useState(1.6);
+  const [voiceGain, setVoiceGainState] = useState(1);
 
   useEffect(() => {
     setSpeedUnitState(loadSpeedUnit());
