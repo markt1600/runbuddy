@@ -1166,3 +1166,21 @@ body {
   margin: 4px 0 10px;
   font-size: 15px;
 }
+
+/* Shown while the phone is going into the sleeve: the app locks the screen
+   itself, and using the hardware lock instead would silence the trainer. */
+.sleeve-notice {
+  margin: 14px 2px 0;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--orange) 14%, var(--bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--orange) 40%, transparent);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--label);
+  text-align: center;
+}
+
+.sleeve-notice strong {
+  color: var(--orange);
+}
