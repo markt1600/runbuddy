@@ -28,7 +28,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     id: "ahlian",
     name: "Ah Lian",
     shortName: "Ah Lian",
-    tagline: "Ah Beng's equal, and she'll tell you about her ex 🔞",
+    tagline: "Ah Beng's equal. Zero patience, kanina 🔞",
     emoji: "💅",
     accent: "#BF5AF2",
     positive: false,
