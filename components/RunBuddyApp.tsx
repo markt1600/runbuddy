@@ -130,6 +130,7 @@ export default function RunBuddyApp() {
           speedUnit={speedUnit}
           onSpeedUnitChange={setSpeedUnit}
           chattiness={chattiness}
+          onChattinessChange={setChattiness}
           targetKm={targetKm}
           targetMin={targetMin}
           autoPause={autoPause}

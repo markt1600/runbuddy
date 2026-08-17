@@ -15,6 +15,14 @@ const INSTRUCTIONS: Partial<Record<PhraseCategory, string>> = {
     "Share one surprising, true-flavoured fact, anecdote or nugget of wisdom about running, " +
     "fitness, food or life — delivered fully in your persona.",
   encourage: "Give the runner one line of motivation in your persona.",
+  pace_up:
+    "The runner has SLOWED DOWN noticeably compared with their average for this run. " +
+    "Call it out and get them moving again, fully in your persona. One line. Don't quote " +
+    "numbers at them — they can see those.",
+  pace_down:
+    "The runner has just PICKED UP THE PACE and is running faster than their average for " +
+    "this run. React to that in your persona and get them to hold it. One line. Don't quote " +
+    "numbers at them.",
   milestone:
     "The runner just completed another kilometre. You have already announced the number and " +
     "the split for that kilometre out loud. Add ONE line of improvised colour commentary on " +

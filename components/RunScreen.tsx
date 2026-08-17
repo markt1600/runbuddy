@@ -6,6 +6,7 @@ import { formatInUnit, unitSuffix, type SpeedUnit } from "@/lib/units";
 import { VoiceEngine, WakeLockManager, vibrate, type DuckMode } from "@/lib/audio";
 import { CoachEngine } from "@/lib/coach";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
+import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
 import type { MusicSource, Persona, RunStats } from "@/lib/types";
 
 /** Long enough to get the phone back into an arm sleeve and set yourself. */
@@ -17,6 +18,7 @@ interface Props {
   speedUnit: SpeedUnit;
   onSpeedUnitChange: (u: SpeedUnit) => void;
   chattiness: number;
+  onChattinessChange: (v: number) => void;
   targetKm: number;
   targetMin: number;
   autoPause: boolean;
@@ -31,6 +33,7 @@ export default function RunScreen({
   speedUnit,
   onSpeedUnitChange,
   chattiness,
+  onChattinessChange,
   targetKm,
   targetMin,
   autoPause,
@@ -133,6 +136,11 @@ export default function RunScreen({
     vibrate(kind === "pause" ? [120, 80, 120] : [220]);
     voiceRef.current?.cue(kind);
   }, []);
+
+  const changeChattiness = (v: number) => {
+    coachRef.current?.setChattiness(v);
+    onChattinessChange(v); // also remembered for next run
+  };
 
   /** Everything a resume has to do, however it was triggered. */
   const resumeRun = useCallback((atMs?: number) => {
@@ -634,6 +642,22 @@ export default function RunScreen({
             ? `⏱ Resume in ${RESUME_DELAY_SEC}s — locks for the sleeve`
             : "🔒 Put it away — resumes when I run"}
         </button>
+      )}
+
+      {!locked && (
+        <div className="chatter-inline">
+          <span className="chatter-inline-icon" aria-hidden>🗣</span>
+          <input
+            type="range"
+            aria-label="How often your buddy talks"
+            min={CHATTINESS_MIN}
+            max={CHATTINESS_MAX}
+            step={0.25}
+            value={chattiness}
+            onChange={(e) => changeChattiness(Number(e.target.value))}
+          />
+          <span className="chatter-inline-label">{chattinessLabel(chattiness)}</span>
+        </div>
       )}
 
       <div className="run-controls" style={{ visibility: locked ? "hidden" : "visible" }}>

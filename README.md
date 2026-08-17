@@ -14,7 +14,13 @@ encouragement) — press Start, and get coached over your own music.
   intros per persona, with the rotation remembered between runs.
 - **Coach engine** — encouragement (positive or abusive, per persona), pace
   reactions when you slow down or speed up, km milestone callouts, and random
-  anecdotes / facts / nuggets on a schedule.
+  anecdotes / facts / nuggets on a schedule. Pace reactions fire often, so each
+  persona carries 16 "too slow" and 12 "flying" lines and roughly a third of
+  them are generated live instead.
+- **Chatter dial, mid-run** — the same control as on the setup screen sits under
+  the coach bubble during a run. Moving it rescales whatever interjection is
+  already pending, so turning your buddy up is audible straight away rather than
+  after the next one finally comes round. Hidden while the screen is locked.
 - **Km markers in the persona's voice** — every kilometre from 1 to 21 has its
   own pre-rendered line, and the pace hand-off ("and that last kilometre took
   you…") is pre-rendered too, so the only thing the device voice ever reads is

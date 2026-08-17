@@ -1184,3 +1184,36 @@ body {
 .sleeve-notice strong {
   color: var(--orange);
 }
+
+/* Chatter dial on the run screen — retunes the coach mid-run. Hidden while
+   the screen is locked for an arm sleeve. */
+.chatter-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 2px 2px;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+}
+
+.chatter-inline input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent, var(--blue));
+}
+
+.chatter-inline-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.chatter-inline-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--label-2);
+  flex-shrink: 0;
+  min-width: 62px;
+  text-align: right;
+}

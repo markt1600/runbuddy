@@ -15,6 +15,9 @@ const PROGRESS_MARKS = [0.1, 0.25, 1 / 3, 0.5, 2 / 3, 0.75, 0.9, 0.94, 0.97, 0.9
 
 const FRESH_ANECDOTE_CHANCE = 0.5; // odds an anecdote slot asks the API for new material
 const FRESH_ENCOURAGE_CHANCE = 0.25; // odds regular encouragement is freshly generated
+// Pace reactions fire often, so a finite bank starts repeating inside one run
+// however deep it is. Some of them come from the API instead.
+const FRESH_PACE_CHANCE = 0.35;
 
 // How long a stop is allowed to run before the trainer starts commenting on it,
 // and how often they come back to it. Scaled by the chatter setting like
@@ -171,6 +174,21 @@ export class CoachEngine {
   /** Gap until the next scheduled interjection, scaled by the chatter setting. */
   private gap(range: [number, number]): number {
     return between(range) / this.chattiness;
+  }
+
+  /**
+   * Retune mid-run. Rescaling whatever is already pending is the point: turning
+   * the dial up should be audible soon, not after the interjection that was
+   * already scheduled under the old setting finally comes round.
+   */
+  setChattiness(v: number) {
+    const next = Math.min(2, Math.max(0.5, v));
+    if (next === this.chattiness) return;
+    const now = Date.now();
+    const ratio = this.chattiness / next; // chattier => shorter remaining wait
+    this.nextEncourageAt = now + Math.max(0, this.nextEncourageAt - now) * ratio;
+    this.nextAnecdoteAt = now + Math.max(0, this.nextAnecdoteAt - now) * ratio;
+    this.chattiness = next;
   }
 
   /** Weather + locality, fetched by the run screen once GPS locks on. */
@@ -523,12 +541,14 @@ export class CoachEngine {
       const ratio = stats.paceSecPerKm / stats.avgPaceSecPerKm;
       if (ratio > 1.18) {
         this.lastPaceEventAt = now;
-        this.sayFromLibrary("pace_up");
+        if (Math.random() < FRESH_PACE_CHANCE) void this.sayFresh("pace_up", stats);
+        else this.sayFromLibrary("pace_up");
         return;
       }
       if (ratio < 0.85) {
         this.lastPaceEventAt = now;
-        this.sayFromLibrary("pace_down");
+        if (Math.random() < FRESH_PACE_CHANCE) void this.sayFresh("pace_down", stats);
+        else this.sayFromLibrary("pace_down");
         return;
       }
     }
