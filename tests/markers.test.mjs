@@ -25,6 +25,10 @@ function makeStore(readLagMs) {
   return {
     now,
     put(pathname, body) {
+      // The real SDK rejects empty bodies (BlobError: body is required). The
+      // mock accepting them let a zero-byte marker ship and fail every render
+      // in production — after the audio had already been paid for and stored.
+      if (!body) throw new Error("body is required");
       const prev = objects.get(pathname);
       const history = prev ? prev.history : [];
       history.push({ body, at: now.t });
@@ -60,7 +64,8 @@ function recordViaManifest(store, id, hash) {
 
 // ---- the new design: one marker blob per render, hash in the pathname ----
 function recordViaMarker(store, id, hash) {
-  store.put(`library/ahlian/rendered/${id}__${hash}`, "");
+  // Hash as body, matching lib/server/library.ts — never empty.
+  store.put(`library/ahlian/rendered/${id}__${hash}`, hash);
 }
 function readMarkers(store) {
   const out = {};

@@ -201,6 +201,7 @@ export async function reRenderStale(
   }
 
   let consecutiveFailures = 0;
+  let lastError = "unknown";
   report("generating");
   for (const { persona, id } of stale) {
     try {
@@ -208,10 +209,14 @@ export async function reRenderStale(
       done++;
       consecutiveFailures = 0;
       report("generating");
-    } catch {
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
       consecutiveFailures++;
       if (consecutiveFailures >= 3) {
-        report("error", "Voice rendering stopped — check ElevenLabs credits, then retry.");
+        report(
+          "error",
+          `Voice rendering stopped after 3 straight failures — last error: ${lastError}`
+        );
         return;
       }
     }
@@ -251,6 +256,7 @@ export async function renderMissingPhrases(
   // Sequential: ElevenLabs concurrency limits are low, and per-phrase progress
   // is exactly what the UI wants.
   let consecutiveFailures = 0;
+  let lastError = "unknown";
   report("generating");
   for (const { persona, id } of missing) {
     try {
@@ -259,15 +265,22 @@ export async function renderMissingPhrases(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ persona, id }),
       });
-      if (!res.ok) throw new Error(String(res.status));
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
       const data: { url: string } = await res.json();
       urls.set(key(persona, id), data.url);
       consecutiveFailures = 0;
       report("generating");
-    } catch {
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
       consecutiveFailures++;
       if (consecutiveFailures >= 3) {
-        report("error", "Voice rendering stopped — check ElevenLabs credits, then retry.");
+        report(
+          "error",
+          `Voice rendering stopped after 3 straight failures — last error: ${lastError}`
+        );
         return;
       }
     }
@@ -330,6 +343,7 @@ export async function reRenderPersona(
   }
   let done = 0;
   let consecutiveFailures = 0;
+  let lastError = "unknown";
   report("generating", 0);
   for (const phrase of pool) {
     try {
@@ -338,16 +352,24 @@ export async function reRenderPersona(
         headers: { "Content-Type": "application/json", ...adminPinHeaders() },
         body: JSON.stringify({ persona, id: phrase.id, force: true }),
       });
-      if (!res.ok) throw new Error(String(res.status));
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
       const data: { url: string } = await res.json();
       urls.set(key(persona, phrase.id), `${data.url}?v=${Date.now()}`);
       consecutiveFailures = 0;
       done++;
       report("generating", done);
-    } catch {
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
       consecutiveFailures++;
       if (consecutiveFailures >= 3) {
-        report("error", done, "Re-rendering stopped — check ElevenLabs credits, then retry.");
+        report(
+          "error",
+          done,
+          `Re-rendering stopped after 3 straight failures — last error: ${lastError}`
+        );
         return;
       }
     }

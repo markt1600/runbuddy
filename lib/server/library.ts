@@ -111,7 +111,11 @@ export async function readRenderHashes(persona: PersonaId): Promise<Record<strin
 /** Record what a freshly rendered phrase says. Independent per phrase. */
 async function recordRenderHash(persona: PersonaId, phraseId: string, hash: string) {
   const fresh = markerPath(persona, phraseId, hash);
-  await put(fresh, "", {
+  // The hash doubles as the body: the SDK rejects empty bodies outright
+  // (`BlobError: body is required`), which a zero-byte marker tripped on
+  // every render — after the audio had already been produced and stored, so
+  // the whole pass read as "failed" while quietly spending real credits.
+  await put(fresh, hash, {
     access: "public",
     contentType: "text/plain",
     addRandomSuffix: false,
@@ -170,6 +174,14 @@ export async function renderPhraseToBlob(
   });
   // Only after the audio is actually in place — a recorded hash claims the
   // MP3 speaks this text, and a failed put must not leave that claim behind.
-  await recordRenderHash(persona, phraseId, phraseHash(phrase.text));
+  // Best-effort in the other direction too: the render is already paid for
+  // and stored, so a bookkeeping hiccup must not make it report as failed.
+  // The cost of a lost marker is only that this phrase can't be flagged
+  // stale until its next render.
+  try {
+    await recordRenderHash(persona, phraseId, phraseHash(phrase.text));
+  } catch {
+    /* provenance is best-effort */
+  }
   return { url: blob.url, existed: false };
 }
