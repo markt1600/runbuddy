@@ -228,6 +228,23 @@ Simulated against synthetic noise, this holds a 10-minute stationary phone to
 0 m of phantom distance with Doppler (13 m without), and tracks running,
 walking, intervals, tunnels and Doppler dropouts to within 2.5% of truth.
 
+### Approximate distance correction
+
+The integrator credits at most 5 s per fix interval, so it can never invent
+distance across a gap — but a locked phone in an arm sleeve gets fixes
+sparsely, and at 2–6 s spacing those clipped seconds add up to a run reading
+~3% short next to a watch. The "Approximate distance correction" toggle
+(Setup → GPS, on by default) recovers the clipped stretches, bounded by two
+independent measurements that must both agree: the raw-fix chord across the
+gap (a runner who stopped mid-gap moved no chord, so stopping can't be
+credited as motion) and the clipped seconds at the bracketing Doppler speed
+(so unsigned position noise can't accumulate — an unbounded chord credit
+overshot by 3% in simulation before this bound existed). In simulation it
+recovers roughly half to two-thirds of the sparse-delivery loss and changes a
+healthy 1 Hz run by exactly nothing. The run summary prints the fix-delivery
+diagnostics — average gap, longest gap, seconds beyond the cap, metres
+recovered — so a drift against the watch is attributable instead of a mystery.
+
 ## Auto-pause
 
 Detection is only as good as the evidence available, which differs by device:

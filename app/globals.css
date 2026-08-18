@@ -895,6 +895,17 @@ input[type="range"]::-moz-range-thumb {
   color: var(--label-3);
 }
 
+.gps-diag {
+  margin-top: 10px;
+  text-align: center;
+  font-family: var(--ff-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--label-3);
+  line-height: 1.6;
+}
+
 .gps-note {
   text-align: center;
   font-family: var(--ff-mono);

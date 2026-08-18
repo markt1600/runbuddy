@@ -12,11 +12,13 @@ import {
   CHATTINESS_DEFAULT,
   START_DELAY_SEC,
   loadAutoPause,
+  loadDistanceCorrection,
   loadChattiness,
   loadTargetKm,
   loadTargetMin,
   loadStartDelay,
   saveAutoPause,
+  saveDistanceCorrection,
   saveChattiness,
   saveStartDelay,
   saveTargetKm,
@@ -36,6 +38,7 @@ export default function RunBuddyApp() {
   const [targetKm, setTargetKmState] = useState(0);
   const [targetMin, setTargetMinState] = useState(0);
   const [autoPause, setAutoPauseState] = useState(true);
+  const [distanceCorrection, setDistanceCorrectionState] = useState(true);
   const [startDelay, setStartDelayState] = useState(false);
 
   useEffect(() => {
@@ -44,6 +47,7 @@ export default function RunBuddyApp() {
     setTargetKmState(loadTargetKm());
     setTargetMinState(loadTargetMin());
     setAutoPauseState(loadAutoPause());
+    setDistanceCorrectionState(loadDistanceCorrection());
     setStartDelayState(loadStartDelay());
   }, []);
 
@@ -60,6 +64,11 @@ export default function RunBuddyApp() {
   const setAutoPause = (on: boolean) => {
     setAutoPauseState(on);
     saveAutoPause(on);
+  };
+
+  const setDistanceCorrection = (on: boolean) => {
+    setDistanceCorrectionState(on);
+    saveDistanceCorrection(on);
   };
 
   const setStartDelay = (on: boolean) => {
@@ -120,6 +129,8 @@ export default function RunBuddyApp() {
           onTargetMinChange={setTargetMin}
           autoPause={autoPause}
           onAutoPauseChange={setAutoPause}
+          distanceCorrection={distanceCorrection}
+          onDistanceCorrectionChange={setDistanceCorrection}
           startDelay={startDelay}
           onStartDelayChange={setStartDelay}
         />
@@ -136,6 +147,7 @@ export default function RunBuddyApp() {
           targetKm={targetKm}
           targetMin={targetMin}
           autoPause={autoPause}
+          distanceCorrection={distanceCorrection}
           startDelaySec={startDelay ? START_DELAY_SEC : 0}
           onFinish={(stats) => {
             setFinalStats(stats);

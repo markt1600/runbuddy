@@ -59,10 +59,14 @@ function makeWorld(tracker, rand, { accuracy = 10, doppler = true } = {}) {
     doppler,
     online: true, // false = tunnel: keep moving, deliver nothing
   };
+  world.fixInterval = null; // [loSec, hiSec] overrides ~1Hz, e.g. a locked phone
   world.advance = (seconds) => {
     let remaining = seconds * 1000;
     while (remaining > 0) {
-      const step = Math.min(remaining, 900 + rand() * 300); // ~1Hz, jittered
+      const jitter = world.fixInterval
+        ? (world.fixInterval[0] + rand() * (world.fixInterval[1] - world.fixInterval[0])) * 1000
+        : 900 + rand() * 300; // ~1Hz, jittered
+      const step = Math.min(remaining, jitter);
       clock.now += step;
       remaining -= step;
       world.x += 0; // heading due north keeps the maths transparent
@@ -185,6 +189,59 @@ scenario("armed resume: standing noise never fires it, walking off does", () => 
   w.speedMps = 2.5;
   w.advance(30);
   assert.ok(fired !== null, "armed resume never fired after 30s of walking away");
+});
+
+scenario("gap bridging recovers sparse-fix loss, and only that", () => {
+  // A locked phone in a sleeve: fixes every 2–6s. The trapezoid credits at
+  // most 5s per fix, so without bridging a 10 min run reads ~3% short.
+  const runSparse = (bridging, seed) => {
+    const t = new GeoTracker();
+    t.gapBridging = bridging;
+    const w = makeWorld(t, mulberry32(seed), { accuracy: 12 });
+    w.fixInterval = [2, 6];
+    w.speedMps = 2.8;
+    w.advance(600);
+    return t;
+  };
+  const off = runSparse(false, 11);
+  const on = runSparse(true, 11);
+  const truth = (600 * 2.8) / 1000;
+  const lossOff = truth - off.distanceKm;
+  const lossOn = truth - on.distanceKm;
+  assert.ok(lossOff / truth > 0.02, "harness: sparse delivery should read short without bridging");
+  assert.ok(lossOn < lossOff * 0.7, `bridging recovered too little (${(lossOff - lossOn).toFixed(3)}km of ${lossOff.toFixed(3)}km)`);
+  assert.ok(on.distanceKm <= truth * 1.01, `bridging over-credited: ${on.distanceKm.toFixed(3)}km for ${truth.toFixed(3)}km`);
+  assert.ok(on.bridgedKm > 0, "bridgedKm diagnostic not recorded");
+
+  // Healthy ~1Hz delivery: bridging must change nothing at all.
+  const healthy = (bridging) => {
+    const t = new GeoTracker();
+    t.gapBridging = bridging;
+    const w = makeWorld(t, mulberry32(12), { accuracy: 12 });
+    w.speedMps = 2.8;
+    w.advance(300);
+    return t.distanceKm;
+  };
+  assert.strictEqual(healthy(true), healthy(false), "bridging altered a healthy run");
+});
+
+scenario("gap bridging credits ~nothing to a runner who stopped mid-gap", () => {
+  const t = new GeoTracker();
+  t.gapBridging = true;
+  const w = makeWorld(t, mulberry32(13), { accuracy: 12 });
+  w.speedMps = 2.8;
+  w.advance(120);
+  // Stop under a bridge: no fixes for 25s, and no movement either. The fix
+  // that ends the gap must not be credited with 25s of phantom running.
+  w.speedMps = 0;
+  w.online = false;
+  w.advance(25);
+  w.online = true;
+  w.advance(10);
+  assert.ok(
+    t.bridgedKm < 0.012,
+    `stopped-in-gap over-credit: bridged ${(t.bridgedKm * 1000).toFixed(0)}m while standing`
+  );
 });
 
 if (failures > 0) {

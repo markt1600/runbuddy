@@ -91,4 +91,15 @@ export interface RunStats {
   route: { lat: number; lon: number }[]; // GPS path of the run
   treadmill?: boolean; // time-target run: no GPS, speed or route
   targetMinutes?: number; // the duration goal, when running to time
+  /**
+   * How well iOS fed the tracker: sparse fix delivery (a locked phone in a
+   * sleeve) is what makes a run read short, so the summary shows it rather
+   * than leaving a drift against the watch unexplained.
+   */
+  gps?: {
+    avgFixGapSec: number | null;
+    maxFixGapSec: number;
+    overCapSec: number; // run-seconds beyond the integrator's per-fix credit cap
+    bridgedKm: number; // distance recovered by the approximate correction
+  };
 }

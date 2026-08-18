@@ -22,6 +22,7 @@ interface Props {
   targetKm: number;
   targetMin: number;
   autoPause: boolean;
+  distanceCorrection: boolean;
   startDelaySec: number;
   onFinish: (stats: RunStats) => void;
 }
@@ -36,6 +37,7 @@ export default function RunScreen({
   targetKm,
   targetMin,
   autoPause,
+  distanceCorrection,
   startDelaySec,
   onFinish,
 }: Props) {
@@ -119,6 +121,7 @@ export default function RunScreen({
       route: geo.route,
       treadmill,
       targetMinutes: treadmill ? targetMin : undefined,
+      gps: treadmill ? undefined : geo.fixDiagnostics(),
     };
     statsRef.current = stats;
     return stats;
@@ -178,6 +181,7 @@ export default function RunScreen({
     // requested and nothing about speed, distance or route is tracked.
     if (!treadmill) {
       geo.autoPauseEnabled = autoPause;
+      geo.gapBridging = distanceCorrection;
       // Both edges arrive back-dated to the fix where movement actually turned,
       // so the ~2s the detector spends confirming costs nothing on the clock.
       geo.onAutoPause = (at) => {

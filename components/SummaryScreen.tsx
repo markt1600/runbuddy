@@ -245,6 +245,19 @@ export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Pro
         )}
       </div>
 
+      {/* GPS delivery diagnostics: the difference between "the run was short"
+          and "iOS starved us of fixes". One quiet line, only when we have data. */}
+      {stats.gps && stats.gps.avgFixGapSec !== null && (
+        <div className="gps-diag">
+          GPS fix every {stats.gps.avgFixGapSec.toFixed(1)}s avg · longest gap{" "}
+          {Math.round(stats.gps.maxFixGapSec)}s
+          {stats.gps.overCapSec >= 1 &&
+            ` · ${Math.round(stats.gps.overCapSec)}s beyond the credit cap`}
+          {stats.gps.bridgedKm >= 0.005 &&
+            ` · correction recovered ${Math.round(stats.gps.bridgedKm * 1000)}m`}
+        </div>
+      )}
+
       {stats.splits.length > 0 && (
         <>
           <div className="section-header">Splits</div>

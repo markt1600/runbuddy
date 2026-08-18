@@ -64,6 +64,8 @@ interface Props {
   onTargetMinChange: (v: number) => void;
   autoPause: boolean;
   onAutoPauseChange: (on: boolean) => void;
+  distanceCorrection: boolean;
+  onDistanceCorrectionChange: (on: boolean) => void;
   startDelay: boolean;
   onStartDelayChange: (on: boolean) => void;
 }
@@ -85,6 +87,8 @@ export default function SetupScreen({
   onTargetMinChange,
   autoPause,
   onAutoPauseChange,
+  distanceCorrection,
+  onDistanceCorrectionChange,
   startDelay,
   onStartDelayChange,
 }: Props) {
@@ -354,6 +358,29 @@ export default function SetupScreen({
           {chattiness === 1 ? " (default)" : ""} — km markers and pace reactions always
           fire; this tunes how often the in-between talking happens
         </div>
+      </div>
+
+      <div className="section-header">GPS</div>
+      <div className="card" style={{ padding: "12px 16px" }}>
+        <label className="switch-row">
+          <span className="switch-text">
+            Approximate distance correction
+            <span className="switch-sub">
+              A locked phone gets GPS fixes less often, and stretches between
+              them can go uncounted — runs read short next to a watch. This
+              bridges those stretches from your position and speed, never
+              crediting more than either supports. The run summary shows how
+              much it recovered; switch it off to compare against your watch
+              without it.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={distanceCorrection}
+            onChange={(e) => onDistanceCorrectionChange(e.target.checked)}
+          />
+        </label>
       </div>
 
       <div className="section-header">Before You Go</div>

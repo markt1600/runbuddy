@@ -85,12 +85,31 @@ export function chattinessLabel(v: number): string {
 // up when they start again. On by default — it's what every running app does —
 // but it needs GPS, so it has no effect in treadmill mode.
 const AUTOPAUSE_KEY = "runbuddy-autopause";
+const DISTFIX_KEY = "runbuddy-distance-correction";
 
 export function loadAutoPause(): boolean {
   try {
     return localStorage.getItem(AUTOPAUSE_KEY) !== "0";
   } catch {
     return true; // private mode
+  }
+}
+
+// Approximate distance correction: bridge long GPS fix gaps with the position
+// chord. On by default — off is the rollback if a field run disagrees with it.
+export function loadDistanceCorrection(): boolean {
+  try {
+    return localStorage.getItem(DISTFIX_KEY) !== "0";
+  } catch {
+    return true; // private mode
+  }
+}
+
+export function saveDistanceCorrection(on: boolean) {
+  try {
+    localStorage.setItem(DISTFIX_KEY, on ? "1" : "0");
+  } catch {
+    /* private mode */
   }
 }
 

@@ -56,6 +56,15 @@ const ARM_MOVE_M = 15;
 const ARM_SETTLE_MS = 3000;
 const ARM_WINDOW_MS = 6000;
 
+// Gap bridging ("approximate distance correction"). The Doppler trapezoid
+// credits at most MAX_GAP_S per fix interval, so when iOS delivers fixes
+// sparsely — a locked phone in an arm sleeve — every interval past the cap is
+// distance silently thrown away: at 2–6 s fix spacing a 10 km run reads ~3%
+// short. When a usable fix ends a longer interval, credit the smoothed-position
+// chord across it instead (minus whatever the trapezoid already granted).
+// The recovery is bounded by the position chord AND by the clipped seconds at
+// the bracketing Doppler speed, so it can only give back what the cap took.
+
 export function haversineKm(a: GeoSample, b: GeoSample): number {
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
@@ -115,6 +124,19 @@ export class GeoTracker {
   onArmedResume: ((atMs: number) => void) | null = null;
   distanceKm = 0;
   lastError: string | null = null;
+  /** Bridge long fix gaps with the position chord (user preference). */
+  gapBridging = true;
+  private bridgeAnchor: GeoSample | null = null;
+  private trapezoidKmThisFix = 0; // what the Doppler credit granted for the current fix
+  private clippedSecThisFix = 0; // seconds the trapezoid cap threw away at this fix
+  private bridgeSpeedMps = 0; // the speed estimate those seconds would have earned
+  /** Metres recovered by gap bridging this run — surfaced on the summary. */
+  bridgedKm = 0;
+  // Fix-delivery diagnostics, to tell "GPS was sparse" from "run was short".
+  private fixGapCount = 0;
+  private fixGapSumSec = 0;
+  private fixGapMaxSec = 0;
+  private fixGapOverCapSec = 0;
   /** Most recent fix of any accuracy — good enough for weather / geocoding. */
   lastPosition: { lat: number; lon: number } | null = null;
   /** Accepted fixes forming the run's path (downsampled when long). */
@@ -140,7 +162,18 @@ export class GeoTracker {
         };
         const now = Date.now();
         this.denied = false;
+        // Delivery-rate diagnostics, warm-up included: the question they
+        // answer is "how sparsely was iOS feeding us", not "how far we ran".
+        if (this.lastFixAt > 0) {
+          const gapSec = (now - this.lastFixAt) / 1000;
+          this.fixGapCount++;
+          this.fixGapSumSec += gapSec;
+          if (gapSec > this.fixGapMaxSec) this.fixGapMaxSec = gapSec;
+          if (gapSec > MAX_GAP_S) this.fixGapOverCapSec += gapSec - MAX_GAP_S;
+        }
         this.lastFixAt = now;
+        this.trapezoidKmThisFix = 0;
+        this.clippedSecThisFix = 0;
         this.lastAccuracy = s.accuracy;
         this.lastPosition = { lat: s.lat, lon: s.lon };
         this.lastError = null;
@@ -167,9 +200,17 @@ export class GeoTracker {
           // Integrate speed over time rather than summing position deltas.
           // Position noise is unsigned, so summing deltas always overstates
           // the distance; speed noise is symmetric, so integrating it doesn't.
-          const dtSec = Math.min((now - this.lastSpeedAt) / 1000, MAX_GAP_S);
+          const rawGapSec = (now - this.lastSpeedAt) / 1000;
+          const dtSec = Math.min(rawGapSec, MAX_GAP_S);
           if (this.dopplerSeen && dtSec > 0 && !this.paused) {
-            this.distanceKm += (((this.lastSpeedMps + mps) / 2) * dtSec) / 1000;
+            const add = (((this.lastSpeedMps + mps) / 2) * dtSec) / 1000;
+            this.distanceKm += add;
+            // Remembered for gap bridging (position domain, below): what this
+            // interval already earned, how many of its seconds the cap threw
+            // away, and what speed those seconds would have integrated at.
+            this.trapezoidKmThisFix = add;
+            this.clippedSecThisFix = rawGapSec - dtSec;
+            this.bridgeSpeedMps = (this.lastSpeedMps + mps) / 2;
           }
           this.dopplerSeen = true;
           this.lastSpeedMps = mps;
@@ -206,6 +247,7 @@ export class GeoTracker {
 
   /** Route, anchor and the position-derived distance fallback. Accurate fixes only. */
   private trackPosition(s: GeoSample, now: number) {
+    const prevGoodFixAt = this.lastGoodFixAt;
     this.lastGoodFixAt = now;
 
     // Smooth the position before it is used for anything. This is the
@@ -216,6 +258,43 @@ export class GeoTracker {
         // Distance from positions is the fallback for devices that give us no
         // speed at all (and for a long Doppler dropout mid-run).
         const useDelta = !this.dopplerSeen || now - this.lastSpeedAt > DOPPLER_STALE_MS;
+
+        // Gap bridging: the trapezoid cap threw seconds away at this fix —
+        // recover them, bounded by BOTH independent measurements of the gap.
+        // The chord bound (you cannot have covered more ground than the line
+        // between where you vanished and where you reappeared) stops a runner
+        // who paused mid-gap from being credited with motion; the speed bound
+        // (the clipped seconds at the bracketing Doppler speed) stops unsigned
+        // position noise from accumulating — chord noise only ever points
+        // outward, which is exactly the phantom distance this tracker's
+        // Doppler-first design exists to avoid, and an unbounded chord credit
+        // reintroduced it at +3% in simulation. Delta mode is excluded: its
+        // anchor arithmetic already spans gaps uncapped.
+        const gapSec = prevGoodFixAt > 0 ? (now - prevGoodFixAt) / 1000 : 0;
+        if (
+          this.gapBridging &&
+          !this.paused &&
+          !useDelta &&
+          this.bridgeAnchor !== null &&
+          this.clippedSecThisFix > 0
+        ) {
+          // Raw fixes, not smoothed: the Kalman estimate lags its inputs, and
+          // a chord between two lagging endpoints reads systematically short —
+          // in simulation it cut the recovery to a third of what was lost.
+          // Raw noise is symmetric, and the speed bound already clips the high
+          // side, so raw is both fuller and still safe.
+          const chordKm = haversineKm(this.bridgeAnchor, s);
+          const chordKmh = gapSec > 0 ? chordKm / (gapSec / 3600) : Infinity;
+          const chordBoundKm = chordKm - this.trapezoidKmThisFix;
+          const speedBoundKm = (this.bridgeSpeedMps * this.clippedSecThisFix) / 1000;
+          const recovered = Math.min(chordBoundKm, speedBoundKm);
+          // A chord implying faster-than-runner travel is GPS error, not travel.
+          if (chordKmh < MAX_SPEED_KMH && recovered > 0) {
+            this.distanceKm += recovered;
+            this.bridgedKm += recovered;
+          }
+        }
+        this.bridgeAnchor = s;
 
         if (this.paused) {
           // Keep the anchor under the phone so whatever you do while paused —
@@ -433,6 +512,26 @@ export class GeoTracker {
    * - acquiring: no fix yet since start (cold GPS)
    * - lost:      we had fixes before, but nothing for 10s+
    */
+  /**
+   * How well iOS actually fed us this run. Sparse delivery (locked phone in a
+   * sleeve) is the difference between a run that measures true and one that
+   * reads short, so the summary shows this instead of leaving the drift a
+   * mystery.
+   */
+  fixDiagnostics(): {
+    avgFixGapSec: number | null;
+    maxFixGapSec: number;
+    overCapSec: number;
+    bridgedKm: number;
+  } {
+    return {
+      avgFixGapSec: this.fixGapCount > 0 ? this.fixGapSumSec / this.fixGapCount : null,
+      maxFixGapSec: this.fixGapMaxSec,
+      overCapSec: this.fixGapOverCapSec,
+      bridgedKm: this.bridgedKm,
+    };
+  }
+
   signal(): GpsSignal {
     if (this.unavailable) return "unavailable";
     if (this.denied) return "denied";
