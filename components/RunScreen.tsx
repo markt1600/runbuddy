@@ -613,7 +613,7 @@ export default function RunScreen({
       {treadmill ? (
         <div className="env-line">
           {musicLabel ? audioSessionSupported()
-            ? `Ducking ${musicLabel} when the coach speaks · ringer on 🔔`
+            ? `Softening ${musicLabel} when the coach speaks · ringer on 🔔`
             : `${musicLabel} stays at full volume on this iOS · ringer on 🔔` : "Location tracking off"}
         </div>
       ) : gpsSignal === "lost" || gpsNote ? (
@@ -625,7 +625,7 @@ export default function RunScreen({
       ) : (
         <div className="env-line">
           {envLine ?? (musicLabel ? audioSessionSupported()
-            ? `Ducking ${musicLabel} when the coach speaks · ringer on 🔔`
+            ? `Softening ${musicLabel} when the coach speaks · ringer on 🔔`
             : `${musicLabel} stays at full volume on this iOS · ringer on 🔔` : "")}
         </div>
       )}

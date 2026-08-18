@@ -387,7 +387,7 @@ export default function SetupScreen({
       <div className="card" style={{ padding: "12px 16px", fontSize: 13, color: "var(--label-2)", lineHeight: 1.5 }}>
         {!audioSessionSupported() && (
           <>
-            ⚠ This iOS version won&apos;t let a web app duck other apps&apos; audio, so your
+            ⚠ This iOS version won&apos;t let a web app soften other apps&apos; audio, so your
             music will stay at full volume while your buddy talks — turn it down yourself
             before you start.
             <br />
