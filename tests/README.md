@@ -20,6 +20,11 @@ npm test
 - `audio.settle.test.mjs` — `VoiceEngine` against a stubbed DOM. Simulates iOS
   pausing the media element with no `ended`/`error` (camera, lock button) and
   asserts the queue keeps moving — the "trainer permanently silent" bug.
+- `audio.duck.test.mjs` — asserts the music-ducking choreography: each speech
+  burst pauses the keep-alive loop so the phrase's own playback reactivates the
+  session under "transient" (iOS applies the type at activation, so retyping a
+  continuously-active session never ducks anything), then restores "ambient"
+  before the keep-alive brings the session back up.
 - `markers.test.mjs` — the stale-audio marker scheme against a mock blob store
   whose content reads lag its writes like a CDN, proving the pathname-as-data
   design survives what destroyed the read-modify-write JSON manifest.

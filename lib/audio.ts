@@ -120,6 +120,8 @@ export class VoiceEngine {
   private playing = false;
   private persona: Persona;
   private intentionalPause = false;
+  /** True while the keep-alive loop is held down on purpose for ducking. */
+  private duckHold = false;
   speaking = false;
   onSpeakingChange: (speaking: boolean, text: string | null) => void = () => {};
   /** How each spoken line was served this run. */
@@ -138,12 +140,16 @@ export class VoiceEngine {
   private onVisibility = () => {
     if (document.visibilityState !== "visible") return;
     setAudioSession(this.speaking ? "transient" : "ambient");
-    this.keepAlive?.play().catch(() => {});
+    // Mid-burst the phrase audio owns the session; restarting the keep-alive
+    // here would keep it continuously active past the end of the burst, and a
+    // session that never re-activates never applies the flip back to ambient.
+    if (!this.duckHold) this.keepAlive?.play().catch(() => {});
     if (!this.playing && this.queue.length > 0) void this.drain();
   };
 
   /** The system pauses the keep-alive loop on interruption; start it again. */
   private onKeepAlivePause = () => {
+    if (this.duckHold) return; // held down on purpose while the coach speaks
     if (document.visibilityState === "visible") this.keepAlive?.play().catch(() => {});
   };
 
@@ -271,6 +277,16 @@ export class VoiceEngine {
     // a km marker is three queued items back to back, and restoring between
     // each one made the music stutter in and out three times.
     setAudioSession("transient");
+    // Retyping alone is not enough: iOS applies the session type when the
+    // session comes UP, and the keep-alive loop holds it up continuously from
+    // start() — activated under "ambient", so every later flip to "transient"
+    // lands on a session the OS already configured, and the music never ducks
+    // (a field regression introduced by unlocking the players inside start()).
+    // Pausing the keep-alive lets the phrase's own play() bring the session up
+    // fresh with duck-others actually applied; the gap with no audio is a few
+    // milliseconds, and the screen is on (AOD) so nothing gets suspended.
+    this.duckHold = true;
+    this.keepAlive?.pause();
     try {
       while (this.queue.length > 0) {
         const item = this.queue.shift()!;
@@ -307,7 +323,12 @@ export class VoiceEngine {
       }
     } finally {
       this.playing = false;
-      setAudioSession("ambient"); // the music comes back up
+      // Type first, then reactivate: the keep-alive's play() is what brings
+      // the session back up, and it must come up as "ambient" so the music
+      // returns to full volume.
+      setAudioSession("ambient");
+      this.duckHold = false;
+      this.keepAlive?.play().catch(() => {});
     }
   }
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GeoTracker, formatElapsed, type GpsSignal } from "@/lib/geo";
 import { formatInUnit, unitSuffix, type SpeedUnit } from "@/lib/units";
-import { VoiceEngine, WakeLockManager, vibrate } from "@/lib/audio";
+import { VoiceEngine, WakeLockManager, audioSessionSupported, vibrate } from "@/lib/audio";
 import { CoachEngine } from "@/lib/coach";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
 import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
@@ -612,7 +612,9 @@ export default function RunScreen({
 
       {treadmill ? (
         <div className="env-line">
-          {musicLabel ? `Mixing over ${musicLabel} · ringer on 🔔` : "Location tracking off"}
+          {musicLabel ? audioSessionSupported()
+            ? `Ducking ${musicLabel} when the coach speaks · ringer on 🔔`
+            : `${musicLabel} stays at full volume on this iOS · ringer on 🔔` : "Location tracking off"}
         </div>
       ) : gpsSignal === "lost" || gpsNote ? (
         <div className="gps-note">
@@ -622,7 +624,9 @@ export default function RunScreen({
         </div>
       ) : (
         <div className="env-line">
-          {envLine ?? (musicLabel ? `Mixing over ${musicLabel} · ringer on 🔔` : "")}
+          {envLine ?? (musicLabel ? audioSessionSupported()
+            ? `Ducking ${musicLabel} when the coach speaks · ringer on 🔔`
+            : `${musicLabel} stays at full volume on this iOS · ringer on 🔔` : "")}
         </div>
       )}
 
