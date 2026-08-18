@@ -14,8 +14,18 @@ export async function GET(req: NextRequest) {
     configured,
     historyAvailable: blobConfigured(),
     // Verdicts only — the allowed email list itself never leaves the server.
+    // Once sign-in exists, admin is never offered to guests; with ADMIN_EMAIL
+    // set it is only offered to those accounts. Unconfigured deployments
+    // (local dev, no Google) keep admin visible — hiding it there would make
+    // it unreachable everywhere.
     adminGated: adminGateActive(),
-    isAdmin: adminGateActive() ? isAdminEmail(user?.email) : true,
+    isAdmin: !configured
+      ? true
+      : user
+        ? adminGateActive()
+          ? isAdminEmail(user.email)
+          : true
+        : false,
     user: user ? { name: user.name, picture: user.picture ?? null, email: user.email ?? null } : null,
   });
 }

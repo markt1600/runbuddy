@@ -279,10 +279,10 @@ export default function RunBuddyApp() {
       {(screen === "home" || screen === "setup" || screen === "account") && (
         <TabBar
           active={screen}
-          showHome={!!auth.user}
+          showHome={auth.configured || !!auth.user}
           showAdmin={auth.isAdmin !== false}
           runLabel={screen === "setup" ? "START RUN" : "GET READY"}
-          onHome={() => setScreen("home")}
+          onHome={() => setScreen(auth.user ? "home" : "landing")}
           onRun={() => setScreen(screen === "setup" ? "run" : "setup")}
           onAccount={() => setScreen("account")}
           onAdmin={() => setScreen("admin")}

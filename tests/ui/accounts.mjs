@@ -73,9 +73,12 @@ async function stubAuth(page, me) {
   assert.ok(await page.locator(".persona-card").count() > 0, "guest did not reach setup");
   // With ADMIN_EMAIL gating, the admin tab isn't theirs to see…
   assert.strictEqual(await page.locator(".tab-admin").count(), 0, "admin tab shown to gated guest");
-  // …and guests have no home tab (no history behind it), but can sign in
-  // from the Account screen.
-  assert.strictEqual(await page.locator(".tab-home").count(), 0, "home tab shown to guest");
+  // …and a guest's Home leads to the login page, not a history they don't have.
+  await page.locator(".tab-home").click();
+  await page.waitForTimeout(500);
+  assert.strictEqual(await page.locator(".landing").count(), 1, "guest Home did not reach the login page");
+  await page.locator("button", { hasText: "Run as guest" }).click();
+  await page.waitForTimeout(500);
   await page.locator(".tab-account").click();
   await page.waitForTimeout(500);
   assert.ok(
