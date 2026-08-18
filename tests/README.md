@@ -45,6 +45,11 @@ npm run test:ui                 # stale-admin flow + screen invariants
   markers → completely silent (the false-alarm regression), and markers
   disagreeing with current text → exactly those rows flagged and exactly those
   re-rendered by the bulk button.
+- `ui/accounts.mjs` — the account flows end to end: unconfigured auth leaves
+  the pre-accounts app untouched, the landing screen's guest choice sticks
+  across reloads, and a signed-in session gets the home screen, run cards,
+  the detail view with its split chart (fastest highlighted), and a delete
+  that demands confirmation. Auth and runs are stubbed at the network edge.
 - `ui/screens.mjs` — screenshots setup, run, summary, and the generated run
   card at full resolution, asserting the theme invariants a build can't check:
   the run screen actually inverts, its text actually contrasts with its ground

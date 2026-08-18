@@ -82,6 +82,10 @@ export default function RunScreen({
   const wakeRef = useRef<WakeLockManager | null>(null);
   const startAtRef = useRef(Date.now());
   const accumulatedRef = useRef(0);
+  // Wall-clock start, set once when the run truly begins (after any countdown)
+  // and never touched by pauses — moving time and total elapsed time diverge
+  // the moment the first pause happens, and history wants both.
+  const wallStartRef = useRef(0);
   const pausedRef = useRef(false);
   const autoPausedRef = useRef(false);
   const countdownRef = useRef(0);
@@ -122,6 +126,8 @@ export default function RunScreen({
       treadmill,
       targetMinutes: treadmill ? targetMin : undefined,
       gps: treadmill ? undefined : geo.fixDiagnostics(),
+      startedAt: wallStartRef.current || undefined,
+      wallElapsedMs: wallStartRef.current ? Date.now() - wallStartRef.current : undefined,
     };
     statsRef.current = stats;
     return stats;
@@ -231,6 +237,7 @@ export default function RunScreen({
     void wake.enable();
 
     startAtRef.current = Date.now();
+    wallStartRef.current = startDelaySec > 0 ? 0 : Date.now();
     if (startDelaySec > 0) {
       // Held at the start line: the screen is already locked so the phone can
       // go straight into the sleeve, and nothing counts until we say go.
@@ -251,6 +258,7 @@ export default function RunScreen({
         else if (left === 5) coach.sayCountdown(1);
         if (left === 0) {
           startAtRef.current = Date.now();
+          wallStartRef.current = Date.now();
           geo.paused = false;
           coach.onRunStart();
         }

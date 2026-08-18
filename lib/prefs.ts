@@ -86,12 +86,31 @@ export function chattinessLabel(v: number): string {
 // but it needs GPS, so it has no effect in treadmill mode.
 const AUTOPAUSE_KEY = "runbuddy-autopause";
 const DISTFIX_KEY = "runbuddy-distance-correction";
+const GUEST_KEY = "runbuddy-guest";
 
 export function loadAutoPause(): boolean {
   try {
     return localStorage.getItem(AUTOPAUSE_KEY) !== "0";
   } catch {
     return true; // private mode
+  }
+}
+
+// Chose "run as guest" on the landing screen — skip it on later launches.
+export function loadGuestChoice(): boolean {
+  try {
+    return localStorage.getItem(GUEST_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function saveGuestChoice(on: boolean) {
+  try {
+    if (on) localStorage.setItem(GUEST_KEY, "1");
+    else localStorage.removeItem(GUEST_KEY);
+  } catch {
+    /* private mode */
   }
 }
 

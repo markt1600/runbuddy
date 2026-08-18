@@ -93,6 +93,26 @@ your own music.
 - **Push-to-talk** — tap the mic, say something, and the trainer answers in
   character.
 
+## Accounts & run history
+
+Optional, like everything else: set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+and `AUTH_SECRET` (see `.env.example`) and the app opens with a choice —
+**Continue with Google** or **Run as guest**. Guests get exactly the
+pre-accounts app, remembered so the question is asked once. Signed in, the
+app opens on a home screen: **Get Ready to Run** on top, and below it a card
+for every saved run — tap through for distance, average pace, moving time,
+total elapsed time, fastest split, and a kilometre-split bar chart (longer
+bar = faster split, fastest in the accent). Runs save automatically at the
+finish line; anything under a minute or 50 m is dropped as a pocket-start,
+and a run can be deleted from its detail page behind an explicit
+confirmation.
+
+Storage is the same Vercel Blob store as the voice library — one JSON per
+run under an HMAC-derived per-user prefix, with the card's summary encoded
+in the pathname so listing a history fetches no file bodies. Auth is the
+classic Google authorization-code flow with a signed HttpOnly cookie — no
+auth library, no database.
+
 ## Running locally
 
 ```bash

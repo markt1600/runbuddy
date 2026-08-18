@@ -9,7 +9,7 @@
     "lint": "next lint",
     "generate-library": "node scripts/generate-library.mjs",
     "test": "node tests/run-all.mjs",
-    "test:ui": "node --import ./tests/ts-resolve.mjs tests/ui/stale-admin.mjs && node --import ./tests/ts-resolve.mjs tests/ui/screens.mjs"
+    "test:ui": "node --import ./tests/ts-resolve.mjs tests/ui/stale-admin.mjs && node --import ./tests/ts-resolve.mjs tests/ui/screens.mjs && node --import ./tests/ts-resolve.mjs tests/ui/accounts.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

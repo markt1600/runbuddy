@@ -68,6 +68,10 @@ interface Props {
   onDistanceCorrectionChange: (on: boolean) => void;
   startDelay: boolean;
   onStartDelayChange: (on: boolean) => void;
+  /** Present only when signed in — setup is reached from the home screen. */
+  onHome?: () => void;
+  /** Google is configured but this visitor chose guest — offer the upgrade. */
+  showSignIn?: boolean;
 }
 
 export default function SetupScreen({
@@ -91,6 +95,8 @@ export default function SetupScreen({
   onDistanceCorrectionChange,
   startDelay,
   onStartDelayChange,
+  onHome,
+  showSignIn,
 }: Props) {
   const [libraryReady, setLibraryReady] = useState(false);
   const mode: "none" | "distance" | "time" =
@@ -111,6 +117,11 @@ export default function SetupScreen({
 
   return (
     <div className="fade-in">
+      {onHome && (
+        <button className="back-link" onClick={onHome}>
+          ‹ Home
+        </button>
+      )}
       <h1 className="large-title">Run Buddy</h1>
       <p className="subtitle">Pick your trainer. Press start. Get talked at.</p>
 
@@ -403,6 +414,11 @@ export default function SetupScreen({
         <button className="cta" onClick={onStart}>
           Start Run
         </button>
+        {showSignIn && (
+          <a className="admin-link" href="/api/auth/login">
+            Sign in with Google to keep your run history
+          </a>
+        )}
         <button className="admin-link" onClick={onAdmin}>
           ⚙ Admin
         </button>

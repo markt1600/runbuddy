@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import SetupScreen from "./SetupScreen";
+import LandingScreen from "./LandingScreen";
+import HomeScreen, { type AuthUser, type RunSummary } from "./HomeScreen";
+import RunDetailScreen from "./RunDetailScreen";
 import RunScreen from "./RunScreen";
 import SummaryScreen from "./SummaryScreen";
 import AdminScreen from "./AdminScreen";
@@ -17,6 +20,8 @@ import {
   loadTargetKm,
   loadTargetMin,
   loadStartDelay,
+  loadGuestChoice,
+  saveGuestChoice,
   saveAutoPause,
   saveDistanceCorrection,
   saveChattiness,
@@ -26,10 +31,22 @@ import {
 } from "@/lib/prefs";
 import type { MusicSource, PersonaId, RunStats } from "@/lib/types";
 
-type Screen = "setup" | "run" | "summary" | "admin";
+type Screen = "boot" | "landing" | "home" | "setup" | "run" | "summary" | "admin" | "runDetail";
+
+interface AuthState {
+  configured: boolean;
+  historyAvailable: boolean;
+  user: AuthUser | null;
+}
 
 export default function RunBuddyApp() {
-  const [screen, setScreen] = useState<Screen>("setup");
+  const [screen, setScreen] = useState<Screen>("boot");
+  const [auth, setAuth] = useState<AuthState>({
+    configured: false,
+    historyAvailable: false,
+    user: null,
+  });
+  const [openRun, setOpenRun] = useState<RunSummary | null>(null);
   const [personaId, setPersonaId] = useState<PersonaId>("ahbeng");
   const [music, setMusic] = useState<MusicSource>("spotify");
   const [finalStats, setFinalStats] = useState<RunStats | null>(null);
@@ -40,6 +57,29 @@ export default function RunBuddyApp() {
   const [autoPause, setAutoPauseState] = useState(true);
   const [distanceCorrection, setDistanceCorrectionState] = useState(true);
   const [startDelay, setStartDelayState] = useState(false);
+
+  // Boot: who are we, and does sign-in even exist here? Unconfigured or
+  // unreachable resolves to the app exactly as it was before accounts —
+  // straight into setup, nothing new on screen.
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: AuthState | null) => {
+        if (cancelled) return;
+        const state = data ?? { configured: false, historyAvailable: false, user: null };
+        setAuth(state);
+        if (state.user) setScreen("home");
+        else if (!state.configured || loadGuestChoice()) setScreen("setup");
+        else setScreen("landing");
+      })
+      .catch(() => {
+        if (!cancelled) setScreen("setup");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setSpeedUnitState(loadSpeedUnit());
@@ -111,6 +151,43 @@ export default function RunBuddyApp() {
       className={`app${screen === "run" ? " theme-ink" : ""}`}
       style={{ "--persona": persona.accent } as React.CSSProperties}
     >
+      {screen === "boot" && null}
+      {screen === "landing" && (
+        <LandingScreen
+          onGuest={() => {
+            saveGuestChoice(true);
+            setScreen("setup");
+          }}
+        />
+      )}
+      {screen === "home" && auth.user && (
+        <HomeScreen
+          user={auth.user}
+          historyAvailable={auth.historyAvailable}
+          onStart={() => setScreen("setup")}
+          onOpenRun={(run) => {
+            setOpenRun(run);
+            setScreen("runDetail");
+          }}
+          onSignOut={() => {
+            void fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+              saveGuestChoice(false);
+              setAuth((a) => ({ ...a, user: null }));
+              setScreen("landing");
+            });
+          }}
+        />
+      )}
+      {screen === "runDetail" && openRun && (
+        <RunDetailScreen
+          run={openRun}
+          onBack={() => setScreen("home")}
+          onDeleted={() => {
+            setOpenRun(null);
+            setScreen("home");
+          }}
+        />
+      )}
       {screen === "setup" && (
         <SetupScreen
           personaId={personaId}
@@ -119,6 +196,8 @@ export default function RunBuddyApp() {
           onMusicChange={setMusic}
           onStart={() => setScreen("run")}
           onAdmin={() => setScreen("admin")}
+          onHome={auth.user ? () => setScreen("home") : undefined}
+          showSignIn={auth.configured && !auth.user}
           speedUnit={speedUnit}
           onSpeedUnitChange={setSpeedUnit}
           chattiness={chattiness}
@@ -152,6 +231,15 @@ export default function RunBuddyApp() {
           onFinish={(stats) => {
             setFinalStats(stats);
             setScreen("summary");
+            // Best-effort history save. The server drops sub-minute or
+            // sub-50m runs on purpose — those are pocket-starts, not runs.
+            if (auth.user && auth.historyAvailable) {
+              void fetch("/api/runs", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ personaId, stats }),
+              }).catch(() => {});
+            }
           }}
         />
       )}
@@ -162,7 +250,7 @@ export default function RunBuddyApp() {
           speedUnit={speedUnit}
           onDone={() => {
             setFinalStats(null);
-            setScreen("setup");
+            setScreen(auth.user ? "home" : "setup");
           }}
         />
       )}

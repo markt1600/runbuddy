@@ -1609,3 +1609,234 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.4;
   color: var(--label-2);
 }
+
+/* ---------- Landing, home & run history ---------- */
+
+.landing {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: center;
+  gap: 44px;
+  min-height: 70dvh;
+}
+
+.landing-hero { text-align: center; }
+.landing-emoji { font-size: 56px; margin-bottom: 12px; }
+
+.landing-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.landing-actions .cta { text-align: center; text-decoration: none; }
+
+.landing-note {
+  margin-top: 6px;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--label-2);
+  text-align: center;
+  line-height: 1.45;
+}
+
+.home-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 18px;
+}
+
+.home-user { display: flex; align-items: center; gap: 9px; }
+
+.home-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--separator-strong);
+  object-fit: cover;
+}
+
+.home-avatar-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--bg-elevated-2);
+  font-family: var(--ff-display);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.home-name {
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--label-2);
+}
+
+.home-signout {
+  border: none;
+  background: transparent;
+  color: var(--label-3);
+  font-family: var(--ff-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  padding: 6px 0 6px 6px;
+}
+
+.home-empty {
+  padding: 18px 4px;
+  font-size: 15px;
+  font-style: italic;
+  color: var(--label-2);
+  line-height: 1.5;
+}
+
+.run-list { display: flex; flex-direction: column; gap: 10px; }
+
+.run-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  padding: 13px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  color: var(--label);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+.run-card:active { transform: scale(0.985); background: var(--bg-elevated-2); }
+
+.run-card-emoji { font-size: 24px; flex-shrink: 0; }
+.run-card-main { flex: 1; min-width: 0; }
+
+.run-card-date {
+  font-family: var(--ff-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--label-3);
+}
+
+.run-card-figures {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.run-card-km {
+  font-family: var(--ff-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.run-card-unit {
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--label-3);
+}
+
+.run-card-sub {
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.run-card-chevron { color: var(--label-3); font-size: 20px; flex-shrink: 0; }
+
+.run-detail-sub {
+  font-size: 15px;
+  font-style: italic;
+  color: var(--label-2);
+  margin-top: 2px;
+}
+
+/* Split chart: one row per km, longer bar = faster split. */
+.split-chart { display: flex; flex-direction: column; gap: 7px; }
+
+.split-chart-row { display: flex; align-items: center; gap: 10px; }
+
+.split-chart-km {
+  width: 18px;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  color: var(--label-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.split-chart-track { flex: 1; }
+
+.split-chart-bar {
+  height: 14px;
+  background: var(--separator-strong);
+  border-radius: 2px;
+}
+
+.split-chart-bar.fastest { background: var(--accent); }
+
+.split-chart-time {
+  width: 52px;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.split-chart-time.fastest { color: var(--accent); font-weight: 600; }
+
+/* Deleting a run is the only destructive act in the app — one quiet link,
+   then an explicit two-button confirmation. */
+.run-detail-danger { margin-top: 36px; padding-bottom: 8px; }
+
+.run-delete-link {
+  display: block;
+  margin: 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--red);
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  padding: 10px;
+}
+
+.run-delete-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px dashed color-mix(in srgb, var(--red) 45%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--red) 7%, transparent);
+}
+
+.run-delete-question {
+  text-align: center;
+  font-family: var(--ff-display);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.cta.danger { background: var(--red); border-color: var(--red); color: var(--on-accent); }

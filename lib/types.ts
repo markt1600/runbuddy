@@ -91,6 +91,10 @@ export interface RunStats {
   route: { lat: number; lon: number }[]; // GPS path of the run
   treadmill?: boolean; // time-target run: no GPS, speed or route
   targetMinutes?: number; // the duration goal, when running to time
+  /** Wall-clock start (after any countdown) — elapsedMs excludes pauses, so
+   *  run history needs both to show moving time AND total elapsed time. */
+  startedAt?: number;
+  wallElapsedMs?: number;
   /**
    * How well iOS fed the tracker: sparse fix delivery (a locked phone in a
    * sleeve) is what makes a run read short, so the summary shows it rather
