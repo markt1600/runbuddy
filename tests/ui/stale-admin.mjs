@@ -21,6 +21,11 @@ const { PHRASE_LIBRARY } = await import("../../lib/phrases.ts");
   await openAdmin(page);
   assert.strictEqual(await page.locator(".stale-banner").count(), 0, "banner with no markers");
   assert.strictEqual(await page.locator(".phrase-badge.stale").count(), 0, "flags with no markers");
+  // Recording dates come through the status payload and label every row.
+  const dates = await page.locator(".phrase-date").count();
+  assert.ok(dates > 0, "no recording dates rendered");
+  const sample = await page.locator(".phrase-date").first().innerText();
+  assert.match(sample, /Aug/, `unexpected date format: ${sample}`);
   await browser.close();
   console.log("  ok   no markers → silent");
 }

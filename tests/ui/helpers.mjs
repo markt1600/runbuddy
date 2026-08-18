@@ -49,6 +49,10 @@ export async function fullRenderedMap() {
  *  stale-audio UI; `renderCalls` collects every forced re-render request. */
 export async function stubLibraryRoutes(page, { renderHashes = {}, renderCalls = [] } = {}) {
   const rendered = await fullRenderedMap();
+  // Every phrase "recorded" at a fixed moment, so date rendering is testable.
+  const renderedAt = Object.fromEntries(
+    Object.keys(rendered).map((k) => [k, "2026-08-01T02:15:00.000Z"])
+  );
   await page.route("**/api/admin/verify", (r) =>
     r.fulfill({ status: 200, contentType: "application/json", body: "{}" })
   );
@@ -61,6 +65,7 @@ export async function stubLibraryRoutes(page, { renderHashes = {}, renderCalls =
         blob: true,
         canRender: true,
         rendered,
+        renderedAt,
         renderHashes,
         extras: {},
         voiceSettings: {},

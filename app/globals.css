@@ -1572,6 +1572,15 @@ input[type="range"]::-moz-range-thumb {
   color: var(--on-accent);
 }
 
+.phrase-date {
+  font-family: var(--ff-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+  color: var(--label-3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .phrase-badge.stale {
   color: var(--orange);
 }

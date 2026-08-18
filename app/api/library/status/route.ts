@@ -17,7 +17,15 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const canRender = blobConfigured() && elevenLabsConfigured();
-    const rendered = blobConfigured() ? await listRendered() : {};
+    const renderedFull = blobConfigured() ? await listRendered() : {};
+    // Split into the url map the client has always consumed plus a parallel
+    // map of when each file was cut, so the admin listing can date the rows.
+    const rendered = Object.fromEntries(
+      Object.entries(renderedFull).map(([k, v]) => [k, v.url])
+    );
+    const renderedAt = Object.fromEntries(
+      Object.entries(renderedFull).map(([k, v]) => [k, v.at])
+    );
     const personaIds = Object.keys(PERSONAS) as PersonaId[];
     const [voiceSettings, extrasList, hashList] = await Promise.all([
       readVoiceSettings(),
@@ -35,6 +43,7 @@ export async function GET() {
       blob: blobConfigured(),
       canRender,
       rendered, // { "<persona>/<id>": url }
+      renderedAt, // { "<persona>/<id>": ISO timestamp of the recording }
       renderHashes, // { <persona>: { <id>: textHash } } — what the audio says
       extras,
       voiceSettings,

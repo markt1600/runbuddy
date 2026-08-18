@@ -20,8 +20,9 @@ export function elevenLabsConfigured(): boolean {
 const PREFIX = "audio";
 
 /** All blob-rendered phrases: { "<persona>/<id>": url }. */
-export async function listRendered(): Promise<Record<string, string>> {
-  const out: Record<string, string> = {};
+/** Blob-rendered audio with when each file was actually cut. */
+export async function listRendered(): Promise<Record<string, { url: string; at: string }>> {
+  const out: Record<string, { url: string; at: string }> = {};
   if (!blobConfigured()) return out;
   let cursor: string | undefined;
   do {
@@ -29,7 +30,7 @@ export async function listRendered(): Promise<Record<string, string>> {
     for (const blob of page.blobs) {
       // pathname: audio/<persona>/<id>.mp3
       const m = blob.pathname.match(/^audio\/(\w+)\/([\w-]+)\.mp3$/);
-      if (m) out[`${m[1]}/${m[2]}`] = blob.url;
+      if (m) out[`${m[1]}/${m[2]}`] = { url: blob.url, at: blob.uploadedAt.toISOString() };
     }
     cursor = page.hasMore ? page.cursor : undefined;
   } while (cursor);

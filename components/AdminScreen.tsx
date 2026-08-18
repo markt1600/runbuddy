@@ -7,6 +7,7 @@ import {
   allPhrasesFor,
   expandLibrary,
   getPhraseUrl,
+  getPhraseRenderedAt,
   getVoiceSpeed,
   getVoiceVolume,
   libraryFlags,
@@ -563,6 +564,7 @@ export default function AdminScreen({ onBack }: Props) {
             <div className="card">
               {pool.map((phrase) => {
                 const rendered = !!getPhraseUrl(personaId, phrase.id);
+                const recordedAt = getPhraseRenderedAt(personaId, phrase.id);
                 const isAI = phrase.id.startsWith("xg-");
                 const stale = isPhraseStale(personaId, phrase.id);
                 return (
@@ -578,6 +580,15 @@ export default function AdminScreen({ onBack }: Props) {
                     <span className={`phrase-badge ${rendered ? "ok" : ""}`}>
                       {rendered ? "MP3" : "TTS"}
                     </span>
+                    {recordedAt && (
+                      <span className="phrase-date" title={recordedAt.toLocaleString()}>
+                        {recordedAt.toLocaleDateString(undefined, {
+                          day: "numeric",
+                          month: "short",
+                          year: "2-digit",
+                        })}
+                      </span>
+                    )}
                     {isAI && <span className="phrase-badge ai">AI</span>}
                     {stale && (
                       <span

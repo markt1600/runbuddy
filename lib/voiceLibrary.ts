@@ -9,6 +9,7 @@ import type { Persona, Phrase, PersonaId, PhraseCategory } from "./types";
 // The coach reads it live, so phrases become available the moment they render.
 
 const urls = new Map<string, string>(); // "<persona>/<id>" → audio url
+const renderedAt = new Map<string, string>(); // "<persona>/<id>" → ISO recording time
 const PERSONA_IDS = Object.keys(PERSONAS) as PersonaId[];
 
 const extras = Object.fromEntries(PERSONA_IDS.map((p) => [p, [] as Phrase[]])) as Record<
@@ -52,6 +53,13 @@ export function adminPinHeaders(): Record<string, string> {
 
 export function getPhraseUrl(persona: PersonaId, id: string): string | undefined {
   return urls.get(key(persona, id));
+}
+
+/** When this phrase's audio was recorded, if we know. */
+export function getPhraseRenderedAt(persona: PersonaId, id: string): Date | null {
+  const iso = renderedAt.get(key(persona, id));
+  const d = iso ? new Date(iso) : null;
+  return d && !isNaN(d.getTime()) ? d : null;
 }
 
 export function allPhrasesFor(persona: PersonaId, category?: PhraseCategory): Phrase[] {
@@ -121,6 +129,7 @@ export async function loadLibraryState(force = false): Promise<void> {
         elevenlabs: boolean;
         canRender: boolean;
         rendered: Record<string, string>;
+        renderedAt?: Record<string, string>;
         renderHashes?: Record<string, Record<string, string>>;
         extras: Record<string, Phrase[]>;
         voiceSettings?: Record<PersonaId, { speed: number; volume: number }>;
@@ -128,6 +137,9 @@ export async function loadLibraryState(force = false): Promise<void> {
       flags = { ...data, statusReached: true };
       for (const [k, url] of Object.entries(data.rendered)) {
         if (!urls.has(k)) urls.set(k, url);
+      }
+      for (const [k, at] of Object.entries(data.renderedAt ?? {})) {
+        renderedAt.set(k, at);
       }
       for (const persona of Object.keys(extras) as PersonaId[]) {
         extras[persona] = data.extras?.[persona] ?? [];
@@ -271,6 +283,7 @@ export async function renderMissingPhrases(
       }
       const data: { url: string } = await res.json();
       urls.set(key(persona, id), data.url);
+      renderedAt.set(key(persona, id), new Date().toISOString());
       consecutiveFailures = 0;
       report("generating");
     } catch (err) {
@@ -358,6 +371,7 @@ export async function reRenderPersona(
       }
       const data: { url: string } = await res.json();
       urls.set(key(persona, phrase.id), `${data.url}?v=${Date.now()}`);
+      renderedAt.set(key(persona, phrase.id), new Date().toISOString());
       consecutiveFailures = 0;
       done++;
       report("generating", done);
@@ -396,6 +410,7 @@ export async function reRenderPhrase(persona: PersonaId, id: string): Promise<vo
   // Cache-buster: the blob path is unchanged, so the browser would happily
   // keep serving the old audio.
   urls.set(key(persona, id), `${data.url}?v=${Date.now()}`);
+  renderedAt.set(key(persona, id), new Date().toISOString());
   // Mirror the hash the server just recorded, so the row stops reading as
   // stale without waiting for a status refetch.
   const text = allPhrasesFor(persona).find((p) => p.id === id)?.text;
