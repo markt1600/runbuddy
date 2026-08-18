@@ -22,8 +22,6 @@ import {
   loadTargetKm,
   loadTargetMin,
   loadStartDelay,
-  loadGuestChoice,
-  saveGuestChoice,
   saveAutoPause,
   saveDistanceCorrection,
   saveChattiness,
@@ -90,8 +88,8 @@ export default function RunBuddyApp() {
         };
         setAuth(state);
         if (state.user) setScreen("home");
-        else if (!state.configured || loadGuestChoice()) setScreen("setup");
-        else setScreen("landing");
+        else if (state.configured) setScreen("landing");
+        else setScreen("setup");
       })
       .catch(() => {
         if (!cancelled) setScreen("setup");
@@ -179,7 +177,6 @@ export default function RunBuddyApp() {
           historyAvailable={auth.historyAvailable}
           onSignOut={() => {
             void fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-              saveGuestChoice(false);
               setAuth((a) => ({ ...a, user: null }));
               setScreen("landing");
             });
@@ -188,10 +185,7 @@ export default function RunBuddyApp() {
       )}
       {screen === "landing" && (
         <LandingScreen
-          onGuest={() => {
-            saveGuestChoice(true);
-            setScreen("setup");
-          }}
+          onGuest={() => setScreen("setup")}
         />
       )}
       {screen === "home" && auth.user && (

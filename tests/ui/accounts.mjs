@@ -1,6 +1,7 @@
 // The account flows, with auth and runs stubbed at the network edge:
 //   1. Unconfigured auth → straight to setup (the pre-accounts app, untouched).
-//   2. Configured, signed out → landing; "Run as guest" → setup, remembered.
+//   2. Configured, signed out → landing; "Run as guest" → setup for this
+//      launch; relaunching opens the login page again.
 //   3. Signed in → home: Get Ready to Run + run cards; card → detail with the
 //      key stats and the split chart, fastest split highlighted; delete needs
 //      a confirmation and returns home.
@@ -85,13 +86,13 @@ async function stubAuth(page, me) {
     (await page.locator('a[href="/api/auth/login"]').count()) > 0,
     "no sign-in option on the guest account screen"
   );
-  // Reload: the guest choice sticks, landing never reappears.
+  // Relaunch: the app opens on the home concept — for a signed-out visitor
+  // that is the login page, guest mode being a per-launch choice.
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForTimeout(1200);
-  assert.strictEqual(await page.locator(".landing").count(), 0, "landing reappeared for guest");
-  assert.ok(await page.locator(".persona-card").count() > 0, "guest reload lost setup");
+  assert.strictEqual(await page.locator(".landing").count(), 1, "relaunch skipped the login page");
   await browser.close();
-  console.log("  ok   landing → guest → remembered");
+  console.log("  ok   landing → guest → relaunch returns to login");
 }
 
 // ---- 3. signed in → home, cards, detail, chart, delete ----
