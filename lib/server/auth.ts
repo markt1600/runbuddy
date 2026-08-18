@@ -82,3 +82,25 @@ export function requestOrigin(req: NextRequest): string {
 export function uidHash(sub: string): string {
   return createHmac("sha256", secret()).update(`uid:${sub}`).digest("hex").slice(0, 24);
 }
+
+// ---- Admin visibility gate ----
+
+/**
+ * ADMIN_EMAIL (comma-separated allowed) hides the admin entry point from
+ * everyone else. The gate only arms when sign-in is configured — with no way
+ * to BE the admin, hiding admin would just lock the owner out. It gates
+ * visibility; the ADMIN_PIN on credit-spending endpoints stays as the second
+ * layer, because a hidden link is not security.
+ */
+export function adminGateActive(): boolean {
+  return authConfigured() && !!process.env.ADMIN_EMAIL;
+}
+
+export function isAdminEmail(email: string | undefined): boolean {
+  if (!email || !process.env.ADMIN_EMAIL) return false;
+  const normalized = email.trim().toLowerCase();
+  return process.env.ADMIN_EMAIL.split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(normalized);
+}

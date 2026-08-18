@@ -17,14 +17,13 @@ export interface RunSummary {
 export interface AuthUser {
   name: string;
   picture: string | null;
+  email?: string | null;
 }
 
 interface Props {
   user: AuthUser;
   historyAvailable: boolean;
-  onStart: () => void;
   onOpenRun: (run: RunSummary) => void;
-  onSignOut: () => void;
 }
 
 function runDate(ms: number): string {
@@ -39,13 +38,7 @@ function runTimeOfDay(ms: number): string {
   return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function HomeScreen({
-  user,
-  historyAvailable,
-  onStart,
-  onOpenRun,
-  onSignOut,
-}: Props) {
+export default function HomeScreen({ user, historyAvailable, onOpenRun }: Props) {
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -69,27 +62,8 @@ export default function HomeScreen({
 
   return (
     <div className="fade-in home">
-      <div className="home-topbar">
-        <div className="home-user">
-          {user.picture ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img className="home-avatar" src={user.picture} alt="" referrerPolicy="no-referrer" />
-          ) : (
-            <div className="home-avatar home-avatar-fallback">{firstName[0]?.toUpperCase()}</div>
-          )}
-          <span className="home-name">{firstName}</span>
-        </div>
-        <button className="home-signout" onClick={onSignOut}>
-          Sign out
-        </button>
-      </div>
-
       <h1 className="large-title">Run Buddy</h1>
       <p className="subtitle">Welcome back, {firstName}.</p>
-
-      <button className="cta" style={{ marginTop: 22 }} onClick={onStart}>
-        Get Ready to Run
-      </button>
 
       <div className="section-header">Your Runs</div>
       {!historyAvailable ? (

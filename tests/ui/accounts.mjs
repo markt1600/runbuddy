@@ -61,17 +61,26 @@ async function stubAuth(page, me) {
 // ---- 2. configured, signed out → landing; guest choice remembered ----
 {
   const { browser, page } = await launchIphone();
-  await stubAuth(page, { configured: true, historyAvailable: true, user: null });
+  await stubAuth(page, {
+    configured: true, historyAvailable: true, user: null,
+    adminGated: true, isAdmin: false,
+  });
   await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(1200);
   assert.strictEqual(await page.locator(".landing").count(), 1, "no landing when configured");
   await page.locator("button", { hasText: "Run as guest" }).click();
   await page.waitForTimeout(600);
   assert.ok(await page.locator(".persona-card").count() > 0, "guest did not reach setup");
-  // Guests get the quiet sign-in upgrade link near Admin.
+  // With ADMIN_EMAIL gating, the admin tab isn't theirs to see…
+  assert.strictEqual(await page.locator(".tab-admin").count(), 0, "admin tab shown to gated guest");
+  // …and guests have no home tab (no history behind it), but can sign in
+  // from the Account screen.
+  assert.strictEqual(await page.locator(".tab-home").count(), 0, "home tab shown to guest");
+  await page.locator(".tab-account").click();
+  await page.waitForTimeout(500);
   assert.ok(
     (await page.locator('a[href="/api/auth/login"]').count()) > 0,
-    "no sign-in link for guest"
+    "no sign-in option on the guest account screen"
   );
   // Reload: the guest choice sticks, landing never reappears.
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -89,6 +98,8 @@ async function stubAuth(page, me) {
     configured: true,
     historyAvailable: true,
     user: { name: "Mark Tan", picture: null },
+    adminGated: true,
+    isAdmin: true,
   });
   let deleted = false;
   await page.route("**/api/runs", (r) =>
@@ -125,19 +136,19 @@ async function stubAuth(page, me) {
 
   await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(1400);
-  assert.ok(
-    (await page.locator(".cta", { hasText: "Get Ready to Run" }).count()) === 1,
-    "no Get Ready to Run button"
-  );
+  assert.match(await page.locator(".tab-run").innerText(), /GET READY/i, "wrong big-button label on home");
   assert.strictEqual(await page.locator(".run-card").count(), RUNS.length, "wrong card count");
   const firstCard = await page.locator(".run-card").first().innerText();
   assert.match(firstCard, /10\.06/, `card missing distance: ${firstCard}`);
 
-  // Get Ready to Run → setup, with a way back home.
-  await page.locator(".cta", { hasText: "Get Ready to Run" }).click();
+  // The big button leads to setup, where it becomes START RUN; the admin
+  // account keeps its admin tab, and Home leads back.
+  await page.locator(".tab-run").click();
   await page.waitForTimeout(600);
   assert.ok(await page.locator(".persona-card").count() > 0, "setup not reached from home");
-  await page.locator(".back-link", { hasText: "Home" }).click();
+  assert.match(await page.locator(".tab-run").innerText(), /START RUN/i, "wrong big-button label on setup");
+  assert.strictEqual(await page.locator(".tab-admin").count(), 1, "admin tab missing for admin");
+  await page.locator(".tab-home").click();
   await page.waitForTimeout(500);
 
   // Into the detail view.

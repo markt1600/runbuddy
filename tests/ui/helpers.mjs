@@ -93,7 +93,7 @@ export async function stubLibraryRoutes(page, { renderHashes = {}, renderCalls =
 export async function openAdmin(page) {
   await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(1000);
-  await page.getByText("⚙", { exact: false }).first().click();
+  await page.locator(".tab-admin").click();
   await page.waitForTimeout(600);
   const pin = page.locator('input[type="password"], input[inputmode="numeric"]').first();
   if (await pin.count()) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authConfigured, readSession } from "@/lib/server/auth";
+import { adminGateActive, authConfigured, isAdminEmail, readSession } from "@/lib/server/auth";
 import { blobConfigured } from "@/lib/server/library";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     configured,
     historyAvailable: blobConfigured(),
-    user: user ? { name: user.name, picture: user.picture ?? null } : null,
+    // Verdicts only — the allowed email list itself never leaves the server.
+    adminGated: adminGateActive(),
+    isAdmin: adminGateActive() ? isAdminEmail(user?.email) : true,
+    user: user ? { name: user.name, picture: user.picture ?? null, email: user.email ?? null } : null,
   });
 }

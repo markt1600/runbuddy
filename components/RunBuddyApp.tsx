@@ -5,6 +5,8 @@ import SetupScreen from "./SetupScreen";
 import LandingScreen from "./LandingScreen";
 import HomeScreen, { type AuthUser, type RunSummary } from "./HomeScreen";
 import RunDetailScreen from "./RunDetailScreen";
+import AccountScreen from "./AccountScreen";
+import TabBar from "./TabBar";
 import RunScreen from "./RunScreen";
 import SummaryScreen from "./SummaryScreen";
 import AdminScreen from "./AdminScreen";
@@ -31,12 +33,24 @@ import {
 } from "@/lib/prefs";
 import type { MusicSource, PersonaId, RunStats } from "@/lib/types";
 
-type Screen = "boot" | "landing" | "home" | "setup" | "run" | "summary" | "admin" | "runDetail";
+type Screen =
+  | "boot"
+  | "landing"
+  | "home"
+  | "setup"
+  | "account"
+  | "run"
+  | "summary"
+  | "admin"
+  | "runDetail";
 
 interface AuthState {
   configured: boolean;
   historyAvailable: boolean;
   user: AuthUser | null;
+  /** ADMIN_EMAIL is set server-side and this session doesn't match it. */
+  adminGated?: boolean;
+  isAdmin?: boolean;
 }
 
 export default function RunBuddyApp() {
@@ -45,6 +59,7 @@ export default function RunBuddyApp() {
     configured: false,
     historyAvailable: false,
     user: null,
+    isAdmin: true, // ungated until the server says otherwise
   });
   const [openRun, setOpenRun] = useState<RunSummary | null>(null);
   const [personaId, setPersonaId] = useState<PersonaId>("ahbeng");
@@ -67,7 +82,12 @@ export default function RunBuddyApp() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data: AuthState | null) => {
         if (cancelled) return;
-        const state = data ?? { configured: false, historyAvailable: false, user: null };
+        const state = data ?? {
+          configured: false,
+          historyAvailable: false,
+          user: null,
+          isAdmin: true,
+        };
         setAuth(state);
         if (state.user) setScreen("home");
         else if (!state.configured || loadGuestChoice()) setScreen("setup");
@@ -152,6 +172,20 @@ export default function RunBuddyApp() {
       style={{ "--persona": persona.accent } as React.CSSProperties}
     >
       {screen === "boot" && null}
+      {screen === "account" && (
+        <AccountScreen
+          user={auth.user}
+          configured={auth.configured}
+          historyAvailable={auth.historyAvailable}
+          onSignOut={() => {
+            void fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+              saveGuestChoice(false);
+              setAuth((a) => ({ ...a, user: null }));
+              setScreen("landing");
+            });
+          }}
+        />
+      )}
       {screen === "landing" && (
         <LandingScreen
           onGuest={() => {
@@ -164,17 +198,9 @@ export default function RunBuddyApp() {
         <HomeScreen
           user={auth.user}
           historyAvailable={auth.historyAvailable}
-          onStart={() => setScreen("setup")}
           onOpenRun={(run) => {
             setOpenRun(run);
             setScreen("runDetail");
-          }}
-          onSignOut={() => {
-            void fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-              saveGuestChoice(false);
-              setAuth((a) => ({ ...a, user: null }));
-              setScreen("landing");
-            });
           }}
         />
       )}
@@ -194,10 +220,6 @@ export default function RunBuddyApp() {
           onPersonaChange={setPersonaId}
           music={music}
           onMusicChange={setMusic}
-          onStart={() => setScreen("run")}
-          onAdmin={() => setScreen("admin")}
-          onHome={auth.user ? () => setScreen("home") : undefined}
-          showSignIn={auth.configured && !auth.user}
           speedUnit={speedUnit}
           onSpeedUnitChange={setSpeedUnit}
           chattiness={chattiness}
@@ -252,6 +274,18 @@ export default function RunBuddyApp() {
             setFinalStats(null);
             setScreen(auth.user ? "home" : "setup");
           }}
+        />
+      )}
+      {(screen === "home" || screen === "setup" || screen === "account") && (
+        <TabBar
+          active={screen}
+          showHome={!!auth.user}
+          showAdmin={auth.isAdmin !== false}
+          runLabel={screen === "setup" ? "START RUN" : "GET READY"}
+          onHome={() => setScreen("home")}
+          onRun={() => setScreen(screen === "setup" ? "run" : "setup")}
+          onAccount={() => setScreen("account")}
+          onAdmin={() => setScreen("admin")}
         />
       )}
     </div>

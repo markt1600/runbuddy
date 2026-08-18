@@ -1840,3 +1840,122 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .cta.danger { background: var(--red); border-color: var(--red); color: var(--on-accent); }
+
+/* ---------- Bottom tab bar ---------- */
+
+/* Sticky, not fixed, on purpose: iOS Safari detaches position:fixed bottom
+   elements while the toolbar collapses or the page rubber-bands, and they
+   float mid-screen. An in-flow sticky footer tracks the visual viewport
+   correctly — the run-era footer CTA used exactly this and never floated. */
+.tab-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  margin-top: auto; /* pin to the bottom of the flex column even on short screens */
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px 4px calc(env(safe-area-inset-bottom) + 8px);
+  margin-left: -20px;
+  margin-right: -20px;
+  padding-left: 14px;
+  padding-right: 14px;
+  background: var(--bg);
+  border-top: 1px solid var(--separator);
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: none;
+  background: transparent;
+  color: var(--label-2);
+  cursor: pointer;
+  padding: 4px 0;
+  border-radius: var(--radius);
+}
+
+.tab-item.active { color: var(--accent); }
+
+.tab-icon { font-size: 19px; line-height: 1; }
+
+.tab-label {
+  font-family: var(--ff-mono);
+  font-size: 8.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* The one action that matters gets the weight. */
+.tab-run {
+  flex: 1.6;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  padding: 13px 6px;
+  transition: transform 0.12s ease;
+}
+
+.tab-run:active { transform: scale(0.97); }
+
+/* ---------- Account screen ---------- */
+
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.account-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid var(--separator-strong);
+  object-fit: cover;
+}
+
+.account-avatar-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--bg-elevated-2);
+  font-family: var(--ff-display);
+  font-weight: 600;
+  font-size: 22px;
+}
+
+.account-name {
+  font-family: var(--ff-display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.account-email {
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--label-3);
+  margin-top: 3px;
+}
+
+.account-note {
+  margin-top: 16px;
+  font-size: 15px;
+  font-style: italic;
+  color: var(--label-2);
+  line-height: 1.5;
+}

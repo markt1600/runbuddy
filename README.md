@@ -141,6 +141,7 @@ bug; see `tests/README.md`.
 | `ELEVENLABS_VOICE_LOANSHARK` | ElevenLabs voice ID for Ah Long (falls back to a stock voice) |
 | `BLOB_READ_WRITE_TOKEN` | Auto-injected when you add a Vercel Blob store — enables first-launch in-app library rendering |
 | `ADMIN_PIN` | Protects the admin page and credit-spending endpoints (unset = open, for local dev) |
+| `ADMIN_EMAIL` | Hides the ⚙ Admin link from everyone but these Google accounts (comma-separated; needs sign-in configured) |
 
 Weather (Open-Meteo) and reverse geocoding (BigDataCloud) are keyless — the
 location/weather-aware phrases need no configuration.

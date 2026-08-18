@@ -20,8 +20,7 @@ await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/01-setup.png`, fullPage: true });
 
 // Start a run → ink theme.
-await page.evaluate(() => window.scrollTo(0, 99999));
-await page.locator(".cta").filter({ hasText: /start/i }).first().click();
+await page.locator(".tab-run").click();
 await page.waitForTimeout(2000);
 
 assert.strictEqual(await page.locator(".app.theme-ink").count(), 1, "run screen not in ink theme");
