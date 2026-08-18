@@ -194,6 +194,7 @@ export default function RunBuddyApp() {
         <HomeScreen
           user={auth.user}
           historyAvailable={auth.historyAvailable}
+          onStart={() => setScreen("setup")}
           onOpenRun={(run) => {
             setOpenRun(run);
             setScreen("runDetail");

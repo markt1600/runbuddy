@@ -24,6 +24,8 @@ interface Props {
   user: AuthUser;
   historyAvailable: boolean;
   onOpenRun: (run: RunSummary) => void;
+  /** First-run empty state: a big obvious way into setup, mid-screen. */
+  onStart: () => void;
 }
 
 function runDate(ms: number): string {
@@ -38,7 +40,7 @@ function runTimeOfDay(ms: number): string {
   return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function HomeScreen({ user, historyAvailable, onOpenRun }: Props) {
+export default function HomeScreen({ user, historyAvailable, onOpenRun, onStart }: Props) {
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -75,8 +77,16 @@ export default function HomeScreen({ user, historyAvailable, onOpenRun }: Props)
       ) : runs === null ? (
         <div className="home-empty">Loading your runs…</div>
       ) : runs.length === 0 ? (
-        <div className="home-empty">
-          No runs yet. Press the button up there and give your trainer something to shout about.
+        <div className="home-first-run">
+          <div className="home-first-emoji">🏃</div>
+          <p className="home-first-title">No runs saved yet.</p>
+          <p className="home-empty">
+            Time to change that — pick a trainer, press start, and your first run
+            will show up right here with its pace and splits.
+          </p>
+          <button className="cta home-start-cta" onClick={onStart}>
+            Get Ready to Run
+          </button>
         </div>
       ) : (
         <div className="run-list">

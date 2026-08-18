@@ -1659,6 +1659,12 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.45;
 }
 
+.home {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
 .home-topbar {
   display: flex;
   align-items: center;
@@ -1968,4 +1974,34 @@ input[type="range"]::-moz-range-thumb {
   font-style: italic;
   color: var(--label-2);
   line-height: 1.5;
+}
+
+/* First-run empty state: the one moment home has nothing to show, so the way
+   forward takes centre stage instead of hiding in the tab bar. */
+.home-first-run {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 4px;
+  padding: 24px 8px 48px;
+}
+
+.home-first-emoji { font-size: 52px; margin-bottom: 10px; }
+
+.home-first-title {
+  font-family: var(--ff-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.home-first-run .home-empty { padding: 4px 8px 10px; }
+
+.home-start-cta {
+  width: auto;
+  min-width: 240px;
+  margin-top: 14px;
 }

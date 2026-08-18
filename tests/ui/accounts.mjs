@@ -179,4 +179,24 @@ async function stubAuth(page, me) {
   console.log("  ok   home → detail → chart → confirmed delete");
 }
 
+// ---- 4. signed in, no runs yet → mid-screen Get Ready CTA ----
+{
+  const { browser, page } = await launchIphone();
+  await stubAuth(page, {
+    configured: true, historyAvailable: true,
+    user: { name: "Mark Tan", picture: null }, adminGated: true, isAdmin: true,
+  });
+  await page.route("**/api/runs", (r) =>
+    r.fulfill({ status: 200, contentType: "application/json", body: '{"runs":[]}' })
+  );
+  await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1300);
+  assert.strictEqual(await page.locator(".home-start-cta").count(), 1, "no mid-screen CTA when empty");
+  await page.locator(".home-start-cta").click();
+  await page.waitForTimeout(600);
+  assert.ok(await page.locator(".persona-card").count() > 0, "empty-state CTA did not reach setup");
+  await browser.close();
+  console.log("  ok   empty history → mid-screen Get Ready → setup");
+}
+
 console.log("accounts: passed");
