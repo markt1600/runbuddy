@@ -112,22 +112,40 @@ body {
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
+  overflow: hidden; /* all scrolling happens inside .screen-scroll */
 }
 
-/* Re-declare `color` here, not only on body. Inheritance passes down the
-   *computed* colour, and body sits outside .theme-ink — so without this the
+/* App shell: a fixed-height column with its own internal scroller, so the
+   tab bar is a plain flex child that physically cannot move — no sticky, no
+   fixed, nothing for iOS Safari to detach or bounce. The document itself
+   never scrolls, which also kills the rubber-band that made the sticky bar
+   drift.
+
+   `color` is re-declared here, not only on body: inheritance passes down the
+   *computed* colour, and body sits outside .theme-ink — without this the
    whole run screen inherits paper-dark ink onto an ink-dark ground. */
 .app {
   color: var(--label);
   position: relative;
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: calc(env(safe-area-inset-top) + 12px) 20px calc(env(safe-area-inset-bottom) + 16px);
   max-width: 480px;
   margin: 0 auto;
   background-color: var(--bg);
   background-image: var(--grain);
+}
+
+.screen-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top) + 12px) 20px 24px;
 }
 
 /* ---------- Typography ---------- */
@@ -1843,23 +1861,15 @@ input[type="range"]::-moz-range-thumb {
 
 /* ---------- Bottom tab bar ---------- */
 
-/* Sticky, not fixed, on purpose: iOS Safari detaches position:fixed bottom
-   elements while the toolbar collapses or the page rubber-bands, and they
-   float mid-screen. An in-flow sticky footer tracks the visual viewport
-   correctly — the run-era footer CTA used exactly this and never floated. */
+/* A plain flex child of the app shell, below the scroller — neither sticky
+   nor fixed, so there is nothing iOS Safari can detach, bounce or hide. The
+   first sticky version drifted with the rubber-band; this one cannot move. */
 .tab-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 30;
-  margin-top: auto; /* pin to the bottom of the flex column even on short screens */
+  flex-shrink: 0;
   display: flex;
   align-items: stretch;
   gap: 6px;
-  padding: 10px 4px calc(env(safe-area-inset-bottom) + 8px);
-  margin-left: -20px;
-  margin-right: -20px;
-  padding-left: 14px;
-  padding-right: 14px;
+  padding: 10px 14px calc(env(safe-area-inset-bottom) + 8px);
   background: var(--bg);
   border-top: 1px solid var(--separator);
 }

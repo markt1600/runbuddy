@@ -1,12 +1,15 @@
 "use client";
 
-// Bottom navigation, shared by the screens you browse (home, setup, account).
-// The run screen keeps its own locked-down controls — no bar mid-run.
+// Bottom navigation, constant on every screen except the live run, which
+// keeps its own locked-down controls. Rendered as a plain flex child of the
+// app shell below the internal scroller — see .tab-bar in globals.css for
+// why it is neither sticky nor fixed.
 
 export type TabId = "home" | "setup" | "account";
 
 interface Props {
-  active: TabId;
+  /** Undefined on screens that aren't any tab's own (admin, landing, summary). */
+  active?: TabId;
   /** Guests have no home — there is no history behind it. */
   showHome: boolean;
   /** ADMIN_EMAIL gating: only the admin account gets the entry point. */

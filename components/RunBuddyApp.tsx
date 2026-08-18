@@ -169,6 +169,8 @@ export default function RunBuddyApp() {
       className={`app${screen === "run" ? " theme-ink" : ""}`}
       style={{ "--persona": persona.accent } as React.CSSProperties}
     >
+      {/* keyed by screen so each one opens scrolled to the top */}
+      <div className="screen-scroll" key={screen}>
       {screen === "boot" && null}
       {screen === "account" && (
         <AccountScreen
@@ -270,9 +272,18 @@ export default function RunBuddyApp() {
           }}
         />
       )}
-      {(screen === "home" || screen === "setup" || screen === "account") && (
+      </div>
+      {screen !== "run" && screen !== "boot" && (
         <TabBar
-          active={screen}
+          active={
+            screen === "setup"
+              ? "setup"
+              : screen === "account"
+                ? "account"
+                : screen === "home" || screen === "runDetail"
+                  ? "home"
+                  : undefined
+          }
           showHome={auth.configured || !!auth.user}
           showAdmin={auth.isAdmin !== false}
           runLabel={screen === "setup" ? "START RUN" : "GET READY"}
