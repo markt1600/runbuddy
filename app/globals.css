@@ -2005,3 +2005,97 @@ input[type="range"]::-moz-range-thumb {
   min-width: 240px;
   margin-top: 14px;
 }
+
+/* ---------- Admin user directory ---------- */
+
+.admin-user-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 12px 14px;
+  border: none;
+  background: transparent;
+  color: var(--label);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-user-row + .admin-user-row { border-top: 0.5px solid var(--separator); }
+.admin-user-row:active { background: var(--bg-elevated-2); }
+
+.admin-user-name {
+  font-family: var(--ff-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.admin-user-email {
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--label-3);
+}
+
+.admin-user-meta {
+  font-family: var(--ff-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--label-2);
+  margin-top: 2px;
+}
+
+.admin-user-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0 10px;
+  border-bottom: 1px solid var(--separator);
+  margin-bottom: 4px;
+}
+
+.admin-run-row {
+  padding: 10px 0;
+}
+
+.admin-run-row + .admin-run-row { border-top: 0.5px solid var(--separator); }
+
+.admin-run-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.admin-run-date {
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--label-3);
+}
+
+.admin-run-persona {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-run-figures {
+  font-family: var(--ff-mono);
+  font-size: 11.5px;
+  color: var(--label);
+  font-variant-numeric: tabular-nums;
+  margin-top: 3px;
+}
+
+.admin-run-target {
+  font-family: var(--ff-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  white-space: nowrap;
+}

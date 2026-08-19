@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 // Google sign-in via the classic server-side authorization-code flow, with a
 // self-signed session cookie. No auth library: the flow is three fetches and
@@ -103,4 +103,25 @@ export function isAdminEmail(email: string | undefined): boolean {
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean)
     .includes(normalized);
+}
+
+/**
+ * Guard for admin-only APIs (the user directory exposes other people's names
+ * and emails). Demands the strongest check the app has: a signed-in session
+ * matching ADMIN_EMAIL. Deliberately no PIN fallback — a PIN can be typed by
+ * anyone who learns it; an email gate cannot. Returns the denial response, or
+ * null when the caller is the admin.
+ */
+export function requireAdmin(req: NextRequest): NextResponse | null {
+  if (!adminGateActive()) {
+    return NextResponse.json(
+      { error: "Set ADMIN_EMAIL (with Google sign-in configured) to enable the user directory" },
+      { status: 503 }
+    );
+  }
+  const session = readSession(req);
+  if (!session || !isAdminEmail(session.email)) {
+    return NextResponse.json({ error: "admin account required" }, { status: 403 });
+  }
+  return null;
 }

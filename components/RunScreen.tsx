@@ -125,6 +125,7 @@ export default function RunScreen({
       route: geo.route,
       treadmill,
       targetMinutes: treadmill ? targetMin : undefined,
+      targetKm: !treadmill && targetKm > 0 ? targetKm : undefined,
       gps: treadmill ? undefined : geo.fixDiagnostics(),
       startedAt: wallStartRef.current || undefined,
       wallElapsedMs: wallStartRef.current ? Date.now() - wallStartRef.current : undefined,

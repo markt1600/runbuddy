@@ -107,6 +107,13 @@ finish line; anything under a minute or 50 m is dropped as a pocket-start,
 and a run can be deleted from its detail page behind an explicit
 confirmation.
 
+The admin screen (gated to `ADMIN_EMAIL`) also carries a user directory:
+every account that has signed in, with run counts and last-seen, and a
+click-through to each user's saved runs showing the trainer they picked and
+the run's configured target (distance, treadmill time, or free run).
+Profiles are written at sign-in, so accounts predating the registry appear
+on their next login.
+
 Storage is the same Vercel Blob store as the voice library — one JSON per
 run under an HMAC-derived per-user prefix, with the card's summary encoded
 in the pathname so listing a history fetches no file bodies. Auth is the

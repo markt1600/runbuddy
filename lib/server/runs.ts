@@ -33,7 +33,8 @@ export function runsConfigured(): boolean {
   return blobConfigured();
 }
 
-const userPrefix = (sub: string) => `${PREFIX}/${uidHash(sub)}/`;
+const hashPrefix = (uid: string) => `${PREFIX}/${uid}/`;
+const userPrefix = (sub: string) => hashPrefix(uidHash(sub));
 
 export function parseBasename(basename: string): RunSummary | null {
   const m = basename.match(BASENAME_RE);
@@ -48,18 +49,56 @@ export function parseBasename(basename: string): RunSummary | null {
   };
 }
 
-export async function listRuns(sub: string): Promise<RunSummary[]> {
-  const out: RunSummary[] = [];
+export async function listRunsByHash(
+  uid: string
+): Promise<(RunSummary & { url: string })[]> {
+  const out: (RunSummary & { url: string })[] = [];
   let cursor: string | undefined;
   do {
-    const page = await list({ prefix: userPrefix(sub), cursor });
+    const page = await list({ prefix: hashPrefix(uid), cursor });
     for (const blob of page.blobs) {
       const parsed = parseBasename(blob.pathname.split("/").pop() ?? "");
-      if (parsed) out.push(parsed);
+      if (parsed) out.push({ ...parsed, url: blob.url });
     }
     cursor = page.hasMore ? page.cursor : undefined;
   } while (cursor);
   return out.sort((a, b) => b.startedAt - a.startedAt);
+}
+
+export async function listRuns(sub: string): Promise<RunSummary[]> {
+  return (await listRunsByHash(uidHash(sub))).map(({ url: _url, ...summary }) => summary);
+}
+
+/**
+ * Admin view: summaries plus what each run was configured as — trainer comes
+ * free from the pathname, but the time / distance targets live in the body,
+ * so this fetches them (capped, parallel).
+ */
+export interface EnrichedRun extends RunSummary {
+  treadmill?: boolean;
+  targetMinutes?: number;
+  targetKm?: number;
+}
+
+export async function enrichedRunsByHash(uid: string, cap = 100): Promise<EnrichedRun[]> {
+  const runs = (await listRunsByHash(uid)).slice(0, cap);
+  return Promise.all(
+    runs.map(async ({ url, ...summary }) => {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) return summary;
+        const body = (await res.json()) as SavedRun;
+        return {
+          ...summary,
+          treadmill: body.stats?.treadmill,
+          targetMinutes: body.stats?.targetMinutes,
+          targetKm: body.stats?.targetKm,
+        };
+      } catch {
+        return summary;
+      }
+    })
+  );
 }
 
 export interface SavedRun {

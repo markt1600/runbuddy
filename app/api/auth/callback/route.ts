@@ -6,6 +6,7 @@ import {
   requestOrigin,
   signSession,
 } from "@/lib/server/auth";
+import { recordUserLogin } from "@/lib/server/users";
 
 // Google redirects back here with a one-time code; trade it for an identity
 // and set the session cookie. The id_token arrives directly from Google's
@@ -44,16 +45,27 @@ export async function GET(req: NextRequest) {
     if (!issOk || payload.aud !== process.env.GOOGLE_CLIENT_ID) return home;
     if (typeof payload.sub !== "string" || payload.sub.length === 0) return home;
 
-    home.cookies.set(
-      SESSION_COOKIE,
-      signSession({
-        sub: payload.sub,
-        name: payload.name ?? payload.email ?? "Runner",
-        email: payload.email,
-        picture: payload.picture,
-      }),
-      { httpOnly: true, sameSite: "lax", secure: true, maxAge: 180 * 86_400, path: "/" }
-    );
+    const user = {
+      sub: payload.sub,
+      name: payload.name ?? payload.email ?? "Runner",
+      email: payload.email,
+      picture: payload.picture,
+    };
+    home.cookies.set(SESSION_COOKIE, signSession(user), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: true,
+      maxAge: 180 * 86_400,
+      path: "/",
+    });
+    // Registry for the admin user directory. Awaited: serverless functions
+    // can be reclaimed the moment the response returns, so fire-and-forget
+    // writes silently vanish. Best-effort — sign-in never fails over it.
+    try {
+      await recordUserLogin(user);
+    } catch {
+      /* profile write is not worth blocking a login */
+    }
     return home;
   } catch {
     return home;

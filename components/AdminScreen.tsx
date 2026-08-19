@@ -27,6 +27,7 @@ import {
   type GenerationProgress,
 } from "@/lib/voiceLibrary";
 import { EXPANDABLE_CATEGORIES, FIXED_CATEGORY_REASON } from "@/lib/phraseCategories";
+import { formatElapsed, formatPace } from "@/lib/geo";
 import type { PersonaId, PhraseCategory } from "@/lib/types";
 
 const CATEGORY_LABELS: Record<PhraseCategory, string> = {
@@ -64,6 +65,35 @@ interface Props {
   onBack: () => void;
 }
 
+interface AdminUser {
+  uid: string;
+  name: string;
+  email?: string;
+  picture?: string;
+  firstSeen: number;
+  lastSeen: number;
+  runCount: number;
+}
+
+interface AdminRun {
+  id: string;
+  startedAt: number;
+  distanceKm: number;
+  movingSec: number;
+  wallSec: number;
+  personaId: string;
+  treadmill?: boolean;
+  targetMinutes?: number;
+  targetKm?: number;
+}
+
+/** What the runner set out to do, from the run's saved configuration. */
+function targetLabel(run: AdminRun): string {
+  if (run.treadmill && run.targetMinutes) return `${run.targetMinutes} min target (treadmill)`;
+  if (run.targetKm) return `${run.targetKm} km target`;
+  return "free run";
+}
+
 export default function AdminScreen({ onBack }: Props) {
   const [lock, setLock] = useState<"checking" | "locked" | "unlocked">("checking");
   const [pinInput, setPinInput] = useState("");
@@ -89,6 +119,10 @@ export default function AdminScreen({ onBack }: Props) {
   );
   const [savingVolume, setSavingVolume] = useState<PersonaId | null>(null);
   const [redoing, setRedoing] = useState<string | null>(null);
+  const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [usersNote, setUsersNote] = useState<string | null>(null);
+  const [openUser, setOpenUser] = useState<AdminUser | null>(null);
+  const [userRuns, setUserRuns] = useState<AdminRun[] | null>(null);
   const [, bump] = useState(0); // re-render as the registry mutates
   const refresh = () => bump((n) => n + 1);
 
@@ -114,6 +148,14 @@ export default function AdminScreen({ onBack }: Props) {
         setLock("locked");
       }
     })();
+    void fetch("/api/admin/users")
+      .then(async (res) => {
+        if (res.ok) return res.json();
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      })
+      .then((data: { users: AdminUser[] }) => setUsers(data.users))
+      .catch((err) => setUsersNote(err instanceof Error ? err.message : "unavailable"));
     void loadLibraryState(true).then(() => {
       setReady(true);
       setSpeeds(
@@ -336,6 +378,98 @@ export default function AdminScreen({ onBack }: Props) {
           <div className="config-row bad">✕ Server unreachable (running without API routes?)</div>
         )}
       </div>
+
+      <div className="section-header">
+        Users{users !== null && <span className="cat-count">{users.length}</span>}
+      </div>
+      {openUser ? (
+        <div className="card" style={{ padding: "12px 14px" }}>
+          <button className="back-link" onClick={() => { setOpenUser(null); setUserRuns(null); }}>
+            ‹ All users
+          </button>
+          <div className="admin-user-head">
+            <span className="admin-user-name">{openUser.name}</span>
+            {openUser.email && <span className="admin-user-email">{openUser.email}</span>}
+          </div>
+          {userRuns === null ? (
+            <div className="home-empty">Loading runs…</div>
+          ) : userRuns.length === 0 ? (
+            <div className="home-empty">No saved runs.</div>
+          ) : (
+            userRuns.map((run) => {
+              const persona = PERSONAS[run.personaId as PersonaId];
+              const pace =
+                !run.treadmill && run.distanceKm > 0 ? run.movingSec / run.distanceKm : null;
+              return (
+                <div className="admin-run-row" key={run.id}>
+                  <div className="admin-run-line">
+                    <span className="admin-run-date">
+                      {new Date(run.startedAt).toLocaleDateString(undefined, {
+                        day: "numeric",
+                        month: "short",
+                        year: "2-digit",
+                      })}{" "}
+                      {new Date(run.startedAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className="admin-run-persona">
+                      {persona ? `${persona.emoji} ${persona.shortName}` : run.personaId}
+                    </span>
+                  </div>
+                  <div className="admin-run-line">
+                    <span className="admin-run-figures">
+                      {run.treadmill
+                        ? formatElapsed(run.movingSec * 1000)
+                        : `${run.distanceKm.toFixed(2)} km · ${formatElapsed(run.movingSec * 1000)} · ${formatPace(pace)}/km`}
+                    </span>
+                    <span className="admin-run-target">{targetLabel(run)}</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        <div className="card" style={{ padding: users?.length ? 0 : "12px 14px" }}>
+          {usersNote ? (
+            <div className="home-empty">{usersNote}</div>
+          ) : users === null ? (
+            <div className="home-empty">Loading users…</div>
+          ) : users.length === 0 ? (
+            <div className="home-empty">
+              Nobody has signed in since the user registry went live — profiles are
+              written at sign-in, so existing accounts appear on their next login.
+            </div>
+          ) : (
+            users.map((u) => (
+              <button
+                className="admin-user-row"
+                key={u.uid}
+                onClick={() => {
+                  setOpenUser(u);
+                  setUserRuns(null);
+                  void fetch(`/api/admin/users/${u.uid}`)
+                    .then((res) => (res.ok ? res.json() : Promise.reject()))
+                    .then((data: { runs: AdminRun[] }) => setUserRuns(data.runs))
+                    .catch(() => setUserRuns([]));
+                }}
+              >
+                <span className="admin-user-name">{u.name}</span>
+                <span className="admin-user-email">{u.email ?? "no email"}</span>
+                <span className="admin-user-meta">
+                  {u.runCount} run{u.runCount === 1 ? "" : "s"} · last seen{" "}
+                  {new Date(u.lastSeen).toLocaleDateString(undefined, {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
 
       <div className="section-header">Persona</div>
       <div className="segmented compact">
