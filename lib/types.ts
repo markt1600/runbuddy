@@ -96,6 +96,8 @@ export interface RunStats {
    *  run history needs both to show moving time AND total elapsed time. */
   startedAt?: number;
   wallElapsedMs?: number;
+  /** Where the run happened (e.g. "Bishan"), from the in-run weather fetch. */
+  locality?: string;
   /**
    * How well iOS fed the tracker: sparse fix delivery (a locked phone in a
    * sleeve) is what makes a run read short, so the summary shows it rather

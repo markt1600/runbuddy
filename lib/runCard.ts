@@ -163,6 +163,55 @@ function drawRoute(
   dot(pts[pts.length - 1], "#b3271b");
 }
 
+/**
+ * Kilometre splits as a strip of bars under the route — taller = faster, the
+ * way a runner reads pace, with the fastest split in the accent carrying its
+ * time. The card's proof-of-work: a route says where, the strip says how.
+ */
+function drawSplitsStrip(
+  ctx: CanvasRenderingContext2D,
+  splits: number[],
+  accent: string,
+  box: { x: number; y: number; w: number; h: number },
+  fonts: CardFonts
+) {
+  const fastest = Math.min(...splits);
+  const slowest = Math.max(...splits);
+  const fastestIdx = splits.indexOf(fastest);
+  const gap = splits.length > 14 ? 4 : 8;
+  const barW = (box.w - gap * (splits.length - 1)) / splits.length;
+  const baseline = box.y + box.h;
+
+  // Real splits usually live inside a ±10% band, so raw proportion renders as
+  // a flat wall. Stretch the run's own min–max range across 35%–100% height —
+  // the strip shows THIS run's shape, not absolute pace.
+  const spread = slowest - fastest;
+  splits.forEach((ms, i) => {
+    const frac = spread > 0 ? (slowest - ms) / spread : 1;
+    const h = (0.35 + 0.65 * frac) * box.h;
+    const x = box.x + i * (barW + gap);
+    ctx.fillStyle = i === fastestIdx ? accent : `${accent}42`;
+    ctx.fillRect(x, baseline - h, barW, h);
+  });
+
+  // The fastest split's time, floated above its bar; nudged inward so a
+  // first- or last-km PB never runs off the card.
+  ctx.font = `600 22px ${fonts.mono}`;
+  ctx.fillStyle = accent;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  const label = formatElapsed(fastest);
+  const cx = Math.min(
+    box.x + box.w - ctx.measureText(label).width / 2,
+    Math.max(box.x + ctx.measureText(label).width / 2, box.x + fastestIdx * (barW + gap) + barW / 2)
+  );
+  ctx.fillText(label, cx, baseline - box.h - 10);
+
+  ctx.font = `500 17px ${fonts.mono}`;
+  ctx.fillStyle = INK_FAINT;
+  ctx.fillText("KM SPLITS · TALLER IS FASTER", box.x + box.w / 2, baseline + 30);
+}
+
 /** Treadmill runs have no route — draw a ring of time completed instead. */
 function drawTimeRing(
   ctx: CanvasRenderingContext2D,
@@ -251,6 +300,15 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   ctx.textAlign = "right";
   ctx.fillStyle = INK_FAINT;
   ctx.fillText(dateText, S - PAD, PAD + 22);
+  // Where it happened, under the date — the detail people actually ask about.
+  if (stats.locality) {
+    ctx.font = `500 20px ${fonts.mono}`;
+    let place = stats.locality.toUpperCase();
+    while (place.length > 3 && ctx.measureText(place).width > 300) {
+      place = place.slice(0, -1);
+    }
+    ctx.fillText(place, S - PAD, PAD + 56);
+  }
 
   // Trim the name if it would run into the date
   const nameX = PAD + 76;
@@ -267,7 +325,9 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   }
   ctx.fillText(name, nameX, PAD + 22);
 
-  const box = { x: PAD, y: 210, w: S - PAD * 2, h: 400 };
+  // With splits to show, the route gives up its lower quarter to the strip.
+  const hasSplits = !stats.treadmill && stats.splits.length >= 2;
+  const box = { x: PAD, y: 210, w: S - PAD * 2, h: hasSplits ? 310 : 400 };
   let cells: { label: string; value: string; unit: string }[];
 
   if (stats.treadmill) {
@@ -283,6 +343,15 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
     ];
   } else {
     drawRoute(ctx, stats.route, persona.accent, box, fonts);
+    if (hasSplits) {
+      drawSplitsStrip(
+        ctx,
+        stats.splits,
+        persona.accent,
+        { x: PAD, y: 556, w: S - PAD * 2, h: 60 },
+        fonts
+      );
+    }
     const avgSpeedKmh =
       stats.elapsedMs > 0 ? stats.distanceKm / (stats.elapsedMs / 3_600_000) : null;
     cells = [

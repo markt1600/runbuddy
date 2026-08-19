@@ -5,6 +5,7 @@ import { GeoTracker, formatElapsed, type GpsSignal } from "@/lib/geo";
 import { formatInUnit, unitSuffix, type SpeedUnit } from "@/lib/units";
 import { VoiceEngine, WakeLockManager, audioSessionSupported, vibrate } from "@/lib/audio";
 import { CoachEngine, type RunnerInfo } from "@/lib/coach";
+import type { RunHistoryDigest } from "@/lib/history";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
 import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
 import type { MusicSource, Persona, RunStats } from "@/lib/types";
@@ -26,6 +27,8 @@ interface Props {
   startDelaySec: number;
   /** Signed-in runner's profile — the coach weaves it into improvised lines. */
   runner?: RunnerInfo | null;
+  /** Their saved-run digest — what the coach "remembers" about them. */
+  history?: RunHistoryDigest | null;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -42,6 +45,7 @@ export default function RunScreen({
   distanceCorrection,
   startDelaySec,
   runner,
+  history,
   onFinish,
 }: Props) {
   const treadmill = targetMin > 0;
@@ -78,6 +82,7 @@ export default function RunScreen({
     synth: 0,
   });
   const envFetchStateRef = useRef<{ fetching: boolean; at: number }>({ fetching: false, at: 0 });
+  const localityRef = useRef<string | null>(null);
 
   const voiceRef = useRef<VoiceEngine | null>(null);
   const coachRef = useRef<CoachEngine | null>(null);
@@ -132,6 +137,7 @@ export default function RunScreen({
       gps: treadmill ? undefined : geo.fixDiagnostics(),
       startedAt: wallStartRef.current || undefined,
       wallElapsedMs: wallStartRef.current ? Date.now() - wallStartRef.current : undefined,
+      locality: localityRef.current ?? undefined,
     };
     statsRef.current = stats;
     return stats;
@@ -184,6 +190,7 @@ export default function RunScreen({
 
     const coach = new CoachEngine(persona, voice, chattiness, targetKm, targetMin);
     coach.setRunner(runner ?? null);
+    coach.setHistory(history ?? null);
     coachRef.current = coach;
 
     const geo = new GeoTracker();
@@ -295,6 +302,7 @@ export default function RunScreen({
         void fetchRunEnvironment(lat, lon)
           .then((env) => {
             envState.at = Date.now();
+            if (env.locality) localityRef.current = env.locality;
             coach.setEnvironment(env);
             setEnvLine(describeEnvironment(env));
           })

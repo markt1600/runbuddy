@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatElapsed, formatPace } from "@/lib/geo";
 import { PERSONAS } from "@/lib/personas";
+import RouteTileMap from "./RouteTileMap";
 import type { PersonaId, RunStats } from "@/lib/types";
 import type { RunSummary } from "./HomeScreen";
 
@@ -129,6 +130,13 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
           </div>
         )}
       </div>
+
+      {(stats?.route?.length ?? 0) >= 2 && (
+        <>
+          <div className="section-header">Route</div>
+          <RouteTileMap route={stats!.route} accent={persona?.accent ?? "#bb3b22"} />
+        </>
+      )}
 
       {splits.length > 0 && (
         <>

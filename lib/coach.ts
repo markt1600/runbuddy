@@ -2,6 +2,7 @@ import { allPhrasesFor, getPhraseUrl, renderedCount } from "./voiceLibrary";
 import type { Persona, Phrase, PhraseCategory, PhraseCondition, RunStats } from "./types";
 import type { VoiceEngine } from "./audio";
 import type { RunEnvironment } from "./enviro";
+import type { RunHistoryDigest } from "./history";
 
 // CoachEngine — decides WHAT the trainer says and WHEN.
 // tick() is called ~1x/second by the run screen with fresh stats.
@@ -85,6 +86,7 @@ export class CoachEngine {
   private nextLoiterAt = 0;
   private loiterLevel = 0;
   private runner: RunnerInfo | null = null;
+  private history: RunHistoryDigest | null = null;
 
   constructor(
     persona: Persona,
@@ -211,6 +213,11 @@ export class CoachEngine {
     this.runner = runner && Object.keys(runner).length > 0 ? runner : null;
   }
 
+  /** What the runner has done before — so the trainer can actually remember. */
+  setHistory(history: RunHistoryDigest | null) {
+    this.history = history;
+  }
+
   /** Library size + how much of it has pre-rendered ElevenLabs audio. */
   libraryStats() {
     return {
@@ -231,11 +238,13 @@ export class CoachEngine {
           runnerGender: this.runner.gender,
         }
       : {};
+    const past = this.history ? { runnerHistory: this.history } : {};
     // Treadmill runs have no GPS — omit distance, pace, speed and place so the
     // model never invents them.
     if (this.targetMin > 0) {
       return {
         ...who,
+        ...past,
         elapsedMin: Math.round(stats.elapsedMs / 60000),
         localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         treadmill: true,
@@ -245,6 +254,7 @@ export class CoachEngine {
     }
     return {
       ...who,
+      ...past,
       distanceKm: Number(stats.distanceKm.toFixed(2)),
       elapsedMin: Math.round(stats.elapsedMs / 60000),
       localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),

@@ -101,11 +101,20 @@ and `AUTH_SECRET` (see `.env.example`) and the app opens with a choice —
 pre-accounts app, remembered so the question is asked once. Signed in, the
 app opens on a home screen: **Get Ready to Run** on top, and below it a card
 for every saved run — tap through for distance, average pace, moving time,
-total elapsed time, fastest split, and a kilometre-split bar chart (longer
-bar = faster split, fastest in the accent). Runs save automatically at the
-finish line; anything under a minute or 50 m is dropped as a pocket-start,
-and a run can be deleted from its detail page behind an explicit
-confirmation.
+total elapsed time, fastest split, the route drawn on real OpenStreetMap
+tiles (toned to match the paper stock), and a kilometre-split bar chart
+(longer bar = faster split, fastest in the accent). Runs save automatically
+at the finish line; anything under a minute or 50 m is dropped as a
+pocket-start, and a run can be deleted from its detail page behind an
+explicit confirmation.
+
+Signing in also gives the trainer a memory: the run list is digested into
+last-run figures, personal bests and recency (lib/history.ts — one blob
+listing, no body fetches), and rides into every improvised line. Expect the
+intro to notice a four-day gap, or a mid-run remark when the pace closes in
+on a best. The shareable end-of-run card carries the same depth — route,
+headline numbers, a kilometre-splits strip with the fastest split called
+out, where the run happened, and the coach's closing line.
 
 The account page also holds the runner's own stats — age, gender (female,
 male, or the "—" of not saying), height and weight, editable in either kg·cm

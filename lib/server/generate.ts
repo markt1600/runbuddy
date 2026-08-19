@@ -32,6 +32,16 @@ export interface PhraseContext {
   runnerHeightCm?: number;
   runnerWeightKg?: number;
   runnerGender?: string;
+  // Their saved run history, digested client-side (see lib/history.ts)
+  runnerHistory?: {
+    totalRuns?: number;
+    daysSinceLast?: number;
+    lastRunKm?: number;
+    lastRunPace?: string;
+    longestKm?: number;
+    bestPace?: string;
+    runsLast30Days?: number;
+  };
 }
 
 /**
@@ -57,6 +67,38 @@ function runnerLines(context: PhraseContext): string {
   );
 }
 
+/**
+ * What they've done before this run. Framed as memory, not a scoreboard: the
+ * point is the trainer noticing — a comeback after a quiet week, pace near a
+ * personal best — one observation at most, never a stats recital.
+ */
+function historyLines(context: PhraseContext): string {
+  const h = context.runnerHistory;
+  if (!h || !h.totalRuns) return "";
+  const bits = [
+    `${h.totalRuns} runs saved with you before this one`,
+    h.daysSinceLast !== undefined
+      ? h.daysSinceLast === 0
+        ? "their last run was earlier today"
+        : h.daysSinceLast === 1
+          ? "their last run was yesterday"
+          : `their last run was ${h.daysSinceLast} days ago`
+      : null,
+    h.lastRunKm !== undefined
+      ? `last run: ${h.lastRunKm} km${h.lastRunPace ? ` at ${h.lastRunPace} min/km` : ""}`
+      : null,
+    h.longestKm !== undefined ? `longest ever: ${h.longestKm} km` : null,
+    h.bestPace ? `best average pace (3 km+): ${h.bestPace} min/km` : null,
+    h.runsLast30Days !== undefined ? `${h.runsLast30Days} runs in the last 30 days` : null,
+  ].filter(Boolean);
+  return (
+    `\n\nTheir running history with you: ${bits.join("; ")}. You remember this — ` +
+    "bring it up when it's genuinely relevant (a long gap since the last run, beating " +
+    "their usual distance, pace near their best), at most one observation per line, " +
+    "in your persona's voice. Never recite the history as a list."
+  );
+}
+
 function contextLines(context: PhraseContext): string {
   if (context.treadmill) {
     const lines = [
@@ -75,7 +117,7 @@ function contextLines(context: PhraseContext): string {
         : null,
       context.localTime ? `Local time: ${context.localTime}` : null,
     ].filter(Boolean);
-    return `\n\nLive run stats:\n${lines.join("\n")}${runnerLines(context)}`;
+    return `\n\nLive run stats:\n${lines.join("\n")}${runnerLines(context)}${historyLines(context)}`;
   }
   const lines = [
     context.locality ? `Location: running through ${context.locality}` : null,
@@ -95,7 +137,7 @@ function contextLines(context: PhraseContext): string {
     context.localTime ? `Local time: ${context.localTime}` : null,
   ].filter(Boolean);
   const stats = lines.length ? `\n\nLive run stats:\n${lines.join("\n")}` : "";
-  return `${stats}${runnerLines(context)}`;
+  return `${stats}${runnerLines(context)}${historyLines(context)}`;
 }
 
 export async function generateLine(

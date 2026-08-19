@@ -11,6 +11,7 @@ const suites = [
   { file: "markers.test.mjs", flags: [] },
   { file: "audio.settle.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
   { file: "audio.duck.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
+  { file: "history.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
 ];
 
 let failed = 0;

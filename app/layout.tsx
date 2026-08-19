@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Newsreader, JetBrains_Mono } from "next/font/google";
+import "leaflet/dist/leaflet.css"; // route map on the run detail page
 import "./globals.css";
 
 // Self-hosted at build time rather than linked from Google. This is an

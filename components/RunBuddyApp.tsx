@@ -31,6 +31,7 @@ import {
 } from "@/lib/prefs";
 import type { MusicSource, PersonaId, RunStats } from "@/lib/types";
 import type { RunnerInfo } from "@/lib/coach";
+import { buildHistoryDigest, type RunHistoryDigest } from "@/lib/history";
 
 type Screen =
   | "boot"
@@ -62,6 +63,7 @@ export default function RunBuddyApp() {
   });
   const [openRun, setOpenRun] = useState<RunSummary | null>(null);
   const [runnerStats, setRunnerStats] = useState<Omit<RunnerInfo, "name"> | null>(null);
+  const [runHistory, setRunHistory] = useState<RunHistoryDigest | null>(null);
   const [personaId, setPersonaId] = useState<PersonaId>("ahbeng");
   const [music, setMusic] = useState<MusicSource>("spotify");
   const [finalStats, setFinalStats] = useState<RunStats | null>(null);
@@ -101,13 +103,27 @@ export default function RunBuddyApp() {
     };
   }, []);
 
+  // The coach's memory: run summaries digested down to last-run figures and
+  // personal bests. One listing, no body fetches. Refreshed after each save so
+  // tomorrow's intro knows about today's run.
+  const refreshHistory = () => {
+    void fetch("/api/runs")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { runs: { startedAt: number; distanceKm: number; movingSec: number }[] } | null) => {
+        if (data?.runs) setRunHistory(buildHistoryDigest(data.runs));
+      })
+      .catch(() => {});
+  };
+
   // Once signed in, pull the saved body stats so the coach can personalize
   // its improvised lines. Missing or failed just means an anonymous run.
   useEffect(() => {
     if (!auth.user) {
       setRunnerStats(null);
+      setRunHistory(null);
       return;
     }
+    if (auth.historyAvailable) refreshHistory();
     let cancelled = false;
     void fetch("/api/profile")
       .then((res) => (res.ok ? res.json() : null))
@@ -133,7 +149,8 @@ export default function RunBuddyApp() {
     return () => {
       cancelled = true;
     };
-  }, [auth.user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.user, auth.historyAvailable]);
 
   useEffect(() => {
     setSpeedUnitState(loadSpeedUnit());
@@ -300,6 +317,7 @@ export default function RunBuddyApp() {
                 }
               : null
           }
+          history={runHistory}
           onFinish={(stats) => {
             setFinalStats(stats);
             setScreen("summary");
@@ -310,7 +328,9 @@ export default function RunBuddyApp() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ personaId, stats }),
-              }).catch(() => {});
+              })
+                .then(() => refreshHistory()) // next run's coach knows this one
+                .catch(() => {});
             }
           }}
         />

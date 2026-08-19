@@ -1828,6 +1828,32 @@ input[type="range"]::-moz-range-thumb {
 
 .split-chart-time.fastest { color: var(--accent); font-weight: 600; }
 
+/* The saved run's actual route on real map tiles. The sepia filter pulls
+   OSM's default palette toward the paper stock so the map reads as part of
+   the page, not an embedded website. */
+.route-tile-map {
+  height: 260px;
+  border: 1px solid var(--separator-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-elevated);
+  /* Leaflet sets z-indexes in the hundreds; keep the whole thing under the
+     app chrome rather than fighting each pane. */
+  position: relative;
+  z-index: 0;
+}
+
+.route-tile-map .leaflet-tile-pane {
+  filter: sepia(0.28) saturate(0.72) contrast(0.94) brightness(1.02);
+}
+
+.route-tile-map .leaflet-control-attribution {
+  font-family: var(--ff-mono);
+  font-size: 8.5px;
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
+  color: var(--label-3);
+}
+
 /* Deleting a run is the only destructive act in the app — one quiet link,
    then an explicit two-button confirmation. */
 .run-detail-danger { margin-top: 36px; padding-bottom: 8px; }

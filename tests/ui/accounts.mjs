@@ -14,6 +14,15 @@ import assert from "node:assert";
 import { launchIphone, BASE } from "./helpers.mjs";
 
 const SPLITS = [372_000, 355_000, 348_000, 361_000]; // ms per km; km 3 fastest
+// A short loop near Bishan — enough points for the detail map's polyline.
+const ROUTE = [
+  { lat: 1.3521, lon: 103.8478 },
+  { lat: 1.3529, lon: 103.8486 },
+  { lat: 1.3537, lon: 103.8479 },
+  { lat: 1.3541, lon: 103.8467 },
+  { lat: 1.3533, lon: 103.8458 },
+  { lat: 1.3522, lon: 103.8465 },
+];
 const RUNS = [
   {
     id: "1755480000000_10060_3732_3810_ahbeng.json",
@@ -130,7 +139,7 @@ async function stubAuth(page, me) {
           elapsedMs: RUNS[0].movingSec * 1000,
           distanceKm: RUNS[0].distanceKm,
           splits: SPLITS,
-          route: [],
+          route: ROUTE,
           paceSecPerKm: null, avgPaceSecPerKm: 371, speedNowKmh: null,
           lastKmSpeedKmh: null, avgSpeedKmh: 9.7,
           startedAt: RUNS[0].startedAt,
@@ -166,6 +175,12 @@ async function stubAuth(page, me) {
   for (const want of ["distance", "avg pace / km", "moving time", "total elapsed", "fastest split"]) {
     assert.ok(labels.some((l) => l.includes(want)), `missing stat: ${want} in ${labels}`);
   }
+  // The route map: Leaflet mounts and draws the polyline + start/finish dots
+  // as SVG, which needs no tile server — so this holds even offline.
+  await page.waitForTimeout(700);
+  assert.strictEqual(await page.locator(".route-tile-map").count(), 1, "route map missing");
+  const mapPaths = await page.locator(".route-tile-map .leaflet-overlay-pane path").count();
+  assert.ok(mapPaths >= 3, `expected polyline + 2 markers, got ${mapPaths} paths`);
   assert.strictEqual(await page.locator(".split-chart-row").count(), SPLITS.length, "chart rows");
   assert.strictEqual(await page.locator(".split-chart-bar.fastest").count(), 1, "fastest bars");
   const fastestTime = await page.locator(".split-chart-time.fastest").innerText();
