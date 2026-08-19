@@ -1995,8 +1995,12 @@ input[type="range"]::-moz-range-thumb {
   border-bottom: 1px solid var(--separator);
 }
 
-.profile-row:last-of-type {
+/* The derived block closes the list: no separator under the BMI row itself —
+   its classification hangs off it — and explicit spacing, not negative
+   margins, keeps the text clear of the rules on real-device font metrics. */
+.profile-row-bmi {
   border-bottom: none;
+  padding-bottom: 6px;
 }
 
 .profile-label {
@@ -2060,8 +2064,7 @@ input[type="range"]::-moz-range-thumb {
 
 /* The SG band the BMI lands in, tucked under the figure it classifies. */
 .profile-bmi-class {
-  margin-top: -4px;
-  padding-bottom: 10px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--separator);
   font-size: 13.5px;
   line-height: 1.45;

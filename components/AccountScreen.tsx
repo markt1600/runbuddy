@@ -285,7 +285,7 @@ export default function AccountScreen({
               <span className="profile-unit">{units === "imperial" ? "lb" : "kg"}</span>
             </label>
 
-            <div className="profile-row">
+            <div className="profile-row profile-row-bmi">
               <span className="profile-label">
                 BMI <span className="profile-derived">derived</span>
               </span>

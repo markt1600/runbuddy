@@ -259,6 +259,14 @@ async function stubAuth(page, me) {
     /SG/i,
     "classification not marked as SG"
   );
+  // The classification must sit fully below the BMI row — it once rode a
+  // negative margin up into the row's separator line on real iPhones.
+  const bmiRowBox = await page.locator(".profile-row-bmi").boundingBox();
+  const classBox = await page.locator(".profile-bmi-class").boundingBox();
+  assert.ok(
+    classBox.y >= bmiRowBox.y + bmiRowBox.height - 1,
+    `classification overlaps the BMI row: row ends ${bmiRowBox.y + bmiRowBox.height}, text starts ${classBox.y}`
+  );
 
   // Flip to imperial: on-screen numbers convert in place — and BMI, being a
   // ratio, must not move with the units.
