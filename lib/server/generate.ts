@@ -26,6 +26,31 @@ export interface PhraseContext {
   treadmill?: boolean;
   targetMinutes?: number;
   remainingMinutes?: number;
+  // Signed-in runner's account profile — self-reported on the account screen
+  runnerName?: string;
+  runnerAge?: number;
+  runnerHeightCm?: number;
+  runnerWeightKg?: number;
+}
+
+/**
+ * Who the runner is, when they're signed in and told us. Kept separate from
+ * the live stats so the prompt can frame it as seasoning, not data to recite.
+ */
+function runnerLines(context: PhraseContext): string {
+  const bits = [
+    context.runnerName ? `their name is ${context.runnerName}` : null,
+    context.runnerAge !== undefined ? `they are ${context.runnerAge} years old` : null,
+    context.runnerHeightCm !== undefined ? `${context.runnerHeightCm} cm tall` : null,
+    context.runnerWeightKg !== undefined ? `${context.runnerWeightKg} kg` : null,
+  ].filter(Boolean);
+  if (bits.length === 0) return "";
+  return (
+    `\n\nAbout the runner: ${bits.join(", ")}. Use this for the occasional personal ` +
+    "touch — address them by name sometimes, or let their age or build colour a remark " +
+    "in your persona's style. Never recite these numbers back as a list, and never " +
+    "mention their weight in a way that would sting outside your persona's usual teasing."
+  );
 }
 
 function contextLines(context: PhraseContext): string {
@@ -46,7 +71,7 @@ function contextLines(context: PhraseContext): string {
         : null,
       context.localTime ? `Local time: ${context.localTime}` : null,
     ].filter(Boolean);
-    return `\n\nLive run stats:\n${lines.join("\n")}`;
+    return `\n\nLive run stats:\n${lines.join("\n")}${runnerLines(context)}`;
   }
   const lines = [
     context.locality ? `Location: running through ${context.locality}` : null,
@@ -65,7 +90,8 @@ function contextLines(context: PhraseContext): string {
       : null,
     context.localTime ? `Local time: ${context.localTime}` : null,
   ].filter(Boolean);
-  return lines.length ? `\n\nLive run stats:\n${lines.join("\n")}` : "";
+  const stats = lines.length ? `\n\nLive run stats:\n${lines.join("\n")}` : "";
+  return `${stats}${runnerLines(context)}`;
 }
 
 export async function generateLine(

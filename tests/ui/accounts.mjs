@@ -5,6 +5,8 @@
 //   3. Signed in → home: Get Ready to Run + run cards; card → detail with the
 //      key stats and the split chart, fastest split highlighted; delete needs
 //      a confirmation and returns home.
+//   5. Account body stats: saved values load into the editor, the unit toggle
+//      converts what's on screen, and Save sends canonical metric numbers.
 //
 // Needs a production server: npm run build && npx next start -p 3123
 // Run: node --import ../ts-resolve.mjs tests/ui/accounts.mjs
@@ -197,6 +199,67 @@ async function stubAuth(page, me) {
   assert.ok(await page.locator(".persona-card").count() > 0, "empty-state CTA did not reach setup");
   await browser.close();
   console.log("  ok   empty history → mid-screen Get Ready → setup");
+}
+
+// ---- 5. body stats editor: load, unit toggle, save in metric ----
+{
+  const { browser, page } = await launchIphone();
+  await stubAuth(page, {
+    configured: true, historyAvailable: true,
+    user: { name: "Mark Tan", picture: null }, adminGated: true, isAdmin: true,
+  });
+  await page.route("**/api/runs", (r) =>
+    r.fulfill({ status: 200, contentType: "application/json", body: '{"runs":[]}' })
+  );
+  let putBody = null;
+  await page.route("**/api/profile", (r) => {
+    if (r.request().method() === "PUT") {
+      putBody = r.request().postDataJSON();
+      return r.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ profile: { age: putBody.age, heightCm: putBody.heightCm, weightKg: putBody.weightKg, units: putBody.units }, storage: true }),
+      });
+    }
+    return r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        profile: { age: 47, heightCm: 175, weightKg: 72, units: "metric" },
+        storage: true,
+      }),
+    });
+  });
+
+  await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1300);
+  await page.locator(".tab-account").click();
+  await page.waitForTimeout(700);
+
+  // Saved values arrive in metric.
+  const inputs = page.locator(".profile-input");
+  assert.strictEqual(await inputs.count(), 3, "profile inputs missing");
+  assert.strictEqual(await inputs.nth(0).inputValue(), "47", "age not loaded");
+  assert.strictEqual(await inputs.nth(1).inputValue(), "175", "height not loaded");
+  assert.strictEqual(await inputs.nth(2).inputValue(), "72", "weight not loaded");
+
+  // Flip to imperial: on-screen numbers convert in place.
+  await page.locator(".profile-units button", { hasText: "lb · in" }).click();
+  assert.strictEqual(await inputs.nth(1).inputValue(), "68.9", "height not converted to inches");
+  assert.strictEqual(await inputs.nth(2).inputValue(), "158.7", "weight not converted to pounds");
+
+  // Edit the weight in pounds and save — the wire format stays metric.
+  await inputs.nth(2).fill("160");
+  await page.locator(".profile-save").click();
+  await page.waitForTimeout(600);
+  assert.ok(putBody, "no PUT sent");
+  assert.strictEqual(putBody.units, "imperial", "units preference not saved");
+  assert.strictEqual(putBody.age, 47, "age changed unexpectedly");
+  assert.ok(Math.abs(putBody.heightCm - 175) < 0.1, `height not metric on the wire: ${putBody.heightCm}`);
+  assert.ok(Math.abs(putBody.weightKg - 72.57) < 0.05, `weight not metric on the wire: ${putBody.weightKg}`);
+  assert.strictEqual(await page.locator(".profile-status.saved").count(), 1, "no saved confirmation");
+  await browser.close();
+  console.log("  ok   body stats load → toggle converts → save is metric");
 }
 
 console.log("accounts: passed");

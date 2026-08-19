@@ -36,6 +36,14 @@ function between([a, b]: [number, number]) {
   return a + Math.random() * (b - a);
 }
 
+/** Who's running — from their account profile, when they're signed in. */
+export interface RunnerInfo {
+  name?: string;
+  age?: number;
+  heightCm?: number;
+  weightKg?: number;
+}
+
 /** Highest kilometre with a pre-rendered marker phrase. Beyond it we improvise. */
 const MAX_KM_MARKER = 21;
 
@@ -75,6 +83,7 @@ export class CoachEngine {
   private pausedSince = 0;
   private nextLoiterAt = 0;
   private loiterLevel = 0;
+  private runner: RunnerInfo | null = null;
 
   constructor(
     persona: Persona,
@@ -196,6 +205,11 @@ export class CoachEngine {
     this.env = env;
   }
 
+  /** Signed-in runner's profile — folded into every improvised line's context. */
+  setRunner(runner: RunnerInfo | null) {
+    this.runner = runner && Object.keys(runner).length > 0 ? runner : null;
+  }
+
   /** Library size + how much of it has pre-rendered ElevenLabs audio. */
   libraryStats() {
     return {
@@ -207,10 +221,19 @@ export class CoachEngine {
   /** Everything the generator might want to weave into a line. */
   private buildContext(stats: RunStats, extra: Record<string, unknown> = {}) {
     const pace = stats.paceSecPerKm;
+    const who = this.runner
+      ? {
+          runnerName: this.runner.name,
+          runnerAge: this.runner.age,
+          runnerHeightCm: this.runner.heightCm,
+          runnerWeightKg: this.runner.weightKg,
+        }
+      : {};
     // Treadmill runs have no GPS — omit distance, pace, speed and place so the
     // model never invents them.
     if (this.targetMin > 0) {
       return {
+        ...who,
         elapsedMin: Math.round(stats.elapsedMs / 60000),
         localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         treadmill: true,
@@ -219,6 +242,7 @@ export class CoachEngine {
       };
     }
     return {
+      ...who,
       distanceKm: Number(stats.distanceKm.toFixed(2)),
       elapsedMin: Math.round(stats.elapsedMs / 60000),
       localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),

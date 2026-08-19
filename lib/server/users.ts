@@ -16,6 +16,20 @@ export interface UserProfile {
   picture?: string;
   firstSeen: number;
   lastSeen: number;
+  // Self-reported, editable on the account screen. Stored canonically metric
+  // whatever units the user types in — the display unit is just a preference.
+  age?: number;
+  heightCm?: number;
+  weightKg?: number;
+  units?: "metric" | "imperial";
+}
+
+/** The subset of the profile the account screen may edit. */
+export interface ProfileEdits {
+  age?: number | null;
+  heightCm?: number | null;
+  weightKg?: number | null;
+  units?: "metric" | "imperial";
 }
 
 const profilePath = (uid: string) => `users/${uid}.json`;
@@ -35,32 +49,65 @@ async function readProfile(uid: string): Promise<UserProfile | null> {
   }
 }
 
-/** Best-effort on every login — a failed write costs a stale lastSeen, no more. */
-export async function recordUserLogin(user: SessionUser): Promise<void> {
-  if (!blobConfigured()) return;
-  const uid = uidHash(user.sub);
-  let firstSeen = Date.now();
-  try {
-    const existing = await readProfile(uid);
-    if (existing?.firstSeen) firstSeen = existing.firstSeen;
-  } catch {
-    /* treat as first sign-in */
-  }
-  const profile: UserProfile = {
-    uid,
-    name: user.name,
-    email: user.email,
-    picture: user.picture,
-    firstSeen,
-    lastSeen: Date.now(),
-  };
-  await put(profilePath(uid), JSON.stringify(profile), {
+async function writeProfile(profile: UserProfile): Promise<void> {
+  await put(profilePath(profile.uid), JSON.stringify(profile), {
     access: "public",
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
     cacheControlMaxAge: 0,
   });
+}
+
+/** Best-effort on every login — a failed write costs a stale lastSeen, no more. */
+export async function recordUserLogin(user: SessionUser): Promise<void> {
+  if (!blobConfigured()) return;
+  const uid = uidHash(user.sub);
+  let existing: UserProfile | null = null;
+  try {
+    existing = await readProfile(uid);
+  } catch {
+    /* treat as first sign-in */
+  }
+  // Spread the existing body first: a login must never wipe the fields the
+  // user typed in on the account screen (age, height, weight, unit choice).
+  await writeProfile({
+    ...existing,
+    uid,
+    name: user.name,
+    email: user.email,
+    picture: user.picture,
+    firstSeen: existing?.firstSeen ?? Date.now(),
+    lastSeen: Date.now(),
+  });
+}
+
+export async function getProfile(uid: string): Promise<UserProfile | null> {
+  if (!blobConfigured()) return null;
+  return readProfile(uid);
+}
+
+/**
+ * Apply account-screen edits. `null` clears a field (the user emptied the
+ * box); `undefined` leaves it alone. Returns the stored profile, or null when
+ * there's nothing to hang the edits on (never signed in, or no blob store).
+ */
+export async function updateProfile(
+  uid: string,
+  edits: ProfileEdits
+): Promise<UserProfile | null> {
+  if (!blobConfigured()) return null;
+  const existing = await readProfile(uid);
+  if (!existing) return null;
+  const next: UserProfile = { ...existing };
+  for (const key of ["age", "heightCm", "weightKg"] as const) {
+    const v = edits[key];
+    if (v === null) delete next[key];
+    else if (typeof v === "number") next[key] = v;
+  }
+  if (edits.units) next.units = edits.units;
+  await writeProfile(next);
+  return next;
 }
 
 export async function listUsers(): Promise<UserProfile[]> {

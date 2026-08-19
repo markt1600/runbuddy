@@ -30,6 +30,7 @@ import {
   saveTargetMin,
 } from "@/lib/prefs";
 import type { MusicSource, PersonaId, RunStats } from "@/lib/types";
+import type { RunnerInfo } from "@/lib/coach";
 
 type Screen =
   | "boot"
@@ -60,6 +61,7 @@ export default function RunBuddyApp() {
     isAdmin: true, // ungated until the server says otherwise
   });
   const [openRun, setOpenRun] = useState<RunSummary | null>(null);
+  const [runnerStats, setRunnerStats] = useState<Omit<RunnerInfo, "name"> | null>(null);
   const [personaId, setPersonaId] = useState<PersonaId>("ahbeng");
   const [music, setMusic] = useState<MusicSource>("spotify");
   const [finalStats, setFinalStats] = useState<RunStats | null>(null);
@@ -98,6 +100,34 @@ export default function RunBuddyApp() {
       cancelled = true;
     };
   }, []);
+
+  // Once signed in, pull the saved body stats so the coach can personalize
+  // its improvised lines. Missing or failed just means an anonymous run.
+  useEffect(() => {
+    if (!auth.user) {
+      setRunnerStats(null);
+      return;
+    }
+    let cancelled = false;
+    void fetch("/api/profile")
+      .then((res) => (res.ok ? res.json() : null))
+      .then(
+        (data: {
+          profile: { age: number | null; heightCm: number | null; weightKg: number | null };
+        } | null) => {
+          if (cancelled || !data) return;
+          setRunnerStats({
+            age: data.profile.age ?? undefined,
+            heightCm: data.profile.heightCm ?? undefined,
+            weightKg: data.profile.weightKg ?? undefined,
+          });
+        }
+      )
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.user]);
 
   useEffect(() => {
     setSpeedUnitState(loadSpeedUnit());
@@ -177,6 +207,13 @@ export default function RunBuddyApp() {
           user={auth.user}
           configured={auth.configured}
           historyAvailable={auth.historyAvailable}
+          onProfileSaved={(p) =>
+            setRunnerStats({
+              age: p.age ?? undefined,
+              heightCm: p.heightCm ?? undefined,
+              weightKg: p.weightKg ?? undefined,
+            })
+          }
           onSignOut={() => {
             void fetch("/api/auth/logout", { method: "POST" }).finally(() => {
               setAuth((a) => ({ ...a, user: null }));
@@ -247,6 +284,15 @@ export default function RunBuddyApp() {
           autoPause={autoPause}
           distanceCorrection={distanceCorrection}
           startDelaySec={startDelay ? START_DELAY_SEC : 0}
+          runner={
+            auth.user
+              ? {
+                  // First name only — that's how a coach talks to you.
+                  name: auth.user.name.trim().split(/\s+/)[0] || undefined,
+                  ...runnerStats,
+                }
+              : null
+          }
           onFinish={(stats) => {
             setFinalStats(stats);
             setScreen("summary");

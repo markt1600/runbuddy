@@ -107,6 +107,13 @@ finish line; anything under a minute or 50 m is dropped as a pocket-start,
 and a run can be deleted from its detail page behind an explicit
 confirmation.
 
+The account page also holds the runner's own stats — age, height and weight,
+editable in either kg·cm or lb·in (stored metric; the toggle is just a display
+preference that follows the account). When they're filled in, the trainer gets
+them alongside the live run stats and may weave a personal touch into its
+improvised lines — your name, mostly, with age or build as occasional
+seasoning. Guests have no account page fields; everything stays anonymous.
+
 The admin screen (gated to `ADMIN_EMAIL`) also carries a user directory:
 every account that has signed in, with run counts and last-seen, and a
 click-through to each user's saved runs showing the trainer they picked and
