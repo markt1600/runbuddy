@@ -243,13 +243,19 @@ async function stubAuth(page, me) {
   assert.strictEqual(await inputs.nth(1).inputValue(), "175", "height not loaded");
   assert.strictEqual(await inputs.nth(2).inputValue(), "72", "weight not loaded");
 
-  // Flip to imperial: on-screen numbers convert in place.
+  // BMI is derived and read-only: 72 / 1.75² = 23.5.
+  assert.strictEqual(await page.locator(".profile-value").innerText(), "23.5", "BMI wrong");
+
+  // Flip to imperial: on-screen numbers convert in place — and BMI, being a
+  // ratio, must not move with the units.
   await page.locator(".profile-units button", { hasText: "lb · in" }).click();
   assert.strictEqual(await inputs.nth(1).inputValue(), "68.9", "height not converted to inches");
   assert.strictEqual(await inputs.nth(2).inputValue(), "158.7", "weight not converted to pounds");
+  assert.strictEqual(await page.locator(".profile-value").innerText(), "23.5", "BMI moved with units");
 
   // Edit the weight in pounds and save — the wire format stays metric.
   await inputs.nth(2).fill("160");
+  assert.strictEqual(await page.locator(".profile-value").innerText(), "23.7", "BMI not live");
   await page.locator(".profile-save").click();
   await page.waitForTimeout(600);
   assert.ok(putBody, "no PUT sent");

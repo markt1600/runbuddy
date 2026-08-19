@@ -78,6 +78,18 @@ export default function AccountScreen({
     };
   }, [user]);
 
+  // Derived live from whatever is typed, in whichever unit — never stored,
+  // never editable. kg / m² after converting the display values back.
+  const bmi = (() => {
+    const h = parseFloat(height);
+    const w = parseFloat(weight);
+    if (!isFinite(h) || !isFinite(w) || h <= 0 || w <= 0) return null;
+    const meters = (units === "imperial" ? h * CM_PER_IN : h) / 100;
+    const kg = units === "imperial" ? w * KG_PER_LB : w;
+    const v = kg / (meters * meters);
+    return v >= 5 && v <= 100 ? v : null;
+  })();
+
   /** Flip the display unit, converting whatever is currently typed in place. */
   const switchUnits = (next: Units) => {
     if (next === units) return;
@@ -213,6 +225,14 @@ export default function AccountScreen({
               />
               <span className="profile-unit">{units === "imperial" ? "lb" : "kg"}</span>
             </label>
+
+            <div className="profile-row">
+              <span className="profile-label">
+                BMI <span className="profile-derived">derived</span>
+              </span>
+              <span className="profile-value">{bmi !== null ? bmi.toFixed(1) : "—"}</span>
+              <span className="profile-unit" />
+            </div>
 
             {status === "error" && <p className="profile-status error">{errorText}</p>}
             {status === "saved" && <p className="profile-status saved">Saved</p>}

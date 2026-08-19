@@ -2031,6 +2031,27 @@ input[type="range"]::-moz-range-thumb {
   border-color: var(--accent);
 }
 
+/* Read-only derived figure (BMI) — sits in the input column, minus the box,
+   so the "can't edit this" reads at a glance. */
+.profile-value {
+  width: 110px;
+  padding-right: 11px; /* input padding + border, so the digits line up */
+  font-family: var(--ff-mono);
+  font-size: 15px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--label);
+}
+
+.profile-derived {
+  margin-left: 6px;
+  font-family: var(--ff-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--label-3);
+}
+
 .profile-unit {
   width: 28px;
   font-family: var(--ff-mono);
