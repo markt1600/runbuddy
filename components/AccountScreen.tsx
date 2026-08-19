@@ -14,10 +14,16 @@ interface Props {
   historyAvailable: boolean;
   onSignOut: () => void;
   /** The saved profile changed — lets the app hand fresh stats to the coach. */
-  onProfileSaved?: (p: { age: number | null; heightCm: number | null; weightKg: number | null }) => void;
+  onProfileSaved?: (p: {
+    age: number | null;
+    heightCm: number | null;
+    weightKg: number | null;
+    gender: Gender;
+  }) => void;
 }
 
 type Units = "metric" | "imperial";
+type Gender = "female" | "male" | null;
 
 const CM_PER_IN = 2.54;
 const KG_PER_LB = 0.45359237;
@@ -57,6 +63,7 @@ export default function AccountScreen({
   const [age, setAge] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
+  const [gender, setGender] = useState<Gender>(null);
   const [loaded, setLoaded] = useState(false);
   const [storage, setStorage] = useState(true);
   const [status, setStatus] = useState<"idle" | "dirty" | "saving" | "saved" | "error">("idle");
@@ -70,13 +77,20 @@ export default function AccountScreen({
       .then((res) => (res.ok ? res.json() : null))
       .then(
         (data: {
-          profile: { age: number | null; heightCm: number | null; weightKg: number | null; units: Units };
+          profile: {
+            age: number | null;
+            heightCm: number | null;
+            weightKg: number | null;
+            gender: Gender;
+            units: Units;
+          };
           storage: boolean;
         } | null) => {
           if (cancelled || !data) return;
           const p = data.profile;
           const u = p.units === "imperial" ? "imperial" : "metric";
           setUnits(u);
+          setGender(p.gender === "female" || p.gender === "male" ? p.gender : null);
           setAge(p.age !== null ? String(p.age) : "");
           setHeight(
             p.heightCm !== null ? show(u === "imperial" ? p.heightCm / CM_PER_IN : p.heightCm) : ""
@@ -134,6 +148,7 @@ export default function AccountScreen({
       age: num(age),
       heightCm: h !== null ? (units === "imperial" ? h * CM_PER_IN : h) : null,
       weightKg: w !== null ? (units === "imperial" ? w * KG_PER_LB : w) : null,
+      gender,
       units,
     };
     setStatus("saving");
@@ -149,7 +164,12 @@ export default function AccountScreen({
         setStatus("error");
         return;
       }
-      onProfileSaved?.({ age: body.age, heightCm: body.heightCm, weightKg: body.weightKg });
+      onProfileSaved?.({
+        age: body.age,
+        heightCm: body.heightCm,
+        weightKg: body.weightKg,
+        gender: body.gender,
+      });
       setStatus("saved");
       savedTimer.current = setTimeout(() => setStatus("idle"), 2500);
     } catch {
@@ -211,6 +231,29 @@ export default function AccountScreen({
               />
               <span className="profile-unit">yrs</span>
             </label>
+            <div className="profile-row">
+              <span className="profile-label">Gender</span>
+              <div className="segmented compact profile-gender" role="group" aria-label="Gender">
+                {(
+                  [
+                    ["female", "Female"],
+                    ["male", "Male"],
+                    [null, "—"],
+                  ] as [Gender, string][]
+                ).map(([value, text]) => (
+                  <button
+                    key={text}
+                    className={gender === value ? "active" : ""}
+                    onClick={() => {
+                      setGender(value);
+                      markDirty();
+                    }}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+            </div>
             <label className="profile-row">
               <span className="profile-label">Height</span>
               <input

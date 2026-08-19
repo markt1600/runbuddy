@@ -21,6 +21,7 @@ export interface UserProfile {
   age?: number;
   heightCm?: number;
   weightKg?: number;
+  gender?: "female" | "male";
   units?: "metric" | "imperial";
 }
 
@@ -29,6 +30,7 @@ export interface ProfileEdits {
   age?: number | null;
   heightCm?: number | null;
   weightKg?: number | null;
+  gender?: "female" | "male" | null;
   units?: "metric" | "imperial";
 }
 
@@ -105,6 +107,8 @@ export async function updateProfile(
     if (v === null) delete next[key];
     else if (typeof v === "number") next[key] = v;
   }
+  if (edits.gender === null) delete next.gender;
+  else if (edits.gender) next.gender = edits.gender;
   if (edits.units) next.units = edits.units;
   await writeProfile(next);
   return next;

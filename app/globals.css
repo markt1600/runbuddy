@@ -2031,6 +2031,12 @@ input[type="range"]::-moz-range-thumb {
   border-color: var(--accent);
 }
 
+/* Gender picker — the "—" segment is the explicit not-saying option. */
+.profile-gender {
+  width: 216px;
+  flex-shrink: 0;
+}
+
 /* Read-only derived figure (BMI) — sits in the input column, minus the box,
    so the "can't edit this" reads at a glance. */
 .profile-value {

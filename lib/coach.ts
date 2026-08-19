@@ -42,6 +42,7 @@ export interface RunnerInfo {
   age?: number;
   heightCm?: number;
   weightKg?: number;
+  gender?: "female" | "male";
 }
 
 /** Highest kilometre with a pre-rendered marker phrase. Beyond it we improvise. */
@@ -227,6 +228,7 @@ export class CoachEngine {
           runnerAge: this.runner.age,
           runnerHeightCm: this.runner.heightCm,
           runnerWeightKg: this.runner.weightKg,
+          runnerGender: this.runner.gender,
         }
       : {};
     // Treadmill runs have no GPS — omit distance, pace, speed and place so the

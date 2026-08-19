@@ -107,8 +107,9 @@ finish line; anything under a minute or 50 m is dropped as a pocket-start,
 and a run can be deleted from its detail page behind an explicit
 confirmation.
 
-The account page also holds the runner's own stats — age, height and weight,
-editable in either kg·cm or lb·in (stored metric; the toggle is just a display
+The account page also holds the runner's own stats — age, gender (female,
+male, or the "—" of not saying), height and weight, editable in either kg·cm
+or lb·in (stored metric; the toggle is just a display
 preference that follows the account). BMI is derived live from the two fields
 and shown read-only, together with its band under the Singapore Heart
 Foundation's Asian-population classification (underweight < 18.5, normal to

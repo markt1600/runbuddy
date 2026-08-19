@@ -225,7 +225,7 @@ async function stubAuth(page, me) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        profile: { age: 47, heightCm: 175, weightKg: 72, units: "metric" },
+        profile: { age: 47, heightCm: 175, weightKg: 72, gender: "male", units: "metric" },
         storage: true,
       }),
     });
@@ -242,6 +242,13 @@ async function stubAuth(page, me) {
   assert.strictEqual(await inputs.nth(0).inputValue(), "47", "age not loaded");
   assert.strictEqual(await inputs.nth(1).inputValue(), "175", "height not loaded");
   assert.strictEqual(await inputs.nth(2).inputValue(), "72", "weight not loaded");
+  assert.match(
+    (await page.locator(".profile-gender button.active").innerText()).trim(),
+    /^male$/i,
+    "saved gender not selected"
+  );
+  // Change it — the new choice rides the same save.
+  await page.locator(".profile-gender button", { hasText: "Female" }).click();
 
   // BMI is derived and read-only: 72 / 1.75² = 23.5 — which lands in the
   // SG chart's Overweight band (23.0–27.4), labelled as such.
@@ -272,6 +279,7 @@ async function stubAuth(page, me) {
   await page.waitForTimeout(600);
   assert.ok(putBody, "no PUT sent");
   assert.strictEqual(putBody.units, "imperial", "units preference not saved");
+  assert.strictEqual(putBody.gender, "female", "gender change not saved");
   assert.strictEqual(putBody.age, 47, "age changed unexpectedly");
   assert.ok(Math.abs(putBody.heightCm - 175) < 0.1, `height not metric on the wire: ${putBody.heightCm}`);
   assert.ok(Math.abs(putBody.weightKg - 72.57) < 0.05, `weight not metric on the wire: ${putBody.weightKg}`);

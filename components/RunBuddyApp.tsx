@@ -113,13 +113,19 @@ export default function RunBuddyApp() {
       .then((res) => (res.ok ? res.json() : null))
       .then(
         (data: {
-          profile: { age: number | null; heightCm: number | null; weightKg: number | null };
+          profile: {
+            age: number | null;
+            heightCm: number | null;
+            weightKg: number | null;
+            gender: "female" | "male" | null;
+          };
         } | null) => {
           if (cancelled || !data) return;
           setRunnerStats({
             age: data.profile.age ?? undefined,
             heightCm: data.profile.heightCm ?? undefined,
             weightKg: data.profile.weightKg ?? undefined,
+            gender: data.profile.gender ?? undefined,
           });
         }
       )
@@ -212,6 +218,7 @@ export default function RunBuddyApp() {
               age: p.age ?? undefined,
               heightCm: p.heightCm ?? undefined,
               weightKg: p.weightKg ?? undefined,
+              gender: p.gender ?? undefined,
             })
           }
           onSignOut={() => {

@@ -9,10 +9,18 @@ import { getProfile, updateProfile, type ProfileEdits } from "@/lib/server/users
 
 export const runtime = "nodejs";
 
-const pick = (p: { age?: number; heightCm?: number; weightKg?: number; units?: string } | null) =>
+const pick = (
+  p: { age?: number; heightCm?: number; weightKg?: number; gender?: string; units?: string } | null
+) =>
   p
-    ? { age: p.age ?? null, heightCm: p.heightCm ?? null, weightKg: p.weightKg ?? null, units: p.units ?? "metric" }
-    : { age: null, heightCm: null, weightKg: null, units: "metric" };
+    ? {
+        age: p.age ?? null,
+        heightCm: p.heightCm ?? null,
+        weightKg: p.weightKg ?? null,
+        gender: p.gender ?? null,
+        units: p.units ?? "metric",
+      }
+    : { age: null, heightCm: null, weightKg: null, gender: null, units: "metric" };
 
 export async function GET(req: NextRequest) {
   const session = readSession(req);
@@ -70,6 +78,13 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "weight must be 20–350 kg" }, { status: 400 });
     }
     edits.weightKg = w;
+  }
+  if ("gender" in body) {
+    if (body.gender === null) edits.gender = null;
+    else if (body.gender === "female" || body.gender === "male") edits.gender = body.gender;
+    else if (body.gender !== undefined) {
+      return NextResponse.json({ error: "gender must be female, male or null" }, { status: 400 });
+    }
   }
   if (body.units === "metric" || body.units === "imperial") edits.units = body.units;
 

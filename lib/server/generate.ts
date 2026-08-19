@@ -31,6 +31,7 @@ export interface PhraseContext {
   runnerAge?: number;
   runnerHeightCm?: number;
   runnerWeightKg?: number;
+  runnerGender?: string;
 }
 
 /**
@@ -40,6 +41,9 @@ export interface PhraseContext {
 function runnerLines(context: PhraseContext): string {
   const bits = [
     context.runnerName ? `their name is ${context.runnerName}` : null,
+    context.runnerGender === "female" || context.runnerGender === "male"
+      ? `they are ${context.runnerGender}`
+      : null,
     context.runnerAge !== undefined ? `they are ${context.runnerAge} years old` : null,
     context.runnerHeightCm !== undefined ? `${context.runnerHeightCm} cm tall` : null,
     context.runnerWeightKg !== undefined ? `${context.runnerWeightKg} kg` : null,
