@@ -22,6 +22,22 @@ type Units = "metric" | "imperial";
 const CM_PER_IN = 2.54;
 const KG_PER_LB = 0.45359237;
 
+// Singapore Heart Foundation BMI bands (myheart.org.sg) — the Asian-population
+// cutoffs, stored here verbatim so classification never needs a lookup.
+// Ordered by upper bound; matched against the BMI rounded to one decimal, the
+// same figure the row displays, so the label never disagrees with the number.
+const SG_BMI_BANDS = [
+  { max: 18.4, label: "Underweight", note: "risk of nutritional deficiency and osteoporosis" },
+  { max: 22.9, label: "Normal", note: "low risk — healthy range" },
+  { max: 27.4, label: "Overweight", note: "moderate risk of health complications" },
+  { max: Infinity, label: "Obese", note: "high risk of heart disease and diabetes" },
+] as const;
+
+const sgBand = (bmi: number) => {
+  const r = Math.round(bmi * 10) / 10;
+  return SG_BMI_BANDS.find((b) => r <= b.max) ?? SG_BMI_BANDS[SG_BMI_BANDS.length - 1];
+};
+
 /** One decimal, no trailing ".0" — what the inputs display. */
 const show = (n: number) => {
   const r = Math.round(n * 10) / 10;
@@ -233,6 +249,15 @@ export default function AccountScreen({
               <span className="profile-value">{bmi !== null ? bmi.toFixed(1) : "—"}</span>
               <span className="profile-unit" />
             </div>
+            {bmi !== null && (
+              <div className="profile-bmi-class">
+                <span className="profile-bmi-band">{sgBand(bmi).label}</span>
+                <span className="profile-bmi-note"> — {sgBand(bmi).note}</span>
+                <div className="profile-bmi-source">
+                  SG classification · Singapore Heart Foundation
+                </div>
+              </div>
+            )}
 
             {status === "error" && <p className="profile-status error">{errorText}</p>}
             {status === "saved" && <p className="profile-status saved">Saved</p>}

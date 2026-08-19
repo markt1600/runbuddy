@@ -243,8 +243,15 @@ async function stubAuth(page, me) {
   assert.strictEqual(await inputs.nth(1).inputValue(), "175", "height not loaded");
   assert.strictEqual(await inputs.nth(2).inputValue(), "72", "weight not loaded");
 
-  // BMI is derived and read-only: 72 / 1.75² = 23.5.
+  // BMI is derived and read-only: 72 / 1.75² = 23.5 — which lands in the
+  // SG chart's Overweight band (23.0–27.4), labelled as such.
   assert.strictEqual(await page.locator(".profile-value").innerText(), "23.5", "BMI wrong");
+  assert.match(await page.locator(".profile-bmi-band").innerText(), /overweight/i, "SG band wrong");
+  assert.match(
+    await page.locator(".profile-bmi-source").innerText(),
+    /SG/i,
+    "classification not marked as SG"
+  );
 
   // Flip to imperial: on-screen numbers convert in place — and BMI, being a
   // ratio, must not move with the units.
@@ -253,9 +260,14 @@ async function stubAuth(page, me) {
   assert.strictEqual(await inputs.nth(2).inputValue(), "158.7", "weight not converted to pounds");
   assert.strictEqual(await page.locator(".profile-value").innerText(), "23.5", "BMI moved with units");
 
+  // A lighter weight crosses a band boundary live: 130 lb → 19.3 → Normal.
+  await inputs.nth(2).fill("130");
+  assert.match(await page.locator(".profile-bmi-band").innerText(), /normal/i, "band not live");
+
   // Edit the weight in pounds and save — the wire format stays metric.
   await inputs.nth(2).fill("160");
   assert.strictEqual(await page.locator(".profile-value").innerText(), "23.7", "BMI not live");
+  assert.match(await page.locator(".profile-bmi-band").innerText(), /overweight/i, "band lagged");
   await page.locator(".profile-save").click();
   await page.waitForTimeout(600);
   assert.ok(putBody, "no PUT sent");

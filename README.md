@@ -109,7 +109,11 @@ confirmation.
 
 The account page also holds the runner's own stats — age, height and weight,
 editable in either kg·cm or lb·in (stored metric; the toggle is just a display
-preference that follows the account). When they're filled in, the trainer gets
+preference that follows the account). BMI is derived live from the two fields
+and shown read-only, together with its band under the Singapore Heart
+Foundation's Asian-population classification (underweight < 18.5, normal to
+22.9, overweight to 27.4, obese from 27.5) — the bands are baked into the app,
+no lookup involved. When they're filled in, the trainer gets
 them alongside the live run stats and may weave a personal touch into its
 improvised lines — your name, mostly, with age or build as occasional
 seasoning. Guests have no account page fields; everything stays anonymous.
