@@ -259,15 +259,16 @@ stationary phone quietly clocks up a kilometre. Four things guard against it:
 1. **Doppler speed is the authority on movement.** `coords.speed` comes off the
    carrier phase, not from differencing positions, so it reads ~0 while you
    stand still. Below `STATIONARY_MPS` (0.6 m/s) nothing accumulates at all.
-2. **Distance is integrated from speed, not summed from positions.** Position
-   noise is unsigned and biases the total upward; speed noise is symmetric and
-   averages out. Devices that report no speed fall back to position deltas.
-3. **Positions are Kalman-smoothed** before they're used for the route or the
-   fallback distance — uncertainty grows by `KALMAN_Q` m/s between fixes, so a
-   tight fix pulls the estimate hard and a loose one barely moves it.
-4. **The jitter gate scales with the accuracy circle.** A step must beat both
+2. **Positions are Kalman-smoothed** before they're used for anything —
+   uncertainty grows by `KALMAN_Q` m/s between fixes, so a tight fix pulls the
+   estimate hard and a loose one barely moves it.
+3. **The jitter gate scales with the accuracy circle.** A step must beat both
    6 m and half the reported accuracy; anything smaller leaves the anchor where
    it is instead of dragging it along with the noise.
+4. **Distance is the sum of gated chords between those smoothed, accepted
+   fixes** — the same polyline the route stores. Steps are blocked entirely
+   while Doppler says stationary, which is what stops the unsigned-noise
+   creep the gates alone can't fully close.
 
 Plus: a 4 s warm-up discard (cold-start fixes are the worst a receiver ever
 produces), `maximumAge: 0` so a cached fix is never replayed as new, and a
@@ -277,22 +278,26 @@ Simulated against synthetic noise, this holds a 10-minute stationary phone to
 0 m of phantom distance with Doppler (13 m without), and tracks running,
 walking, intervals, tunnels and Doppler dropouts to within 2.5% of truth.
 
-### Approximate distance correction
+### Distance correction (chord vs Doppler engine)
 
-The integrator credits at most 5 s per fix interval, so it can never invent
-distance across a gap — but a locked phone in an arm sleeve gets fixes
-sparsely, and at 2–6 s spacing those clipped seconds add up to a run reading
-~3% short next to a watch. The "Approximate distance correction" toggle
-(Setup → GPS, on by default) recovers the clipped stretches, bounded by two
-independent measurements that must both agree: the raw-fix chord across the
-gap (a runner who stopped mid-gap moved no chord, so stopping can't be
-credited as motion) and the clipped seconds at the bracketing Doppler speed
-(so unsigned position noise can't accumulate — an unbounded chord credit
-overshot by 3% in simulation before this bound existed). In simulation it
-recovers roughly half to two-thirds of the sparse-delivery loss and changes a
-healthy 1 Hz run by exactly nothing. The run summary prints the fix-delivery
-diagnostics — average gap, longest gap, seconds beyond the cap, metres
-recovered — so a drift against the watch is attributable instead of a mystery.
+Distance used to be integrated from Doppler speed (a trapezoid over
+`coords.speed`), on the argument that speed noise is symmetric where position
+noise is not. A real 10 km run falsified it: the tracker's own accepted
+position track measured 10.02 km while the trapezoid credited 9.74 — Doppler
+dips at turns and gait noise integrate low, and the shortfall was a
+consistent ~2.5–3% across runs. So the chord sum over accepted fixes is now
+the primary engine (the "Distance correction" toggle in Setup → GPS, on by
+default), with Doppler demoted to the three jobs it is genuinely best at:
+declaring the phone stationary, driving the live speed display, and crediting
+distance while good position fixes are absent — an urban canyon doesn't
+freeze the counter, and the first chord after re-acquire is reduced by
+whatever the outage already earned so no stretch counts twice. The legacy
+trapezoid still runs in parallel as a shadow reading; the summary's
+"correction added Xm" is the difference, and switching the toggle off falls
+back to the legacy engine entirely. In simulation the chord engine tracks a
+sparse-fix (2–6 s) run to within 3% — the case that read ~3% short on the
+trapezoid — holds a stopped-mid-gap runner to ~0 phantom metres, and reads a
+10-minute stationary phone at 13 m.
 
 ## Auto-pause
 

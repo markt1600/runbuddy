@@ -189,7 +189,7 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
           {stats.gps.overCapSec >= 1 &&
             ` · ${Math.round(stats.gps.overCapSec)}s beyond the credit cap`}
           {stats.gps.bridgedKm >= 0.005 &&
-            ` · correction recovered ${Math.round(stats.gps.bridgedKm * 1000)}m`}
+            ` · correction added ${Math.round(stats.gps.bridgedKm * 1000)}m`}
         </div>
       )}
 

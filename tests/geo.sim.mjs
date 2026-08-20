@@ -191,56 +191,91 @@ scenario("armed resume: standing noise never fires it, walking off does", () => 
   assert.ok(fired !== null, "armed resume never fired after 30s of walking away");
 });
 
-scenario("gap bridging recovers sparse-fix loss, and only that", () => {
-  // A locked phone in a sleeve: fixes every 2–6s. The trapezoid credits at
-  // most 5s per fix, so without bridging a 10 min run reads ~3% short.
-  const runSparse = (bridging, seed) => {
+scenario("corrected engine survives sparse fixes; legacy is why it exists", () => {
+  // A locked phone in a sleeve: fixes every 2–6s. The legacy trapezoid caps
+  // each interval at 5s, so it reads ~3% short; chords span the gaps whole.
+  const runSparse = (corrected, seed) => {
     const t = new GeoTracker();
-    t.gapBridging = bridging;
+    t.correctedDistance = corrected;
     const w = makeWorld(t, mulberry32(seed), { accuracy: 12 });
     w.fixInterval = [2, 6];
     w.speedMps = 2.8;
     w.advance(600);
     return t;
   };
-  const off = runSparse(false, 11);
-  const on = runSparse(true, 11);
+  const legacy = runSparse(false, 11);
+  const corrected = runSparse(true, 11);
   const truth = (600 * 2.8) / 1000;
-  const lossOff = truth - off.distanceKm;
-  const lossOn = truth - on.distanceKm;
-  assert.ok(lossOff / truth > 0.02, "harness: sparse delivery should read short without bridging");
-  assert.ok(lossOn < lossOff * 0.7, `bridging recovered too little (${(lossOff - lossOn).toFixed(3)}km of ${lossOff.toFixed(3)}km)`);
-  assert.ok(on.distanceKm <= truth * 1.01, `bridging over-credited: ${on.distanceKm.toFixed(3)}km for ${truth.toFixed(3)}km`);
-  assert.ok(on.bridgedKm > 0, "bridgedKm diagnostic not recorded");
+  const lossLegacy = truth - legacy.distanceKm;
+  const lossCorrected = Math.abs(truth - corrected.distanceKm);
+  assert.ok(lossLegacy / truth > 0.02, "harness: sparse delivery should read short on legacy");
+  assert.ok(
+    lossCorrected / truth < 0.03,
+    `corrected engine off by ${(lossCorrected * 1000).toFixed(0)}m on a ${truth}km sparse run`
+  );
+  assert.ok(
+    corrected.distanceKm <= truth * 1.02,
+    `corrected engine over-credited: ${corrected.distanceKm.toFixed(3)}km for ${truth.toFixed(3)}km`
+  );
+  assert.ok(corrected.bridgedKm > 0, "correction diagnostic not recorded");
 
-  // Healthy ~1Hz delivery: bridging must change nothing at all.
-  const healthy = (bridging) => {
+  // Healthy ~1Hz delivery with honest Doppler: the two engines must agree
+  // closely — in this sim Doppler has no bias, so any spread is chord noise.
+  const healthy = (correctedMode) => {
     const t = new GeoTracker();
-    t.gapBridging = bridging;
+    t.correctedDistance = correctedMode;
     const w = makeWorld(t, mulberry32(12), { accuracy: 12 });
     w.speedMps = 2.8;
     w.advance(300);
     return t.distanceKm;
   };
-  assert.strictEqual(healthy(true), healthy(false), "bridging altered a healthy run");
+  const spread = Math.abs(healthy(true) - healthy(false));
+  assert.ok(
+    spread / ((300 * 2.8) / 1000) < 0.02,
+    `engines disagree by ${(spread * 1000).toFixed(0)}m on a healthy run`
+  );
 });
 
-scenario("gap bridging credits ~nothing to a runner who stopped mid-gap", () => {
+scenario("corrected engine credits ~nothing to a runner who stopped mid-gap", () => {
   const t = new GeoTracker();
-  t.gapBridging = true;
+  t.correctedDistance = true;
   const w = makeWorld(t, mulberry32(13), { accuracy: 12 });
   w.speedMps = 2.8;
   w.advance(120);
-  // Stop under a bridge: no fixes for 25s, and no movement either. The fix
-  // that ends the gap must not be credited with 25s of phantom running.
+  const atStop = t.distanceKm;
+  // Stop under a bridge: no fixes for 25s, and no movement either. The fixes
+  // that end the gap must not turn 25s of standing into phantom running —
+  // Doppler says stationary, so the chord path stays blocked, and the outage
+  // fallback integrates a near-zero speed.
   w.speedMps = 0;
   w.online = false;
   w.advance(25);
   w.online = true;
   w.advance(10);
   assert.ok(
-    t.bridgedKm < 0.012,
-    `stopped-in-gap over-credit: bridged ${(t.bridgedKm * 1000).toFixed(0)}m while standing`
+    t.distanceKm - atStop < 0.015,
+    `stopped-in-gap over-credit: ${((t.distanceKm - atStop) * 1000).toFixed(0)}m while standing`
+  );
+});
+
+scenario("corrected engine: tunnel span is credited once, not twice", () => {
+  // Through a tunnel at speed: no fixes at all for 30s. On exit the Doppler
+  // fallback pays for the capped tail of the gap and the first accepted chord
+  // spans the rest — the two must reconcile to roughly the true distance,
+  // never the sum of both.
+  const t = new GeoTracker();
+  t.correctedDistance = true;
+  const w = makeWorld(t, mulberry32(14), { accuracy: 10 });
+  w.speedMps = 3;
+  w.advance(120);
+  w.online = false; // into the tunnel, still running
+  w.advance(30);
+  w.online = true;
+  w.advance(30);
+  const truth = (180 * 3) / 1000;
+  assert.ok(
+    Math.abs(t.distanceKm - truth) / truth < 0.08,
+    `tunnel run measured ${t.distanceKm.toFixed(3)}km for ${truth.toFixed(3)}km (double-count or freeze)`
   );
 });
 

@@ -187,7 +187,7 @@ async function stubAuth(page, me) {
   // innerText reflects the CSS text-transform — compare case-insensitively.
   const diag = await page.locator(".run-detail .gps-diag").innerText();
   assert.match(diag, /1\.2s avg/i, `gps diag missing figures: ${diag}`);
-  assert.match(diag, /recovered 110m/i, `gps diag missing bridged metres: ${diag}`);
+  assert.match(diag, /added 110m/i, `gps diag missing correction metres: ${diag}`);
   assert.strictEqual(await page.locator(".run-export-link").count(), 1, "export link missing");
   assert.strictEqual(await page.locator(".split-chart-bar.fastest").count(), 1, "fastest bars");
   const fastestTime = await page.locator(".split-chart-time.fastest").innerText();

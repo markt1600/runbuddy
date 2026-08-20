@@ -361,14 +361,14 @@ export default function SetupScreen({
       <div className="card" style={{ padding: "12px 16px" }}>
         <label className="switch-row">
           <span className="switch-text">
-            Approximate distance correction
+            Distance correction
             <span className="switch-sub">
-              A locked phone gets GPS fixes less often, and stretches between
-              them can go uncounted — runs read short next to a watch. This
-              bridges those stretches from your position and speed, never
-              crediting more than either supports. The run summary shows how
-              much it recovered; switch it off to compare against your watch
-              without it.
+              Measures distance from your actual GPS track instead of
+              integrating speed readings, which real runs showed reading a few
+              percent short next to a watch. Speed readings still guard
+              against standing-still drift and fill signal outages. The run
+              summary shows the correction&apos;s effect; switch it off to fall
+              back to the old measurement.
             </span>
           </span>
           <input

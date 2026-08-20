@@ -199,7 +199,7 @@ export default function RunScreen({
     // requested and nothing about speed, distance or route is tracked.
     if (!treadmill) {
       geo.autoPauseEnabled = autoPause;
-      geo.gapBridging = distanceCorrection;
+      geo.correctedDistance = distanceCorrection;
       // Both edges arrive back-dated to the fix where movement actually turned,
       // so the ~2s the detector spends confirming costs nothing on the clock.
       geo.onAutoPause = (at) => {

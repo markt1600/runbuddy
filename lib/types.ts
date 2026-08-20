@@ -107,6 +107,6 @@ export interface RunStats {
     avgFixGapSec: number | null;
     maxFixGapSec: number;
     overCapSec: number; // run-seconds beyond the integrator's per-fix credit cap
-    bridgedKm: number; // distance recovered by the approximate correction
+    bridgedKm: number; // the correction's net effect vs the legacy engine
   };
 }

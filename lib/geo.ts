@@ -56,14 +56,21 @@ const ARM_MOVE_M = 15;
 const ARM_SETTLE_MS = 3000;
 const ARM_WINDOW_MS = 6000;
 
-// Gap bridging ("approximate distance correction"). The Doppler trapezoid
-// credits at most MAX_GAP_S per fix interval, so when iOS delivers fixes
-// sparsely — a locked phone in an arm sleeve — every interval past the cap is
-// distance silently thrown away: at 2–6 s fix spacing a 10 km run reads ~3%
-// short. When a usable fix ends a longer interval, credit the smoothed-position
-// chord across it instead (minus whatever the trapezoid already granted).
-// The recovery is bounded by the position chord AND by the clipped seconds at
-// the bracketing Doppler speed, so it can only give back what the cap took.
+// Distance crediting ("distance correction" in setup) has two engines:
+//
+// CORRECTED (default): distance is the sum of gated chords between accepted
+// smoothed fixes — the same polyline the route stores. Doppler is demoted to
+// what it is uniquely good at: declaring the phone stationary (which blocks
+// chord steps, so a standing phone still can't creep), driving the speed
+// display, and FILLING position outages — while good fixes are absent, the
+// trapezoid credits live, and the first chord after re-acquire is reduced by
+// what the outage already earned so the stretch is never counted twice.
+//
+// LEGACY (toggle off): the original Doppler-first trapezoid. Kept as the
+// rollback because it is jitter-proof by construction — but a real 10 km run
+// showed it reading ~2.7% short of its own accepted position track (Doppler
+// dips at turns and gait noise integrate low; position keeps advancing), so
+// it is no longer the default.
 
 export function haversineKm(a: GeoSample, b: GeoSample): number {
   const R = 6371;
@@ -124,14 +131,14 @@ export class GeoTracker {
   onArmedResume: ((atMs: number) => void) | null = null;
   distanceKm = 0;
   lastError: string | null = null;
-  /** Bridge long fix gaps with the position chord (user preference). */
-  gapBridging = true;
-  private bridgeAnchor: GeoSample | null = null;
-  private trapezoidKmThisFix = 0; // what the Doppler credit granted for the current fix
-  private clippedSecThisFix = 0; // seconds the trapezoid cap threw away at this fix
-  private bridgeSpeedMps = 0; // the speed estimate those seconds would have earned
-  /** Metres recovered by gap bridging this run — surfaced on the summary. */
-  bridgedKm = 0;
+  /** Chord-primary distance engine (user preference; off = legacy Doppler). */
+  correctedDistance = true;
+  // Doppler credit granted while good fixes were absent — subtracted from the
+  // first chord that spans the outage, so the stretch counts exactly once.
+  private outagePoolKm = 0;
+  // What the legacy engine would have read, integrated in parallel — the
+  // difference is the correction's net effect, surfaced on the summary.
+  private shadowLegacyKm = 0;
   // Fix-delivery diagnostics, to tell "GPS was sparse" from "run was short".
   private fixGapCount = 0;
   private fixGapSumSec = 0;
@@ -172,8 +179,6 @@ export class GeoTracker {
           if (gapSec > MAX_GAP_S) this.fixGapOverCapSec += gapSec - MAX_GAP_S;
         }
         this.lastFixAt = now;
-        this.trapezoidKmThisFix = 0;
-        this.clippedSecThisFix = 0;
         this.lastAccuracy = s.accuracy;
         this.lastPosition = { lat: s.lat, lon: s.lon };
         this.lastError = null;
@@ -197,20 +202,24 @@ export class GeoTracker {
             this.speedEma === null
               ? kmh
               : this.speedEma + SPEED_SMOOTHING * (kmh - this.speedEma);
-          // Integrate speed over time rather than summing position deltas.
-          // Position noise is unsigned, so summing deltas always overstates
-          // the distance; speed noise is symmetric, so integrating it doesn't.
-          const rawGapSec = (now - this.lastSpeedAt) / 1000;
-          const dtSec = Math.min(rawGapSec, MAX_GAP_S);
+          // The Doppler trapezoid: the legacy engine's integrand, still run in
+          // parallel as the shadow reading (its distance from the corrected
+          // one is the correction diagnostic) — and, in corrected mode, the
+          // live credit while good position fixes are absent, so the counter
+          // keeps ticking through an urban canyon instead of freezing.
+          const dtSec = Math.min((now - this.lastSpeedAt) / 1000, MAX_GAP_S);
           if (this.dopplerSeen && dtSec > 0 && !this.paused) {
             const add = (((this.lastSpeedMps + mps) / 2) * dtSec) / 1000;
-            this.distanceKm += add;
-            // Remembered for gap bridging (position domain, below): what this
-            // interval already earned, how many of its seconds the cap threw
-            // away, and what speed those seconds would have integrated at.
-            this.trapezoidKmThisFix = add;
-            this.clippedSecThisFix = rawGapSec - dtSec;
-            this.bridgeSpeedMps = (this.lastSpeedMps + mps) / 2;
+            this.shadowLegacyKm += add;
+            if (!this.correctedDistance) {
+              this.distanceKm += add;
+            } else if (
+              this.lastGoodFixAt === 0 ||
+              now - this.lastGoodFixAt > MAX_GAP_S * 1000
+            ) {
+              this.distanceKm += add;
+              this.outagePoolKm += add;
+            }
           }
           this.dopplerSeen = true;
           this.lastSpeedMps = mps;
@@ -245,80 +254,54 @@ export class GeoTracker {
     this.lastAutoResumeAt = Date.now();
   }
 
-  /** Route, anchor and the position-derived distance fallback. Accurate fixes only. */
+  /** Route, anchor and chord-based distance crediting. Accurate fixes only. */
   private trackPosition(s: GeoSample, now: number) {
-    const prevGoodFixAt = this.lastGoodFixAt;
     this.lastGoodFixAt = now;
 
     // Smooth the position before it is used for anything. This is the
-        // standard scalar Kalman filter: trust the new fix in proportion to
-        // how it compares with our accumulated uncertainty, which grows with
-        // however far we could plausibly have moved since the last one.
-        const f = this.smooth(s);
-        // Distance from positions is the fallback for devices that give us no
-        // speed at all (and for a long Doppler dropout mid-run).
-        const useDelta = !this.dopplerSeen || now - this.lastSpeedAt > DOPPLER_STALE_MS;
+    // standard scalar Kalman filter: trust the new fix in proportion to
+    // how it compares with our accumulated uncertainty, which grows with
+    // however far we could plausibly have moved since the last one.
+    const f = this.smooth(s);
+    // Legacy engine only: positions credit distance when Doppler is absent or
+    // has gone stale. (In corrected mode chords are always the integrand.)
+    const useDelta = !this.dopplerSeen || now - this.lastSpeedAt > DOPPLER_STALE_MS;
 
-        // Gap bridging: the trapezoid cap threw seconds away at this fix —
-        // recover them, bounded by BOTH independent measurements of the gap.
-        // The chord bound (you cannot have covered more ground than the line
-        // between where you vanished and where you reappeared) stops a runner
-        // who paused mid-gap from being credited with motion; the speed bound
-        // (the clipped seconds at the bracketing Doppler speed) stops unsigned
-        // position noise from accumulating — chord noise only ever points
-        // outward, which is exactly the phantom distance this tracker's
-        // Doppler-first design exists to avoid, and an unbounded chord credit
-        // reintroduced it at +3% in simulation. Delta mode is excluded: its
-        // anchor arithmetic already spans gaps uncapped.
-        const gapSec = prevGoodFixAt > 0 ? (now - prevGoodFixAt) / 1000 : 0;
-        if (
-          this.gapBridging &&
-          !this.paused &&
-          !useDelta &&
-          this.bridgeAnchor !== null &&
-          this.clippedSecThisFix > 0
-        ) {
-          // Raw fixes, not smoothed: the Kalman estimate lags its inputs, and
-          // a chord between two lagging endpoints reads systematically short —
-          // in simulation it cut the recovery to a third of what was lost.
-          // Raw noise is symmetric, and the speed bound already clips the high
-          // side, so raw is both fuller and still safe.
-          const chordKm = haversineKm(this.bridgeAnchor, s);
-          const chordKmh = gapSec > 0 ? chordKm / (gapSec / 3600) : Infinity;
-          const chordBoundKm = chordKm - this.trapezoidKmThisFix;
-          const speedBoundKm = (this.bridgeSpeedMps * this.clippedSecThisFix) / 1000;
-          const recovered = Math.min(chordBoundKm, speedBoundKm);
-          // A chord implying faster-than-runner travel is GPS error, not travel.
-          if (chordKmh < MAX_SPEED_KMH && recovered > 0) {
-            this.distanceKm += recovered;
-            this.bridgedKm += recovered;
-          }
+    if (this.paused) {
+      // Keep the anchor under the phone so whatever you do while paused —
+      // walk back to the car, queue for water — isn't waiting to be added
+      // to the total the moment you hit resume. The outage pool dies with
+      // the old anchor: the chord it belonged to no longer exists.
+      this.last = f;
+      this.outagePoolKm = 0;
+    } else if (!this.last) {
+      this.last = f;
+      this.pushRoutePoint(f);
+    } else if (!this.stationary) {
+      const d = haversineKm(this.last, f);
+      const dtHrs = (f.timestamp - this.last.timestamp) / 3_600_000;
+      // The gate scales with the accuracy circle: a fix good to 20 m can
+      // easily jitter 10 m, so 3 m of "movement" proves nothing. Anything
+      // under the gate leaves the anchor where it is rather than dragging
+      // it along with the noise — that's what stops a stationary phone
+      // from quietly clocking up a kilometre.
+      const gateKm = Math.max(MIN_MOVE_M, s.accuracy * ACCURACY_FACTOR) / 1000;
+      if (d > gateKm && (dtHrs <= 0 || d / dtHrs < MAX_SPEED_KMH)) {
+        if (this.correctedDistance) {
+          // The chord may span a position outage the Doppler fallback
+          // already paid for — credit only the shortfall, so the stretch
+          // counts once whichever engine saw it first.
+          this.distanceKm += Math.max(0, d - this.outagePoolKm);
+          this.outagePoolKm = 0;
+          if (useDelta) this.shadowLegacyKm += d; // legacy would credit here too
+        } else if (useDelta) {
+          this.distanceKm += d;
+          this.shadowLegacyKm += d;
         }
-        this.bridgeAnchor = s;
-
-        if (this.paused) {
-          // Keep the anchor under the phone so whatever you do while paused —
-          // walk back to the car, queue for water — isn't waiting to be added
-          // to the total the moment you hit resume.
-          this.last = f;
-        } else if (!this.last) {
-          this.last = f;
-          this.pushRoutePoint(f);
-        } else if (!this.stationary) {
-          const d = haversineKm(this.last, f);
-          const dtHrs = (f.timestamp - this.last.timestamp) / 3_600_000;
-          // The gate scales with the accuracy circle: a fix good to 20 m can
-          // easily jitter 10 m, so 3 m of "movement" proves nothing. Anything
-          // under the gate leaves the anchor where it is rather than dragging
-          // it along with the noise — that's what stops a stationary phone
-          // from quietly clocking up a kilometre.
-          const gateKm = Math.max(MIN_MOVE_M, s.accuracy * ACCURACY_FACTOR) / 1000;
-          if (d > gateKm && (dtHrs <= 0 || d / dtHrs < MAX_SPEED_KMH)) {
-            if (useDelta) this.distanceKm += d;
-            this.last = f;
-            this.pushRoutePoint(f);
-          }
-        }
+        this.last = f;
+        this.pushRoutePoint(f);
+      }
+    }
 
     const sample = { t: now, km: this.distanceKm };
     this.recent.push(sample);
@@ -524,6 +507,13 @@ export class GeoTracker {
    * reads short, so the summary shows this instead of leaving the drift a
    * mystery.
    */
+  /** The correction's net effect: corrected reading minus what legacy would
+   *  have read. Kept under the historical `bridgedKm` name so older saved
+   *  runs and the summary line stay compatible. */
+  get bridgedKm(): number {
+    return this.correctedDistance ? Math.max(0, this.distanceKm - this.shadowLegacyKm) : 0;
+  }
+
   fixDiagnostics(): {
     avgFixGapSec: number | null;
     maxFixGapSec: number;
