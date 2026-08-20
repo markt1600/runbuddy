@@ -140,7 +140,7 @@ export class GeoTracker {
   /** Most recent fix of any accuracy — good enough for weather / geocoding. */
   lastPosition: { lat: number; lon: number } | null = null;
   /** Accepted fixes forming the run's path (downsampled when long). */
-  route: { lat: number; lon: number }[] = [];
+  route: { lat: number; lon: number; t?: number }[] = [];
 
   start(onUpdate: () => void) {
     if (!("geolocation" in navigator)) {
@@ -498,7 +498,13 @@ export class GeoTracker {
   }
 
   private pushRoutePoint(s: GeoSample) {
-    this.route.push({ lat: s.lat, lon: s.lon });
+    // t: seconds since the watch started — makes a saved trace re-analyzable
+    // offline (fix cadence, per-segment speed) without growing the payload much.
+    this.route.push({
+      lat: s.lat,
+      lon: s.lon,
+      t: Math.round((s.timestamp - this.startedAt) / 1000),
+    });
     // Keep the path drawable: halve resolution once it gets long, keeping ends
     if (this.route.length > 1500) {
       this.route = this.route.filter((_, i) => i % 2 === 0 || i === this.route.length - 1);

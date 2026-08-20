@@ -144,6 +144,7 @@ async function stubAuth(page, me) {
           lastKmSpeedKmh: null, avgSpeedKmh: 9.7,
           startedAt: RUNS[0].startedAt,
           wallElapsedMs: RUNS[0].wallSec * 1000,
+          gps: { avgFixGapSec: 1.2, maxFixGapSec: 9, overCapSec: 14, bridgedKm: 0.11 },
         },
       }),
     });
@@ -182,6 +183,12 @@ async function stubAuth(page, me) {
   const mapPaths = await page.locator(".route-tile-map .leaflet-overlay-pane path").count();
   assert.ok(mapPaths >= 3, `expected polyline + 2 markers, got ${mapPaths} paths`);
   assert.strictEqual(await page.locator(".split-chart-row").count(), SPLITS.length, "chart rows");
+  // The saved GPS delivery line and the raw-data export travel with the run.
+  // innerText reflects the CSS text-transform — compare case-insensitively.
+  const diag = await page.locator(".run-detail .gps-diag").innerText();
+  assert.match(diag, /1\.2s avg/i, `gps diag missing figures: ${diag}`);
+  assert.match(diag, /recovered 110m/i, `gps diag missing bridged metres: ${diag}`);
+  assert.strictEqual(await page.locator(".run-export-link").count(), 1, "export link missing");
   assert.strictEqual(await page.locator(".split-chart-bar.fastest").count(), 1, "fastest bars");
   const fastestTime = await page.locator(".split-chart-time.fastest").innerText();
   assert.match(fastestTime, /5:48/, `fastest split label: ${fastestTime}`);

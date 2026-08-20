@@ -43,6 +43,7 @@ function SplitChart({ splits }: { splits: number[] }) {
 
 export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
   const [stats, setStats] = useState<RunStats | null>(null);
+  const [payload, setPayload] = useState<unknown>(null);
   const [failed, setFailed] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -52,7 +53,9 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
     void fetch(`/api/runs/${encodeURIComponent(run.id)}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
       .then((data: { stats: RunStats }) => {
-        if (!cancelled) setStats(data.stats);
+        if (cancelled) return;
+        setStats(data.stats);
+        setPayload(data);
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -61,6 +64,36 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
       cancelled = true;
     };
   }, [run.id]);
+
+  // The run's raw record, as a file — for backup, or for debugging distance
+  // questions (the gps block + route are the evidence). Share sheet first so
+  // an iPhone can AirDrop / message it; plain download elsewhere.
+  const exportData = async () => {
+    if (!payload) return;
+    const name = `runbuddy-${new Date(run.startedAt).toISOString().slice(0, 10)}.json`;
+    const blob = new Blob([JSON.stringify(payload, null, 1)], { type: "application/json" });
+    const file = new File([blob], name, { type: "application/json" });
+    const nav = navigator as Navigator & {
+      canShare?: (d?: ShareData) => boolean;
+      share?: (d?: ShareData) => Promise<void>;
+    };
+    if (nav.canShare?.({ files: [file] }) && nav.share) {
+      try {
+        await nav.share({ files: [file] });
+        return;
+      } catch {
+        /* dismissed or unsupported — fall through to download */
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  };
 
   const doDelete = async () => {
     setDeleting(true);
@@ -146,6 +179,26 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
           </div>
         </>
       )}
+      {/* Same GPS delivery line the summary shows, preserved with the run —
+          the difference between "the run was short" and "iOS starved the
+          tracker of fixes". */}
+      {stats?.gps && stats.gps.avgFixGapSec !== null && (
+        <div className="gps-diag">
+          GPS fix every {stats.gps.avgFixGapSec.toFixed(1)}s avg · longest gap{" "}
+          {Math.round(stats.gps.maxFixGapSec)}s
+          {stats.gps.overCapSec >= 1 &&
+            ` · ${Math.round(stats.gps.overCapSec)}s beyond the credit cap`}
+          {stats.gps.bridgedKm >= 0.005 &&
+            ` · correction recovered ${Math.round(stats.gps.bridgedKm * 1000)}m`}
+        </div>
+      )}
+
+      {payload !== null && (
+        <button className="run-export-link" onClick={() => void exportData()}>
+          ⇩ Export run data (JSON)
+        </button>
+      )}
+
       {failed && <div className="home-empty">Couldn&apos;t load the full stats for this run.</div>}
       {!failed && stats === null && <div className="home-empty">Loading…</div>}
 

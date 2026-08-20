@@ -88,7 +88,7 @@ export interface RunStats {
   lastKmSpeedKmh: number | null; // moving average over the last full km
   avgSpeedKmh: number | null; // whole run
   splits: number[]; // ms per completed km
-  route: { lat: number; lon: number }[]; // GPS path of the run
+  route: { lat: number; lon: number; t?: number }[]; // GPS path; t = sec since start
   treadmill?: boolean; // time-target run: no GPS, speed or route
   targetMinutes?: number; // the duration goal, when running to time
   targetKm?: number; // the distance goal, when one was set
