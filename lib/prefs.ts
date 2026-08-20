@@ -76,14 +76,19 @@ export function saveTargetMin(v: number) {
 // Optional target pace (seconds per km), outdoor only. 0 = no target. Unlike
 // the distance/time targets there are no completion checkpoints — the coach
 // just keeps judging you against the number: praise on pace, a push off it.
-export const TARGET_PACE_OPTIONS = [0, 240, 270, 300, 330, 360, 390, 420, 450] as const;
+// 5:00–8:30 in 10s steps: pace goals are fine-grained in a way distance
+// goals aren't — 6:00 vs 6:10 is a real difference over 10 km.
+export const TARGET_PACE_OPTIONS = [
+  0,
+  ...Array.from({ length: 22 }, (_, i) => 300 + i * 10),
+];
 
 const TARGET_PACE_KEY = "runbuddy-target-pace";
 
 export function loadTargetPace(): number {
   try {
     const v = Number(localStorage.getItem(TARGET_PACE_KEY));
-    if (TARGET_PACE_OPTIONS.includes(v as (typeof TARGET_PACE_OPTIONS)[number])) return v;
+    if (TARGET_PACE_OPTIONS.includes(v)) return v;
   } catch {
     /* private mode */
   }

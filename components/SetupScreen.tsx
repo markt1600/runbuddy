@@ -270,22 +270,22 @@ export default function SetupScreen({
                 min={1}
                 max={TARGET_PACE_OPTIONS.length - 1}
                 step={1}
-                value={Math.max(
-                  1,
-                  TARGET_PACE_OPTIONS.indexOf(
-                    targetPaceSec as (typeof TARGET_PACE_OPTIONS)[number]
-                  )
-                )}
+                value={Math.max(1, TARGET_PACE_OPTIONS.indexOf(targetPaceSec))}
                 onChange={(e) =>
                   onTargetPaceSecChange(TARGET_PACE_OPTIONS[Number(e.target.value)])
                 }
               />
+              {/* Steps are 10s; labelling every one would be soup. The half-
+                  minute marks are evenly spaced on the 10s grid, so a plain
+                  space-between row still lines up with the track. */}
               <div className="target-ticks pace-ticks">
-                {TARGET_PACE_OPTIONS.slice(1).map((sec) => (
-                  <span key={sec} className={sec === targetPaceSec ? "on" : ""}>
-                    {formatTargetPace(sec)}
-                  </span>
-                ))}
+                {TARGET_PACE_OPTIONS.slice(1)
+                  .filter((sec) => sec % 30 === 0)
+                  .map((sec) => (
+                    <span key={sec} className={sec === targetPaceSec ? "on" : ""}>
+                      {formatTargetPace(sec)}
+                    </span>
+                  ))}
               </div>
             </>
           ) : mode === "distance" ? (

@@ -45,6 +45,27 @@ assert.ok(
 assert.match(runColors.font, /Fraunces/, "timer not set in the display face");
 await page.screenshot({ path: `${OUT}/02-run.png`, fullPage: true });
 
+// Lock, then hold-to-unlock: the unlock must land already paused — you
+// unlocked to do something, not to hunt for the pause button while the
+// clock eats your pace.
+await page.locator('[aria-label="Lock screen for armband"]').click();
+await page.waitForTimeout(300);
+assert.strictEqual(await page.locator(".lock-overlay").count(), 1, "lock overlay missing");
+const pad = await page.locator(".unlock-pad").boundingBox();
+await page.mouse.move(pad.x + pad.width / 2, pad.y + pad.height / 2);
+await page.mouse.down();
+await page.waitForTimeout(1700); // > the 1.5s hold
+await page.mouse.up();
+await page.waitForTimeout(500); // > the 250ms release settle
+assert.strictEqual(await page.locator(".lock-overlay").count(), 0, "hold-to-unlock failed");
+assert.match(
+  await page.locator(".control-btn.pause").innerText(),
+  /resume/i,
+  "unlock did not auto-pause the run"
+);
+await page.locator(".control-btn.pause").click(); // back to running for the walk
+await page.waitForTimeout(400);
+
 // Walk far enough to leave a route, then end → summary + card.
 for (let i = 0; i < 24; i++) {
   await context.setGeolocation({

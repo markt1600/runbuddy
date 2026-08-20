@@ -344,17 +344,18 @@ export default function RunScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const pauseRun = () => {
+    accumulatedRef.current += Date.now() - startAtRef.current;
+    pausedRef.current = true;
+    setPaused(true);
+    if (geoRef.current) geoRef.current.paused = true;
+    signalTransition("pause");
+    coachRef.current?.onPause();
+  };
+
   const togglePause = () => {
-    if (pausedRef.current) {
-      resumeRun();
-    } else {
-      accumulatedRef.current += Date.now() - startAtRef.current;
-      pausedRef.current = true;
-      setPaused(true);
-      if (geoRef.current) geoRef.current.paused = true;
-      signalTransition("pause");
-      coachRef.current?.onPause();
-    }
+    if (pausedRef.current) resumeRun();
+    else pauseRun();
   };
 
   /**
@@ -456,6 +457,13 @@ export default function RunScreen({
         unlockingRef.current = false;
         setHoldPct(0);
         setLocked(false);
+        // Unlocking mid-run means you're stopping to do something — pause in
+        // the same gesture rather than demanding a second press while the
+        // clock eats your pace. Not during the start countdown (nothing is
+        // running yet) and not when already paused however that happened.
+        if (!pausedRef.current && countdownRef.current === 0 && !finishedRef.current) {
+          pauseRun();
+        }
       }, 250);
     } else {
       if (holdRef.current) cancelAnimationFrame(holdRef.current.raf);
