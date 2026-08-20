@@ -85,12 +85,18 @@ interface AdminRun {
   treadmill?: boolean;
   targetMinutes?: number;
   targetKm?: number;
+  targetPaceSec?: number;
 }
 
 /** What the runner set out to do, from the run's saved configuration. */
 function targetLabel(run: AdminRun): string {
   if (run.treadmill && run.targetMinutes) return `${run.targetMinutes} min target (treadmill)`;
   if (run.targetKm) return `${run.targetKm} km target`;
+  if (run.targetPaceSec) {
+    const m = Math.floor(run.targetPaceSec / 60);
+    const s = run.targetPaceSec % 60;
+    return `${m}:${s.toString().padStart(2, "0")} /km target`;
+  }
   return "free run";
 }
 

@@ -274,6 +274,14 @@ Plus: a 4 s warm-up discard (cold-start fixes are the worst a receiver ever
 produces), `maximumAge: 0` so a cached fix is never replayed as new, and a
 30 m accuracy ceiling for anything touching the route.
 
+Targets come in three flavours (Setup → Target): a **distance** goal with
+percentage checkpoints and a talked run-in, a **time** goal (treadmill mode —
+no GPS at all), or a **target pace** (outdoor only) — no checkpoints, the
+coach just keeps checking you against the number every couple of minutes:
+praise while you hold it, a push when you're more than ~4% over it, silence
+in the narrow band between so a marginal pace doesn't get flip-flop
+commentary. Km markers fire in every mode.
+
 Simulated against synthetic noise, this holds a 10-minute stationary phone to
 0 m of phantom distance with Doppler (13 m without), and tracks running,
 walking, intervals, tunnels and Doppler dropouts to within 2.5% of truth.

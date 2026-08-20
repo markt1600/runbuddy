@@ -78,6 +78,7 @@ export interface EnrichedRun extends RunSummary {
   treadmill?: boolean;
   targetMinutes?: number;
   targetKm?: number;
+  targetPaceSec?: number;
 }
 
 export async function enrichedRunsByHash(uid: string, cap = 100): Promise<EnrichedRun[]> {
@@ -93,6 +94,7 @@ export async function enrichedRunsByHash(uid: string, cap = 100): Promise<Enrich
           treadmill: body.stats?.treadmill,
           targetMinutes: body.stats?.targetMinutes,
           targetKm: body.stats?.targetKm,
+          targetPaceSec: body.stats?.targetPaceSec,
         };
       } catch {
         return summary;

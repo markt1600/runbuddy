@@ -73,6 +73,38 @@ export function saveTargetMin(v: number) {
   }
 }
 
+// Optional target pace (seconds per km), outdoor only. 0 = no target. Unlike
+// the distance/time targets there are no completion checkpoints — the coach
+// just keeps judging you against the number: praise on pace, a push off it.
+export const TARGET_PACE_OPTIONS = [0, 240, 270, 300, 330, 360, 390, 420, 450] as const;
+
+const TARGET_PACE_KEY = "runbuddy-target-pace";
+
+export function loadTargetPace(): number {
+  try {
+    const v = Number(localStorage.getItem(TARGET_PACE_KEY));
+    if (TARGET_PACE_OPTIONS.includes(v as (typeof TARGET_PACE_OPTIONS)[number])) return v;
+  } catch {
+    /* private mode */
+  }
+  return 0;
+}
+
+export function saveTargetPace(v: number) {
+  try {
+    localStorage.setItem(TARGET_PACE_KEY, String(v));
+  } catch {
+    /* private mode */
+  }
+}
+
+/** "330 → 5:30" — the pace options rendered the way runners read them. */
+export function formatTargetPace(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export function chattinessLabel(v: number): string {
   if (v <= 0.5) return "Rare";
   if (v <= 0.75) return "Quieter";

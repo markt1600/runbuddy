@@ -92,6 +92,7 @@ export interface RunStats {
   treadmill?: boolean; // time-target run: no GPS, speed or route
   targetMinutes?: number; // the duration goal, when running to time
   targetKm?: number; // the distance goal, when one was set
+  targetPaceSec?: number; // the pace goal (sec/km), when one was set — outdoor only
   /** Wall-clock start (after any countdown) — elapsedMs excludes pauses, so
    *  run history needs both to show moving time AND total elapsed time. */
   startedAt?: number;

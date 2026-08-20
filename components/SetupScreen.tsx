@@ -14,8 +14,10 @@ import {
   CHATTINESS_MIN,
   START_DELAY_SEC,
   TARGET_OPTIONS,
+  TARGET_PACE_OPTIONS,
   TARGET_TIME_OPTIONS,
   chattinessLabel,
+  formatTargetPace,
 } from "@/lib/prefs";
 import type { SpeedUnit } from "@/lib/units";
 import type { MusicSource, PersonaId } from "@/lib/types";
@@ -60,6 +62,8 @@ interface Props {
   onTargetKmChange: (v: number) => void;
   targetMin: number;
   onTargetMinChange: (v: number) => void;
+  targetPaceSec: number;
+  onTargetPaceSecChange: (v: number) => void;
   autoPause: boolean;
   onAutoPauseChange: (on: boolean) => void;
   distanceCorrection: boolean;
@@ -82,6 +86,8 @@ export default function SetupScreen({
   onTargetKmChange,
   targetMin,
   onTargetMinChange,
+  targetPaceSec,
+  onTargetPaceSecChange,
   autoPause,
   onAutoPauseChange,
   distanceCorrection,
@@ -90,8 +96,14 @@ export default function SetupScreen({
   onStartDelayChange,
 }: Props) {
   const [libraryReady, setLibraryReady] = useState(false);
-  const mode: "none" | "distance" | "time" =
-    targetMin > 0 ? "time" : targetKm > 0 ? "distance" : "none";
+  const mode: "none" | "distance" | "time" | "pace" =
+    targetMin > 0
+      ? "time"
+      : targetKm > 0
+        ? "distance"
+        : targetPaceSec > 0
+          ? "pace"
+          : "none";
   // Make sure the rendered-audio registry is loaded before anyone taps play —
   // otherwise the preview would fall back to the robotic on-device voice.
   useEffect(() => {
@@ -195,12 +207,13 @@ export default function SetupScreen({
       </div>
 
       <div className="section-header">Target</div>
-      <div className="segmented">
+      <div className="segmented compact">
         <button
           className={mode === "none" ? "active" : ""}
           onClick={() => {
             onTargetKmChange(0);
             onTargetMinChange(0);
+            onTargetPaceSecChange(0);
           }}
         >
           None
@@ -209,6 +222,7 @@ export default function SetupScreen({
           className={mode === "distance" ? "active" : ""}
           onClick={() => {
             onTargetMinChange(0);
+            onTargetPaceSecChange(0);
             onTargetKmChange(targetKm || 5);
           }}
         >
@@ -218,20 +232,63 @@ export default function SetupScreen({
           className={mode === "time" ? "active" : ""}
           onClick={() => {
             onTargetKmChange(0);
+            onTargetPaceSecChange(0);
             onTargetMinChange(targetMin || 30);
           }}
         >
           Time
+        </button>
+        <button
+          className={mode === "pace" ? "active" : ""}
+          onClick={() => {
+            onTargetKmChange(0);
+            onTargetMinChange(0);
+            onTargetPaceSecChange(targetPaceSec || 360);
+          }}
+        >
+          Pace
         </button>
       </div>
 
       {mode !== "none" && (
         <div className="card" style={{ padding: "14px 16px", marginTop: 10 }}>
           <div className="target-value">
-            {mode === "distance" ? targetKm : targetMin}
-            <span className="target-unit">{mode === "distance" ? " km" : " min"}</span>
+            {mode === "distance"
+              ? targetKm
+              : mode === "time"
+                ? targetMin
+                : formatTargetPace(targetPaceSec)}
+            <span className="target-unit">
+              {mode === "distance" ? " km" : mode === "time" ? " min" : " /km"}
+            </span>
           </div>
-          {mode === "distance" ? (
+          {mode === "pace" ? (
+            <>
+              <input
+                className="target-slider"
+                type="range"
+                min={1}
+                max={TARGET_PACE_OPTIONS.length - 1}
+                step={1}
+                value={Math.max(
+                  1,
+                  TARGET_PACE_OPTIONS.indexOf(
+                    targetPaceSec as (typeof TARGET_PACE_OPTIONS)[number]
+                  )
+                )}
+                onChange={(e) =>
+                  onTargetPaceSecChange(TARGET_PACE_OPTIONS[Number(e.target.value)])
+                }
+              />
+              <div className="target-ticks pace-ticks">
+                {TARGET_PACE_OPTIONS.slice(1).map((sec) => (
+                  <span key={sec} className={sec === targetPaceSec ? "on" : ""}>
+                    {formatTargetPace(sec)}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : mode === "distance" ? (
             <>
               <input
                 className="target-slider"
@@ -281,7 +338,9 @@ export default function SetupScreen({
           <div className="chatter-label">
             {mode === "distance"
               ? `Your buddy calls out 10%, a quarter, a third, halfway, two thirds, three quarters and 90% — then talks you through the run-in to ${targetKm} km.`
-              : `Your buddy calls out the same checkpoints against the clock, then counts you down to ${targetMin} minutes.`}
+              : mode === "time"
+                ? `Your buddy calls out the same checkpoints against the clock, then counts you down to ${targetMin} minutes.`
+                : `Your buddy keeps checking you against ${formatTargetPace(targetPaceSec)} /km — praise while you're on it, a push when you slip off it. Km markers still fire; no checkpoint callouts.`}
           </div>
           {mode === "time" && (
             <div className="treadmill-warning">

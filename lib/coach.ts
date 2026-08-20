@@ -10,6 +10,14 @@ import type { RunHistoryDigest } from "./history";
 const ENCOURAGE_GAP_MS: [number, number] = [50_000, 95_000];
 const ANECDOTE_GAP_MS: [number, number] = [180_000, 300_000];
 const PACE_COOLDOWN_MS = 120_000;
+// Target-pace mode: how far off the target counts as "off it". The dead band
+// between the two keeps a marginal runner from being praised and scolded on
+// alternating checks; being 2 min in is enough for the rolling pace to mean
+// something (vs 3 min for the self-relative comparison, which needs an
+// average worth deviating from).
+const PACE_TARGET_SLOW = 1.04; // >4% over target pace = too slow
+const PACE_TARGET_GOOD = 1.0; // at or under target = on pace
+const PACE_TARGET_MIN_ELAPSED_MS = 120_000;
 // Fractions of the target distance that earn a callout. The requested
 // checkpoints, then a tighter run-in over the last stretch.
 const PROGRESS_MARKS = [0.1, 0.25, 1 / 3, 0.5, 2 / 3, 0.75, 0.9, 0.94, 0.97, 0.99, 1];
@@ -80,6 +88,7 @@ export class CoachEngine {
   private chattiness = 1.0;
   private targetKm = 0;
   private targetMin = 0;
+  private targetPaceSec = 0;
   private progressDone = new Set<number>();
   private openerDone = false;
   private pausedSince = 0;
@@ -93,13 +102,15 @@ export class CoachEngine {
     voice: VoiceEngine,
     chattiness = 1.0,
     targetKm = 0,
-    targetMin = 0
+    targetMin = 0,
+    targetPaceSec = 0
   ) {
     this.persona = persona;
     this.voice = voice;
     this.chattiness = Math.min(2, Math.max(0.5, chattiness));
     this.targetKm = targetKm > 0 ? targetKm : 0;
     this.targetMin = targetMin > 0 ? targetMin : 0;
+    this.targetPaceSec = targetPaceSec > 0 ? targetPaceSec : 0;
   }
 
   /** Treadmill (time-target) runs: checkpoints come off the clock. */
@@ -260,6 +271,8 @@ export class CoachEngine {
       localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       paceMinPerKm: formatPaceShort(pace),
       avgPaceMinPerKm: formatPaceShort(stats.avgPaceSecPerKm),
+      targetPaceMinPerKm:
+        this.targetPaceSec > 0 ? formatPaceShort(this.targetPaceSec) : undefined,
       speedKmh:
         stats.speedNowKmh !== null
           ? Number(stats.speedNowKmh.toFixed(1))
@@ -567,8 +580,34 @@ export class CoachEngine {
       return;
     }
 
-    // 2. Pace reactions
-    if (
+    // 2. Pace reactions. With a target pace set, the yardstick is the target
+    // and the coach checks in every cooldown — good pace or pick it up,
+    // whichever is true right now. Without one, only a real deviation from
+    // the runner's own average earns a comment.
+    if (this.targetPaceSec > 0) {
+      if (
+        now - this.lastPaceEventAt > PACE_COOLDOWN_MS &&
+        stats.paceSecPerKm !== null &&
+        stats.elapsedMs > PACE_TARGET_MIN_ELAPSED_MS
+      ) {
+        const ratio = stats.paceSecPerKm / this.targetPaceSec;
+        // Inside the dead band (0–4% over): say nothing, check again shortly —
+        // half the cooldown, so a marginal stretch resolves quickly.
+        if (ratio > PACE_TARGET_SLOW) {
+          this.lastPaceEventAt = now;
+          if (Math.random() < FRESH_PACE_CHANCE) void this.sayFresh("pace_up", stats);
+          else this.sayFromLibrary("pace_up");
+          return;
+        }
+        if (ratio <= PACE_TARGET_GOOD) {
+          this.lastPaceEventAt = now;
+          if (Math.random() < FRESH_PACE_CHANCE) void this.sayFresh("pace_down", stats);
+          else this.sayFromLibrary("pace_down");
+          return;
+        }
+        this.lastPaceEventAt = now - PACE_COOLDOWN_MS / 2;
+      }
+    } else if (
       now - this.lastPaceEventAt > PACE_COOLDOWN_MS &&
       stats.paceSecPerKm !== null &&
       stats.avgPaceSecPerKm !== null &&

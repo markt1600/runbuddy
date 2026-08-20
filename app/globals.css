@@ -447,6 +447,12 @@ body {
 
 .target-ticks .on { color: var(--accent); }
 
+/* Eight m:ss labels need a touch less type than five bare numbers. */
+.pace-ticks {
+  font-size: 8.5px;
+  letter-spacing: 0.02em;
+}
+
 .target-progress { margin-top: 14px; }
 
 .target-bar {

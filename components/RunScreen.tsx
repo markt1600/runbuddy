@@ -22,6 +22,7 @@ interface Props {
   onChattinessChange: (v: number) => void;
   targetKm: number;
   targetMin: number;
+  targetPaceSec: number;
   autoPause: boolean;
   distanceCorrection: boolean;
   startDelaySec: number;
@@ -41,6 +42,7 @@ export default function RunScreen({
   onChattinessChange,
   targetKm,
   targetMin,
+  targetPaceSec,
   autoPause,
   distanceCorrection,
   startDelaySec,
@@ -134,6 +136,7 @@ export default function RunScreen({
       treadmill,
       targetMinutes: treadmill ? targetMin : undefined,
       targetKm: !treadmill && targetKm > 0 ? targetKm : undefined,
+      targetPaceSec: !treadmill && targetPaceSec > 0 ? targetPaceSec : undefined,
       gps: treadmill ? undefined : geo.fixDiagnostics(),
       startedAt: wallStartRef.current || undefined,
       wallElapsedMs: wallStartRef.current ? Date.now() - wallStartRef.current : undefined,
@@ -188,7 +191,7 @@ export default function RunScreen({
     voice.start();
     voiceRef.current = voice;
 
-    const coach = new CoachEngine(persona, voice, chattiness, targetKm, targetMin);
+    const coach = new CoachEngine(persona, voice, chattiness, targetKm, targetMin, targetPaceSec);
     coach.setRunner(runner ?? null);
     coach.setHistory(history ?? null);
     coachRef.current = coach;

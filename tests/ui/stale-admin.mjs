@@ -25,6 +25,8 @@ const ADMIN_USER_RUNS = [
     wallSec: 3810, personaId: "ahbeng", targetKm: 10 },
   { id: "r2", startedAt: 1755300000000, distanceKm: 0, movingSec: 1800,
     wallSec: 1800, personaId: "coach", treadmill: true, targetMinutes: 30 },
+  { id: "r3", startedAt: 1755200000000, distanceKm: 5.02, movingSec: 1650,
+    wallSec: 1660, personaId: "ahlian", targetPaceSec: 330 },
 ];
 
 async function stubAdminUsers(page) {
@@ -49,12 +51,14 @@ async function stubAdminUsers(page) {
   assert.strictEqual(await page.locator(".admin-user-row").count(), 2, "user rows");
   await page.locator(".admin-user-row").first().click();
   await page.waitForTimeout(600);
-  assert.strictEqual(await page.locator(".admin-run-row").count(), 2, "run rows for user");
+  assert.strictEqual(await page.locator(".admin-run-row").count(), 3, "run rows for user");
   const runsText = await page.locator(".admin-run-row").allInnerTexts();
   assert.ok(runsText.some((t) => /Ah Beng/.test(t) && /10 km target/i.test(t)),
     `distance run missing trainer/target: ${runsText}`);
   assert.ok(runsText.some((t) => /Christine/.test(t) && /30 min target/i.test(t)),
     `treadmill run missing trainer/target: ${runsText}`);
+  assert.ok(runsText.some((t) => /Ah Lian/.test(t) && /5:30 \/km target/i.test(t)),
+    `pace run missing trainer/target: ${runsText}`);
   await page.locator(".back-link", { hasText: "All users" }).click();
   await page.waitForTimeout(300);
   assert.strictEqual(await page.locator(".admin-user-row").count(), 2, "back to user list");

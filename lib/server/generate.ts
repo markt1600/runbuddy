@@ -15,6 +15,7 @@ export interface PhraseContext {
   paceMinPerKm?: string; // current pace, e.g. "6:24"
   avgPaceMinPerKm?: string;
   lastKmPaceMinPerKm?: string; // split for the kilometre just finished
+  targetPaceMinPerKm?: string; // the pace the runner set out to hold
   speedKmh?: number;
   locality?: string; // where the runner is, e.g. "Bishan"
   weather?: string; // e.g. "partly cloudy, 29°C (feels like 33°C)"
@@ -127,6 +128,10 @@ function contextLines(context: PhraseContext): string {
     context.elapsedMin !== undefined ? `Elapsed: ${context.elapsedMin} minutes` : null,
     context.paceMinPerKm ? `Current pace: ${context.paceMinPerKm} min/km` : null,
     context.avgPaceMinPerKm ? `Average pace: ${context.avgPaceMinPerKm} min/km` : null,
+    context.targetPaceMinPerKm
+      ? `They set out to hold a target pace of ${context.targetPaceMinPerKm} min/km — ` +
+        "judge their pace against that, not against their average"
+      : null,
     context.lastKmPaceMinPerKm
       ? `Pace for the kilometre they just finished: ${context.lastKmPaceMinPerKm} min/km`
       : null,

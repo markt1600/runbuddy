@@ -21,6 +21,7 @@ import {
   loadChattiness,
   loadTargetKm,
   loadTargetMin,
+  loadTargetPace,
   loadStartDelay,
   saveAutoPause,
   saveDistanceCorrection,
@@ -28,6 +29,7 @@ import {
   saveStartDelay,
   saveTargetKm,
   saveTargetMin,
+  saveTargetPace,
 } from "@/lib/prefs";
 import type { MusicSource, PersonaId, RunStats } from "@/lib/types";
 import type { RunnerInfo } from "@/lib/coach";
@@ -71,6 +73,7 @@ export default function RunBuddyApp() {
   const [chattiness, setChattinessState] = useState(CHATTINESS_DEFAULT);
   const [targetKm, setTargetKmState] = useState(0);
   const [targetMin, setTargetMinState] = useState(0);
+  const [targetPaceSec, setTargetPaceSecState] = useState(0);
   const [autoPause, setAutoPauseState] = useState(true);
   const [distanceCorrection, setDistanceCorrectionState] = useState(true);
   const [startDelay, setStartDelayState] = useState(false);
@@ -157,6 +160,7 @@ export default function RunBuddyApp() {
     setChattinessState(loadChattiness());
     setTargetKmState(loadTargetKm());
     setTargetMinState(loadTargetMin());
+    setTargetPaceSecState(loadTargetPace());
     setAutoPauseState(loadAutoPause());
     setDistanceCorrectionState(loadDistanceCorrection());
     setStartDelayState(loadStartDelay());
@@ -170,6 +174,11 @@ export default function RunBuddyApp() {
   const setTargetMin = (v: number) => {
     setTargetMinState(v);
     saveTargetMin(v);
+  };
+
+  const setTargetPaceSec = (v: number) => {
+    setTargetPaceSecState(v);
+    saveTargetPace(v);
   };
 
   const setAutoPause = (on: boolean) => {
@@ -286,6 +295,8 @@ export default function RunBuddyApp() {
           onTargetKmChange={setTargetKm}
           targetMin={targetMin}
           onTargetMinChange={setTargetMin}
+          targetPaceSec={targetPaceSec}
+          onTargetPaceSecChange={setTargetPaceSec}
           autoPause={autoPause}
           onAutoPauseChange={setAutoPause}
           distanceCorrection={distanceCorrection}
@@ -305,6 +316,7 @@ export default function RunBuddyApp() {
           onChattinessChange={setChattiness}
           targetKm={targetKm}
           targetMin={targetMin}
+          targetPaceSec={targetPaceSec}
           autoPause={autoPause}
           distanceCorrection={distanceCorrection}
           startDelaySec={startDelay ? START_DELAY_SEC : 0}
