@@ -357,29 +357,6 @@ export default function SetupScreen({
         </div>
       </div>
 
-      <div className="section-header">GPS</div>
-      <div className="card" style={{ padding: "12px 16px" }}>
-        <label className="switch-row">
-          <span className="switch-text">
-            Distance correction
-            <span className="switch-sub">
-              Measures distance from your actual GPS track instead of
-              integrating speed readings, which real runs showed reading a few
-              percent short next to a watch. Speed readings still guard
-              against standing-still drift and fill signal outages. The run
-              summary shows the correction&apos;s effect; switch it off to fall
-              back to the old measurement.
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            role="switch"
-            checked={distanceCorrection}
-            onChange={(e) => onDistanceCorrectionChange(e.target.checked)}
-          />
-        </label>
-      </div>
-
       <div className="section-header">Before You Go</div>
       <div className="card" style={{ padding: "12px 16px", fontSize: 13, color: "var(--label-2)", lineHeight: 1.5 }}>
         {!audioSessionSupported() && (
@@ -394,6 +371,18 @@ export default function SetupScreen({
         Start your music first, then hit Start Run — the voice mixes over it.
         Flip your ringer switch ON so you can hear your buddy. Keep the screen
         on (we&apos;ll dim it into a runner-friendly always-on mode).
+      </div>
+
+      <div className="card" style={{ padding: "12px 16px", marginTop: 10 }}>
+        <label className="switch-row">
+          <span className="switch-text">Distance correction</span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={distanceCorrection}
+            onChange={(e) => onDistanceCorrectionChange(e.target.checked)}
+          />
+        </label>
       </div>
 
     </div>
