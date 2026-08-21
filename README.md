@@ -296,26 +296,27 @@ Simulated against synthetic noise, this holds a 10-minute stationary phone to
 0 m of phantom distance with Doppler (13 m without), and tracks running,
 walking, intervals, tunnels and Doppler dropouts to within 2.5% of truth.
 
-### Distance correction (chord vs Doppler engine)
+### The chord engine (and the Doppler engine it replaced)
 
 Distance used to be integrated from Doppler speed (a trapezoid over
 `coords.speed`), on the argument that speed noise is symmetric where position
 noise is not. A real 10 km run falsified it: the tracker's own accepted
 position track measured 10.02 km while the trapezoid credited 9.74 — Doppler
 dips at turns and gait noise integrate low, and the shortfall was a
-consistent ~2.5–3% across runs. So the chord sum over accepted fixes is now
-the primary engine (the "Distance correction" toggle in Setup → GPS, on by
-default), with Doppler demoted to the three jobs it is genuinely best at:
-declaring the phone stationary, driving the live speed display, and crediting
-distance while good position fixes are absent — an urban canyon doesn't
-freeze the counter, and the first chord after re-acquire is reduced by
-whatever the outage already earned so no stretch counts twice. The legacy
-trapezoid still runs in parallel as a shadow reading; the summary's
-"correction added Xm" is the difference, and switching the toggle off falls
-back to the legacy engine entirely. In simulation the chord engine tracks a
-sparse-fix (2–6 s) run to within 3% — the case that read ~3% short on the
-trapezoid — holds a stopped-mid-gap runner to ~0 phantom metres, and reads a
-10-minute stationary phone at 13 m.
+consistent ~2.5–3% across runs. So the chord sum over accepted fixes is the
+engine, full stop — a field run after the switch matched an Apple Watch to
+0.6%, which retired the rollback toggle. Doppler is demoted to the three
+jobs it is genuinely best at: declaring the phone stationary, driving the
+live speed display, and crediting distance while good position fixes are
+absent — an urban canyon doesn't freeze the counter, and the first chord
+after re-acquire is reduced by whatever the outage already earned so no
+stretch counts twice. The legacy trapezoid still runs in parallel as a
+shadow reading — the summary's "correction added Xm" is the difference, and
+the simulation suite keeps the legacy engine alive as its comparison
+baseline. In simulation the chord engine tracks a sparse-fix (2–6 s) run to
+within 3% — the case that read ~3% short on the trapezoid — holds a
+stopped-mid-gap runner to ~0 phantom metres, and reads a 10-minute
+stationary phone at 13 m.
 
 ## Auto-pause
 

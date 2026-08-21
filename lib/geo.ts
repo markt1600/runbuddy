@@ -56,9 +56,9 @@ const ARM_MOVE_M = 15;
 const ARM_SETTLE_MS = 3000;
 const ARM_WINDOW_MS = 6000;
 
-// Distance crediting ("distance correction" in setup) has two engines:
+// Distance crediting has two engines:
 //
-// CORRECTED (default): distance is the sum of gated chords between accepted
+// CORRECTED (always, in the app): distance is the sum of gated chords between accepted
 // smoothed fixes — the same polyline the route stores. Doppler is demoted to
 // what it is uniquely good at: declaring the phone stationary (which blocks
 // chord steps, so a standing phone still can't creep), driving the speed
@@ -66,11 +66,12 @@ const ARM_WINDOW_MS = 6000;
 // trapezoid credits live, and the first chord after re-acquire is reduced by
 // what the outage already earned so the stretch is never counted twice.
 //
-// LEGACY (toggle off): the original Doppler-first trapezoid. Kept as the
-// rollback because it is jitter-proof by construction — but a real 10 km run
-// showed it reading ~2.7% short of its own accepted position track (Doppler
-// dips at turns and gait noise integrate low; position keeps advancing), so
-// it is no longer the default.
+// LEGACY (correctedDistance = false, sim-only): the original Doppler-first
+// trapezoid. Jitter-proof by construction, but a real 10 km run showed it
+// reading ~2.7% short of its own accepted position track (Doppler dips at
+// turns and gait noise integrate low; position keeps advancing), and the
+// corrected engine then matched a Watch to 0.6% in the field — so it
+// survives only as the simulation suite's comparison baseline.
 
 export function haversineKm(a: GeoSample, b: GeoSample): number {
   const R = 6371;
@@ -131,7 +132,9 @@ export class GeoTracker {
   onArmedResume: ((atMs: number) => void) | null = null;
   distanceKm = 0;
   lastError: string | null = null;
-  /** Chord-primary distance engine (user preference; off = legacy Doppler). */
+  /** Chord-primary distance engine. Permanently on in the app (a field run
+   *  matched a Watch to 0.6%); false exists only so the simulation suite can
+   *  keep the legacy Doppler engine as its comparison baseline. */
   correctedDistance = true;
   // Doppler credit granted while good fixes were absent — subtracted from the
   // first chord that spans the outage, so the stretch counts exactly once.

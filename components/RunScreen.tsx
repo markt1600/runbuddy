@@ -24,7 +24,6 @@ interface Props {
   targetMin: number;
   targetPaceSec: number;
   autoPause: boolean;
-  distanceCorrection: boolean;
   startDelaySec: number;
   /** Signed-in runner's profile — the coach weaves it into improvised lines. */
   runner?: RunnerInfo | null;
@@ -44,7 +43,6 @@ export default function RunScreen({
   targetMin,
   targetPaceSec,
   autoPause,
-  distanceCorrection,
   startDelaySec,
   runner,
   history,
@@ -202,7 +200,9 @@ export default function RunScreen({
     // requested and nothing about speed, distance or route is tracked.
     if (!treadmill) {
       geo.autoPauseEnabled = autoPause;
-      geo.correctedDistance = distanceCorrection;
+      // correctedDistance stays at its default (true): the chord engine is
+      // permanent since a field run validated it to 0.6% of a Watch. The
+      // legacy path survives only as the sim's comparison baseline.
       // Both edges arrive back-dated to the fix where movement actually turned,
       // so the ~2s the detector spends confirming costs nothing on the clock.
       geo.onAutoPause = (at) => {

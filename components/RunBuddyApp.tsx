@@ -17,14 +17,12 @@ import {
   CHATTINESS_DEFAULT,
   START_DELAY_SEC,
   loadAutoPause,
-  loadDistanceCorrection,
   loadChattiness,
   loadTargetKm,
   loadTargetMin,
   loadTargetPace,
   loadStartDelay,
   saveAutoPause,
-  saveDistanceCorrection,
   saveChattiness,
   saveStartDelay,
   saveTargetKm,
@@ -75,7 +73,6 @@ export default function RunBuddyApp() {
   const [targetMin, setTargetMinState] = useState(0);
   const [targetPaceSec, setTargetPaceSecState] = useState(0);
   const [autoPause, setAutoPauseState] = useState(true);
-  const [distanceCorrection, setDistanceCorrectionState] = useState(true);
   const [startDelay, setStartDelayState] = useState(false);
 
   // Boot: who are we, and does sign-in even exist here? Unconfigured or
@@ -162,7 +159,6 @@ export default function RunBuddyApp() {
     setTargetMinState(loadTargetMin());
     setTargetPaceSecState(loadTargetPace());
     setAutoPauseState(loadAutoPause());
-    setDistanceCorrectionState(loadDistanceCorrection());
     setStartDelayState(loadStartDelay());
   }, []);
 
@@ -184,11 +180,6 @@ export default function RunBuddyApp() {
   const setAutoPause = (on: boolean) => {
     setAutoPauseState(on);
     saveAutoPause(on);
-  };
-
-  const setDistanceCorrection = (on: boolean) => {
-    setDistanceCorrectionState(on);
-    saveDistanceCorrection(on);
   };
 
   const setStartDelay = (on: boolean) => {
@@ -299,8 +290,6 @@ export default function RunBuddyApp() {
           onTargetPaceSecChange={setTargetPaceSec}
           autoPause={autoPause}
           onAutoPauseChange={setAutoPause}
-          distanceCorrection={distanceCorrection}
-          onDistanceCorrectionChange={setDistanceCorrection}
           startDelay={startDelay}
           onStartDelayChange={setStartDelay}
         />
@@ -318,7 +307,6 @@ export default function RunBuddyApp() {
           targetMin={targetMin}
           targetPaceSec={targetPaceSec}
           autoPause={autoPause}
-          distanceCorrection={distanceCorrection}
           startDelaySec={startDelay ? START_DELAY_SEC : 0}
           runner={
             auth.user

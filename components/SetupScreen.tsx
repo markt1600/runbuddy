@@ -66,8 +66,6 @@ interface Props {
   onTargetPaceSecChange: (v: number) => void;
   autoPause: boolean;
   onAutoPauseChange: (on: boolean) => void;
-  distanceCorrection: boolean;
-  onDistanceCorrectionChange: (on: boolean) => void;
   startDelay: boolean;
   onStartDelayChange: (on: boolean) => void;
 }
@@ -90,8 +88,6 @@ export default function SetupScreen({
   onTargetPaceSecChange,
   autoPause,
   onAutoPauseChange,
-  distanceCorrection,
-  onDistanceCorrectionChange,
   startDelay,
   onStartDelayChange,
 }: Props) {
@@ -430,18 +426,6 @@ export default function SetupScreen({
         Start your music first, then hit Start Run — the voice mixes over it.
         Flip your ringer switch ON so you can hear your buddy. Keep the screen
         on (we&apos;ll dim it into a runner-friendly always-on mode).
-      </div>
-
-      <div className="card" style={{ padding: "12px 16px", marginTop: 10 }}>
-        <label className="switch-row">
-          <span className="switch-text">Distance correction</span>
-          <input
-            type="checkbox"
-            role="switch"
-            checked={distanceCorrection}
-            onChange={(e) => onDistanceCorrectionChange(e.target.checked)}
-          />
-        </label>
       </div>
 
     </div>
