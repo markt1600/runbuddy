@@ -274,13 +274,23 @@ Plus: a 4 s warm-up discard (cold-start fixes are the worst a receiver ever
 produces), `maximumAge: 0` so a cached fix is never replayed as new, and a
 30 m accuracy ceiling for anything touching the route.
 
-Targets come in three flavours (Setup → Target): a **distance** goal with
-percentage checkpoints and a talked run-in, a **time** goal (treadmill mode —
-no GPS at all), or a **target pace** (outdoor only) — no checkpoints, the
+Targets come in three flavours (Setup → Target): a **distance** goal
+(3–15 km presets plus the half marathon) with percentage checkpoints and a
+talked run-in, a **time** goal (treadmill mode — no GPS at all), or a
+**target pace** (outdoor only) — no checkpoints, the
 coach just keeps checking you against the number every couple of minutes:
 praise while you hold it, a push when you're more than ~4% over it, silence
 in the narrow band between so a marginal pace doesn't get flip-flop
 commentary. Km markers fire in every mode.
+
+Distance-target runs also carry a **world-record moment**: at the exact
+elapsed time where the marathon world-record holder — Kelvin Kiptum
+(2:00:35) for men, Ruth Chepngetich (2:09:56) for women, chosen by the
+account's gender with male as the default — would have finished your target
+at their record pace, the trainer drops a pre-rendered line: who they are,
+what they ran, and that they'd be crossing your finish line right now. One
+line per persona per preset distance per record holder, times baked into
+the recordings (lib/records.ts documents what to update if a record falls).
 
 Simulated against synthetic noise, this holds a 10-minute stationary phone to
 0 m of phantom distance with Doppler (13 m without), and tracks running,

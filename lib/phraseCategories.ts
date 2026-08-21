@@ -36,6 +36,7 @@ export const FIXED_CATEGORY_REASON: Partial<Record<PhraseCategory, string>> = {
   km_marker: "one per kilometre",
   progress_km: "one per target and checkpoint",
   progress_time: "one per target and checkpoint",
+  wr_finish: "one per target and record holder — the times are baked into the words",
   summary: "written live from your actual numbers, never from the library",
 };
 

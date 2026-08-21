@@ -3,6 +3,7 @@ import type { Persona, Phrase, PhraseCategory, PhraseCondition, RunStats } from 
 import type { VoiceEngine } from "./audio";
 import type { RunEnvironment } from "./enviro";
 import type { RunHistoryDigest } from "./history";
+import { wrFinishMs } from "./records";
 
 // CoachEngine — decides WHAT the trainer says and WHEN.
 // tick() is called ~1x/second by the run screen with fresh stats.
@@ -96,6 +97,7 @@ export class CoachEngine {
   private loiterLevel = 0;
   private runner: RunnerInfo | null = null;
   private history: RunHistoryDigest | null = null;
+  private wrToldAt = false;
 
   constructor(
     persona: Persona,
@@ -552,6 +554,25 @@ export class CoachEngine {
       return;
     }
     if (this.targetKm > 0 && this.announceTargetProgress(stats)) return;
+
+    // 0c. The world-record moment: at the elapsed time where the marathon WR
+    // holder — matched to the runner's account gender, male when unset —
+    // would have finished THIS target distance at their record pace, drop the
+    // pre-rendered fact. Once per run, preset distance targets only (those
+    // are the ones with a recording).
+    if (this.targetKm > 0 && !this.wrToldAt) {
+      const g = this.runner?.gender === "female" ? "female" : "male";
+      if (stats.elapsedMs >= wrFinishMs(g, this.targetKm)) {
+        this.wrToldAt = true; // never re-check, even when no line exists
+        const phrase = allPhrasesFor(this.persona.id, "wr_finish").find(
+          (p) => p.target === this.targetKm && p.wr === g
+        );
+        if (phrase) {
+          this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
+          return;
+        }
+      }
+    }
 
     // 1. Kilometre milestones (highest priority). The callout itself is
     // library-only so it lands instantly; improvised colour commentary

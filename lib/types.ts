@@ -23,7 +23,8 @@ export type PhraseCategory =
   | "progress" // generic checkpoint line (fallback)
   | "progress_km" // checkpoint on a preset distance target: percentage + exact remaining
   | "progress_time" // checkpoint on a preset time target
-  | "target_hit"; // the target distance was reached
+  | "target_hit" // the target distance was reached
+  | "wr_finish"; // the marathon WR holder would have finished your target right now
 
 /**
  * What has to be true for a "conditional" phrase to be eligible. Evaluated
@@ -56,6 +57,9 @@ export interface Phrase {
    */
   target?: number;
   mark?: number;
+  /** Only for "wr_finish": whose record this line tells — matched against the
+   *  runner's account gender (male is the default when none is set). */
+  wr?: "male" | "female";
 }
 
 export interface Persona {

@@ -54,6 +54,7 @@ const CATEGORY_LABELS: Record<PhraseCategory, string> = {
   progress_km: "Distance-target checkpoints",
   progress_time: "Time-target checkpoints",
   target_hit: "Target reached",
+  wr_finish: "World-record moments",
 };
 
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS) as PhraseCategory[];

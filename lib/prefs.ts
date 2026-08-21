@@ -27,7 +27,8 @@ export function saveChattiness(v: number) {
 }
 
 // Optional target distance for the run. 0 = no target (default).
-export const TARGET_OPTIONS = [0, 3, 5, 10, 12, 14] as const;
+// 21.1 is the half marathon (21.0975 rounded the way runners say it).
+export const TARGET_OPTIONS = [0, 3, 5, 10, 12, 14, 15, 21.1] as const;
 
 const TARGET_KEY = "runbuddy-target-km";
 
