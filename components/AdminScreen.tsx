@@ -467,7 +467,7 @@ export default function AdminScreen({ onBack }: Props) {
                 <span className="admin-user-name">{u.name}</span>
                 <span className="admin-user-email">{u.email ?? "no email"}</span>
                 <span className="admin-user-meta">
-                  {u.runCount} run{u.runCount === 1 ? "" : "s"} · last seen{" "}
+                  {u.runCount} run{u.runCount === 1 ? "" : "s"} · last active{" "}
                   {new Date(u.lastSeen).toLocaleDateString(undefined, {
                     day: "numeric",
                     month: "short",
