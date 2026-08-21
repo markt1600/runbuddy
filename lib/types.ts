@@ -24,7 +24,8 @@ export type PhraseCategory =
   | "progress_km" // checkpoint on a preset distance target: percentage + exact remaining
   | "progress_time" // checkpoint on a preset time target
   | "target_hit" // the target distance was reached
-  | "wr_finish"; // the marathon WR holder would have finished your target right now
+  | "wr_finish" // the marathon WR holder would have finished your target right now
+  | "hs_finish"; // the US high school record holder just finished your 5K/10K
 
 /**
  * What has to be true for a "conditional" phrase to be eligible. Evaluated
@@ -57,8 +58,8 @@ export interface Phrase {
    */
   target?: number;
   mark?: number;
-  /** Only for "wr_finish": whose record this line tells — matched against the
-   *  runner's account gender (male is the default when none is set). */
+  /** For "wr_finish" / "hs_finish": whose record this line tells — matched
+   *  against the runner's account gender (male is the default when unset). */
   wr?: "male" | "female";
 }
 

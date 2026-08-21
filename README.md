@@ -291,6 +291,13 @@ at their record pace, the trainer drops a pre-rendered line: who they are,
 what they ran, and that they'd be crossing your finish line right now. One
 line per persona per preset distance per record holder, times baked into
 the recordings (lib/records.ts documents what to update if a record falls).
+On 5 and 10 km targets there's a second, earlier moment: the US high school
+national record holder's literal race time — Daniel Simmons' 13:26 and Jane
+Hedengren's 14:58 for 5 km, Rudy Chapa's 28:33 (1976!) and Mary Shea's 32:53
+(1979) for 10 km — with Ah Beng and Ah Lian at their most merciless, since
+you've just been beaten by a schoolkid. On a male 10K, Chapa's 1976 time
+pips Kiptum's extrapolated split by two seconds, so the schoolboy finishes
+first and both lines fire back to back.
 
 Simulated against synthetic noise, this holds a 10-minute stationary phone to
 0 m of phantom distance with Doppler (13 m without), and tracks running,

@@ -3,7 +3,7 @@ import type { Persona, Phrase, PhraseCategory, PhraseCondition, RunStats } from 
 import type { VoiceEngine } from "./audio";
 import type { RunEnvironment } from "./enviro";
 import type { RunHistoryDigest } from "./history";
-import { wrFinishMs } from "./records";
+import { hsFinishMs, wrFinishMs } from "./records";
 
 // CoachEngine — decides WHAT the trainer says and WHEN.
 // tick() is called ~1x/second by the run screen with fresh stats.
@@ -97,7 +97,7 @@ export class CoachEngine {
   private loiterLevel = 0;
   private runner: RunnerInfo | null = null;
   private history: RunHistoryDigest | null = null;
-  private wrToldAt = false;
+  private recordTold = new Set<"wr" | "hs">();
 
   constructor(
     persona: Persona,
@@ -555,18 +555,26 @@ export class CoachEngine {
     }
     if (this.targetKm > 0 && this.announceTargetProgress(stats)) return;
 
-    // 0c. The world-record moment: at the elapsed time where the marathon WR
-    // holder — matched to the runner's account gender, male when unset —
-    // would have finished THIS target distance at their record pace, drop the
-    // pre-rendered fact. Once per run, preset distance targets only (those
-    // are the ones with a recording).
-    if (this.targetKm > 0 && !this.wrToldAt) {
+    // 0c. Record moments, each once per run, preset distance targets only —
+    // the record holder matched to the runner's account gender, male when
+    // unset. Two kinds: the US high-school record holder's LITERAL race time
+    // at this distance (5 and 10 km only), and the elapsed time where the
+    // marathon WR holder's record pace would finish this target. On a male
+    // 10K the schoolboy pips the world-record holder by two seconds — both
+    // lines fire, back to back, which is exactly the joke.
+    if (this.targetKm > 0) {
       const g = this.runner?.gender === "female" ? "female" : "male";
-      if (stats.elapsedMs >= wrFinishMs(g, this.targetKm)) {
-        this.wrToldAt = true; // never re-check, even when no line exists
-        const phrase = allPhrasesFor(this.persona.id, "wr_finish").find(
-          (p) => p.target === this.targetKm && p.wr === g
-        );
+      const moments: ["hs" | "wr", number | null][] = [
+        ["hs", hsFinishMs(g, this.targetKm)],
+        ["wr", wrFinishMs(g, this.targetKm)],
+      ];
+      for (const [kind, atMs] of moments) {
+        if (atMs === null || this.recordTold.has(kind) || stats.elapsedMs < atMs) continue;
+        this.recordTold.add(kind); // never re-check, even when no line exists
+        const phrase = allPhrasesFor(
+          this.persona.id,
+          kind === "hs" ? "hs_finish" : "wr_finish"
+        ).find((p) => p.target === this.targetKm && p.wr === g);
         if (phrase) {
           this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
           return;
