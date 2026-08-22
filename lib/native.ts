@@ -30,6 +30,25 @@ export interface NativeFix {
   timestamp: number; // ms epoch
 }
 
+/** What Apple Health saw over a run's window — display-only, never stored. */
+export interface HealthRunSummary {
+  available: boolean;
+  workoutCount?: number;
+  workout?: {
+    activity: string;
+    source: string;
+    startMs: number;
+    endMs: number;
+    durationSec: number;
+    distanceKm?: number;
+    calories?: number;
+  };
+  heartRate?: { avg?: number; min?: number; max?: number };
+  heartRateSamples?: number;
+  /** Health's own de-duplicated distance sum over the window. */
+  distanceKm?: number;
+}
+
 interface RunBuddyNativePlugin {
   configureAudio(): Promise<void>;
   duckStart(): Promise<void>;
@@ -46,6 +65,10 @@ interface RunBuddyNativePlugin {
   keepAliveStop(): Promise<void>;
   startLocation(): Promise<void>;
   stopLocation(): Promise<void>;
+  /** Show the Health read-permission sheet (first time only; no-op after). */
+  healthAuthorize(): Promise<{ available: boolean }>;
+  /** Read-only: what Health recorded during [sinceMs, untilMs]. */
+  healthRunSummary(options: { sinceMs: number; untilMs: number }): Promise<HealthRunSummary>;
   addListener(
     name: "location" | "locationError",
     cb: (data: never) => void
@@ -79,8 +102,8 @@ export function runBuddyNative(): RunBuddyNativePlugin | null {
   }
   const promise = cap.nativePromise;
   const callback = cap.nativeCallback;
-  const call = (method: string, options: unknown = {}) =>
-    promise(PLUGIN, method, options) as Promise<void>;
+  const call = <T = void>(method: string, options: unknown = {}) =>
+    promise(PLUGIN, method, options) as Promise<T>;
   cached = {
     configureAudio: () => call("configureAudio"),
     duckStart: () => call("duckStart"),
@@ -91,6 +114,8 @@ export function runBuddyNative(): RunBuddyNativePlugin | null {
     keepAliveStop: () => call("keepAliveStop"),
     startLocation: () => call("startLocation"),
     stopLocation: () => call("stopLocation"),
+    healthAuthorize: () => call<{ available: boolean }>("healthAuthorize"),
+    healthRunSummary: (options) => call<HealthRunSummary>("healthRunSummary", options),
     addListener: (name, cb) => {
       callback(PLUGIN, "addListener", { eventName: name }, (data) =>
         cb(data as never)

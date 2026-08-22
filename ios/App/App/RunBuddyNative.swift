@@ -1,6 +1,7 @@
 import Capacitor
 import AVFoundation
 import CoreLocation
+import HealthKit
 import UIKit
 
 // The native layer the WebView cannot provide for itself:
@@ -37,6 +38,8 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
         CAPPluginMethod(name: "keepAliveStop", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startLocation", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopLocation", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "healthAuthorize", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "healthRunSummary", returnType: CAPPluginReturnPromise),
     ]
 
     private var locationManager: CLLocationManager?
@@ -234,6 +237,143 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
             self.keepAlivePlayer?.stop()
             self.keepAlivePlayer = nil
             call.resolve()
+        }
+    }
+
+    // ---- Apple Health (read-only) ----
+    //
+    // The app never writes to Health and never changes how it records runs.
+    // After a run, the summary screen asks what Health saw over the same
+    // window — a Watch workout, heart rate, Health's own distance — purely
+    // for display. HealthKit hides read-permission state by design, so an
+    // undenied-but-empty answer and a denied one look identical: no data.
+
+    private lazy var healthStore = HKHealthStore()
+
+    private func healthReadTypes() -> Set<HKObjectType> {
+        var types: Set<HKObjectType> = [HKObjectType.workoutType()]
+        for id in [HKQuantityTypeIdentifier.heartRate, .distanceWalkingRunning, .activeEnergyBurned] {
+            if let t = HKQuantityType.quantityType(forIdentifier: id) { types.insert(t) }
+        }
+        return types
+    }
+
+    @objc func healthAuthorize(_ call: CAPPluginCall) {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            call.resolve(["available": false])
+            return
+        }
+        healthStore.requestAuthorization(toShare: nil, read: healthReadTypes()) { _, _ in
+            call.resolve(["available": true])
+        }
+    }
+
+    @objc func healthRunSummary(_ call: CAPPluginCall) {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            call.resolve(["available": false])
+            return
+        }
+        guard let sinceMs = call.getDouble("sinceMs"),
+              let untilMs = call.getDouble("untilMs"),
+              untilMs > sinceMs else {
+            call.reject("healthRunSummary needs sinceMs < untilMs")
+            return
+        }
+        let since = Date(timeIntervalSince1970: sinceMs / 1000.0)
+        let until = Date(timeIntervalSince1970: untilMs / 1000.0)
+        // No strict options: anything OVERLAPPING the run window counts, so a
+        // Watch workout started a minute before ours still shows up.
+        let window = HKQuery.predicateForSamples(withStart: since, end: until)
+
+        var result: [String: Any] = ["available": true]
+        let lock = NSLock()
+        func put(_ key: String, _ value: Any) {
+            lock.lock()
+            result[key] = value
+            lock.unlock()
+        }
+        let group = DispatchGroup()
+
+        // The workout Health recorded over our window — prefer a run.
+        group.enter()
+        let workoutQuery = HKSampleQuery(
+            sampleType: .workoutType(),
+            predicate: window,
+            limit: 10,
+            sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+        ) { _, samples, _ in
+            defer { group.leave() }
+            let workouts = (samples as? [HKWorkout]) ?? []
+            put("workoutCount", workouts.count)
+            guard let w = workouts.first(where: { $0.workoutActivityType == .running }) ?? workouts.first
+            else { return }
+            var info: [String: Any] = [
+                "activity": w.workoutActivityType == .running ? "Running" : "Workout",
+                "source": w.sourceRevision.source.name,
+                "startMs": w.startDate.timeIntervalSince1970 * 1000.0,
+                "endMs": w.endDate.timeIntervalSince1970 * 1000.0,
+                "durationSec": w.duration,
+            ]
+            if #available(iOS 16.0, *) {
+                if let d = w.statistics(for: HKQuantityType(.distanceWalkingRunning))?.sumQuantity() {
+                    info["distanceKm"] = d.doubleValue(for: .meter()) / 1000.0
+                }
+                if let e = w.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity() {
+                    info["calories"] = e.doubleValue(for: .kilocalorie())
+                }
+            }
+            put("workout", info)
+        }
+        healthStore.execute(workoutQuery)
+
+        if let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate) {
+            group.enter()
+            let hrStats = HKStatisticsQuery(
+                quantityType: hrType,
+                quantitySamplePredicate: window,
+                options: [.discreteAverage, .discreteMin, .discreteMax]
+            ) { _, stats, _ in
+                defer { group.leave() }
+                guard let stats = stats else { return }
+                let bpm = HKUnit.count().unitDivided(by: .minute())
+                var hr: [String: Any] = [:]
+                if let a = stats.averageQuantity() { hr["avg"] = a.doubleValue(for: bpm) }
+                if let lo = stats.minimumQuantity() { hr["min"] = lo.doubleValue(for: bpm) }
+                if let hi = stats.maximumQuantity() { hr["max"] = hi.doubleValue(for: bpm) }
+                if !hr.isEmpty { put("heartRate", hr) }
+            }
+            healthStore.execute(hrStats)
+
+            group.enter()
+            let hrCount = HKSampleQuery(
+                sampleType: hrType, predicate: window,
+                limit: HKObjectQueryNoLimit, sortDescriptors: nil
+            ) { _, samples, _ in
+                defer { group.leave() }
+                if let s = samples, !s.isEmpty { put("heartRateSamples", s.count) }
+            }
+            healthStore.execute(hrCount)
+        }
+
+        // Health's own distance over the window: a statistics sum applies the
+        // Health app's source de-duplication, so Watch + iPhone don't double.
+        if let dType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning) {
+            group.enter()
+            let distSum = HKStatisticsQuery(
+                quantityType: dType,
+                quantitySamplePredicate: window,
+                options: .cumulativeSum
+            ) { _, stats, _ in
+                defer { group.leave() }
+                if let s = stats?.sumQuantity() {
+                    put("distanceKm", s.doubleValue(for: .meter()) / 1000.0)
+                }
+            }
+            healthStore.execute(distSum)
+        }
+
+        group.notify(queue: .main) {
+            call.resolve(result)
         }
     }
 

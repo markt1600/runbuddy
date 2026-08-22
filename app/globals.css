@@ -1469,6 +1469,32 @@ input[type="range"]::-moz-range-thumb {
 .split-row + .split-row { border-top: 0.5px solid var(--separator); }
 .split-row .k { color: var(--label-2); }
 
+/* ---------- Apple Health panel (summary, native shell only) ---------- */
+
+.health-card {
+  margin-top: 6px;
+  padding-bottom: 10px;
+}
+
+.health-card .split-row { padding: 10px 16px; font-size: 14px; }
+.health-card .split-row + .split-row,
+.health-card .health-line + .split-row,
+.health-card .split-row + .health-line {
+  border-top: 0.5px solid var(--separator);
+}
+
+.health-line {
+  padding: 10px 16px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--label-2);
+}
+
+.health-refresh {
+  margin: 8px 16px 4px;
+  width: calc(100% - 32px);
+}
+
 .fade-in { animation: fade-in 0.35s ease; }
 
 @keyframes fade-in {
