@@ -1534,6 +1534,89 @@ input[type="range"]::-moz-range-thumb {
   text-align: right;
 }
 
+/* ---------- Spotify transport (run screen) ---------- */
+
+.spotify-widget {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 10px 2px 0;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+}
+
+.spotify-track {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.spotify-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotify-artist {
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--label-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotify-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.spotify-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--separator);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--label);
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.spotify-btn.main {
+  width: 46px;
+  height: 46px;
+  border-color: var(--accent);
+  font-size: 17px;
+}
+
+.spotify-btn:active {
+  background: var(--bg);
+}
+
+.spotify-note {
+  flex-basis: 100%;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--label-2);
+}
+
 /* Phrase-listing headers: label on the left, per-category generate on the right. */
 .cat-header {
   display: flex;

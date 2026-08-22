@@ -81,17 +81,17 @@ export interface NowPlaying {
 }
 
 /**
- * The user's current Spotify track. Refreshes the access token when stale
- * (and re-seals the profile, best-effort) — Spotify access tokens live an
- * hour, runs regularly outlast that.
+ * A live access token for the user, refreshing when stale (and re-sealing the
+ * profile, best-effort) — Spotify access tokens live an hour, runs regularly
+ * outlast that. Null = not connected in any of the ways that matter.
  */
-export async function nowPlayingFor(uid: string): Promise<NowPlaying> {
-  if (!spotifyConfigured()) return { connected: false };
+async function accessTokenFor(uid: string): Promise<string | null> {
+  if (!spotifyConfigured()) return null;
   const profile = await getProfile(uid).catch(() => null);
   const sealed = profile?.spotify;
-  if (!sealed) return { connected: false };
+  if (!sealed) return null;
   let tokens = openTokens(sealed);
-  if (!tokens) return { connected: false };
+  if (!tokens) return null;
 
   if (Date.now() >= tokens.expiresAt) {
     const res = await fetch("https://accounts.spotify.com/api/token", {
@@ -111,11 +111,11 @@ export async function nowPlayingFor(uid: string): Promise<NowPlaying> {
       if (res.status === 400 || res.status === 401) {
         await setProfileSpotify(uid, null).catch(() => {});
       }
-      return { connected: false };
+      return null;
     }
     const data: { access_token?: string; refresh_token?: string; expires_in?: number } =
       await res.json();
-    if (!data.access_token) return { connected: false };
+    if (!data.access_token) return null;
     tokens = {
       refreshToken: data.refresh_token ?? tokens.refreshToken,
       accessToken: data.access_token,
@@ -123,9 +123,16 @@ export async function nowPlayingFor(uid: string): Promise<NowPlaying> {
     };
     await setProfileSpotify(uid, sealTokens(tokens)).catch(() => {});
   }
+  return tokens.accessToken;
+}
+
+/** The user's current Spotify track. */
+export async function nowPlayingFor(uid: string): Promise<NowPlaying> {
+  const accessToken = await accessTokenFor(uid);
+  if (!accessToken) return { connected: false };
 
   const res = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
-    headers: { Authorization: `Bearer ${tokens.accessToken}` },
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (res.status === 204) return { connected: true, playing: false };
   if (!res.ok) return { connected: true, playing: false };
@@ -140,4 +147,48 @@ export async function nowPlayingFor(uid: string): Promise<NowPlaying> {
     track: data.item.name,
     artist: data.item.artists?.map((a) => a.name).join(", ") || undefined,
   };
+}
+
+export type SpotifyControlAction = "play" | "pause" | "next" | "previous";
+
+export interface ControlResult {
+  ok: boolean;
+  /**
+   * Why not, in terms the run screen can phrase a fix for:
+   * premium — playback control is a Spotify Premium API, full stop;
+   * scope — connected before controls existed, needs a reconnect to grant
+   *   user-modify-playback-state; noDevice — Spotify has no active player
+   *   (nothing was started on any device); notConnected / error — as read.
+   */
+  reason?: "notConnected" | "premium" | "scope" | "noDevice" | "error";
+}
+
+const CONTROL_CALLS: Record<SpotifyControlAction, { method: string; path: string }> = {
+  play: { method: "PUT", path: "play" },
+  pause: { method: "PUT", path: "pause" },
+  next: { method: "POST", path: "next" },
+  previous: { method: "POST", path: "previous" },
+};
+
+/** Drive the user's active Spotify player (their phone's Spotify app). */
+export async function controlFor(
+  uid: string,
+  action: SpotifyControlAction
+): Promise<ControlResult> {
+  const accessToken = await accessTokenFor(uid);
+  if (!accessToken) return { ok: false, reason: "notConnected" };
+  const { method, path } = CONTROL_CALLS[action];
+  const res = await fetch(`https://api.spotify.com/v1/me/player/${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.ok) return { ok: true }; // 200 or 204 depending on endpoint
+  if (res.status === 404) return { ok: false, reason: "noDevice" };
+  if (res.status === 403) {
+    // Same status for "free account" and "token predates the control scope";
+    // the body's reason/message strings tell them apart.
+    const body = await res.text().catch(() => "");
+    return { ok: false, reason: /premium/i.test(body) ? "premium" : "scope" };
+  }
+  return { ok: false, reason: "error" };
 }

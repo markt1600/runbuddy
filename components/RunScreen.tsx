@@ -83,6 +83,14 @@ export default function RunScreen({
   });
   const envFetchStateRef = useRef<{ fetching: boolean; at: number }>({ fetching: false, at: 0 });
   const localityRef = useRef<string | null>(null);
+  const [spotifyNow, setSpotifyNow] = useState<{
+    connected: boolean;
+    playing?: boolean;
+    track?: string;
+    artist?: string;
+  } | null>(null);
+  const [spotifyNote, setSpotifyNote] = useState<string | null>(null);
+  const spotifyPollRef = useRef<(() => Promise<void>) | null>(null);
 
   const voiceRef = useRef<VoiceEngine | null>(null);
   const coachRef = useRef<CoachEngine | null>(null);
@@ -195,11 +203,12 @@ export default function RunScreen({
     coachRef.current = coach;
 
     // Now-playing awareness: when the runner picked Spotify, poll what's in
-    // their ears and hand it to the coach's improvise context. First answer
-    // decides whether to keep going — {connected:false} covers guests, no
-    // Spotify link, server unconfigured — so the run costs nothing extra for
-    // everyone else.
+    // their ears — it feeds the coach's improvise context AND the transport
+    // widget's track line. First answer decides whether to keep going —
+    // {connected:false} covers guests, no Spotify link, server unconfigured —
+    // so the run costs nothing extra for everyone else.
     let nowPlayingTimer: ReturnType<typeof setInterval> | null = null;
+    let nowPlayingFirst: ReturnType<typeof setTimeout> | null = null;
     if (music === "spotify") {
       const poll = async () => {
         try {
@@ -207,9 +216,11 @@ export default function RunScreen({
           if (!res.ok) return;
           const data: { connected: boolean; playing?: boolean; track?: string; artist?: string } =
             await res.json();
+          setSpotifyNow(data);
           if (!data.connected) {
             if (nowPlayingTimer) clearInterval(nowPlayingTimer);
             nowPlayingTimer = null;
+            spotifyPollRef.current = null;
             return;
           }
           coach.setNowPlaying(
@@ -221,9 +232,11 @@ export default function RunScreen({
           /* offline blip — keep the last known track */
         }
       };
-      // Give the music a moment to actually start before the first look.
-      setTimeout(() => void poll(), 45_000);
-      nowPlayingTimer = setInterval(() => void poll(), 150_000);
+      spotifyPollRef.current = poll;
+      // Early enough that the widget fills in before the phone goes in the
+      // sleeve, late enough that the music has actually started.
+      nowPlayingFirst = setTimeout(() => void poll(), 8_000);
+      nowPlayingTimer = setInterval(() => void poll(), 120_000);
     }
 
     const geo = new GeoTracker();
@@ -367,6 +380,8 @@ export default function RunScreen({
     return () => {
       clearInterval(interval);
       if (nowPlayingTimer) clearInterval(nowPlayingTimer);
+      if (nowPlayingFirst) clearTimeout(nowPlayingFirst);
+      spotifyPollRef.current = null;
       coach.dispose();
       // A finished run gets to say its piece; anything else stops dead.
       if (finishedRef.current) voice.stopWhenIdle();
@@ -503,6 +518,37 @@ export default function RunScreen({
       holdRef.current = null;
       setHoldPct(0);
     }
+  };
+
+  /**
+   * Drive the runner's Spotify app from here — no app-switch mid-run. The
+   * flip is optimistic (the poll 1.5s later is the truth); failures turn
+   * into a one-line note saying exactly what to fix.
+   */
+  const spotifyControl = async (action: "play" | "pause" | "next" | "previous") => {
+    if (action === "play" || action === "pause") {
+      setSpotifyNow((prev) => (prev ? { ...prev, playing: action === "play" } : prev));
+    }
+    try {
+      const res = await fetch("/api/spotify/control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data: { ok: boolean; reason?: string } = await res.json();
+      if (data.ok) {
+        setSpotifyNote(null);
+      } else if (data.reason === "premium") {
+        setSpotifyNote("Spotify only allows playback control on Premium accounts");
+      } else if (data.reason === "scope") {
+        setSpotifyNote("Reconnect Spotify on the Account page to enable these controls");
+      } else if (data.reason === "noDevice") {
+        setSpotifyNote("Start something in the Spotify app once — then control it from here");
+      }
+    } catch {
+      /* offline blip — the poll below re-syncs the truth */
+    }
+    setTimeout(() => void spotifyPollRef.current?.(), 1_500);
   };
 
   const musicLabel =
@@ -703,6 +749,47 @@ export default function RunScreen({
           {coachText ?? `${persona.name} is watching your pace…`}
         </div>
       </div>
+
+      {music === "spotify" && spotifyNow?.connected && !locked && (
+        <div className="spotify-widget">
+          <div className="spotify-track">
+            {spotifyNow.track ? (
+              <>
+                <span className="spotify-title">{spotifyNow.track}</span>
+                {spotifyNow.artist && (
+                  <span className="spotify-artist">{spotifyNow.artist}</span>
+                )}
+              </>
+            ) : (
+              <span className="spotify-artist">Nothing playing</span>
+            )}
+          </div>
+          <div className="spotify-buttons">
+            <button
+              className="spotify-btn"
+              aria-label="Previous track"
+              onClick={() => void spotifyControl("previous")}
+            >
+              ⏮
+            </button>
+            <button
+              className="spotify-btn main"
+              aria-label={spotifyNow.playing ? "Pause music" : "Play music"}
+              onClick={() => void spotifyControl(spotifyNow.playing ? "pause" : "play")}
+            >
+              {spotifyNow.playing ? "⏸" : "▶"}
+            </button>
+            <button
+              className="spotify-btn"
+              aria-label="Next track"
+              onClick={() => void spotifyControl("next")}
+            >
+              ⏭
+            </button>
+          </div>
+          {spotifyNote && <div className="spotify-note">{spotifyNote}</div>}
+        </div>
+      )}
 
       {/* Hidden rather than unmounted while locked: the buttons are inert under
           the overlay and would otherwise sit right beneath the unlock pad, but
