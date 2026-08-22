@@ -151,7 +151,13 @@ export class VoiceEngine {
   /** The system pauses the keep-alive loop on interruption; start it again. */
   private onKeepAlivePause = () => {
     if (this.duckHold) return; // held down on purpose while the coach speaks
-    if (document.visibilityState === "visible") this.keepAlive?.play().catch(() => {});
+    // In the shell, locking the screen pauses the elements too — but the
+    // native audio session and background location keep the app running, so
+    // restart regardless of visibility. In Safari the visibility gate stays:
+    // a hidden page fighting the system's pause just burns battery.
+    if (runBuddyNative() || document.visibilityState === "visible") {
+      this.keepAlive?.play().catch(() => {});
+    }
   };
 
   /** Must be called from a user gesture (Start Run tap) to unlock audio on iOS. */
