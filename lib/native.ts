@@ -6,6 +6,40 @@
 
 interface CapacitorGlobal {
   isNativePlatform?: () => boolean;
+  Plugins?: Record<string, unknown>;
+}
+
+/** The fix events the native location plugin streams (see RunBuddyNative.swift). */
+export interface NativeFix {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  /** m/s; -1 = no Doppler solution (the CLLocation convention) */
+  speed: number;
+  timestamp: number; // ms epoch
+}
+
+interface RunBuddyNativePlugin {
+  configureAudio(): Promise<void>;
+  duckStart(): Promise<void>;
+  duckEnd(): Promise<void>;
+  startLocation(): Promise<void>;
+  stopLocation(): Promise<void>;
+  addListener(
+    name: "location" | "locationError",
+    cb: (data: never) => void
+  ): Promise<{ remove: () => void }>;
+}
+
+/**
+ * The custom plugin registered by the shell's AppViewController. Null in
+ * every browser AND in a native build that predates the plugin — callers
+ * fall back to the web paths, so an old TestFlight build keeps working.
+ */
+export function runBuddyNative(): RunBuddyNativePlugin | null {
+  if (!isNativeApp()) return null;
+  const cap = (window as { Capacitor?: CapacitorGlobal }).Capacitor;
+  return (cap?.Plugins?.RunBuddyNative as RunBuddyNativePlugin | undefined) ?? null;
 }
 
 export function isNativeApp(): boolean {

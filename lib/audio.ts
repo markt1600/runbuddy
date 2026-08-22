@@ -1,5 +1,6 @@
 import type { Persona } from "./types";
 import { getVoiceVolume, recordLifetimePlay } from "./voiceLibrary";
+import { runBuddyNative } from "./native";
 
 // VoiceEngine — plays coach phrases on top of background music.
 //
@@ -157,6 +158,10 @@ export class VoiceEngine {
   start() {
     activeEngine = this;
     setAudioSession("ambient");
+    // Native shell: a real AVAudioSession (.playback + .mixWithOthers) so the
+    // coach keeps talking with the screen locked. The web keep-alive loop
+    // stays running underneath — it's the audio that KEEPS the session busy.
+    void runBuddyNative()?.configureAudio();
     const silence = makeSilentWavUrl();
     if (!this.keepAlive) {
       this.keepAlive = new Audio(silence);
@@ -211,6 +216,8 @@ export class VoiceEngine {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     this.setSpeaking(false, null);
     setAudioSession("ambient");
+    // Stopped mid-burst in the shell: make sure the music isn't left ducked.
+    void runBuddyNative()?.duckEnd();
   }
 
   /**
@@ -273,20 +280,29 @@ export class VoiceEngine {
   private async drain() {
     if (this.playing) return;
     this.playing = true;
-    // Hold the music out of the way for the whole burst rather than per line:
-    // a km marker is three queued items back to back, and restoring between
-    // each one made the music stutter in and out three times.
-    setAudioSession("transient");
-    // Retyping alone is not enough: iOS applies the session type when the
-    // session comes UP, and the keep-alive loop holds it up continuously from
-    // start() — activated under "ambient", so every later flip to "transient"
-    // lands on a session the OS already configured, and the music never ducks
-    // (a field regression introduced by unlocking the players inside start()).
-    // Pausing the keep-alive lets the phrase's own play() bring the session up
-    // fresh with duck-others actually applied; the gap with no audio is a few
-    // milliseconds, and the screen is on (AOD) so nothing gets suspended.
-    this.duckHold = true;
-    this.keepAlive?.pause();
+    const native = runBuddyNative();
+    if (native) {
+      // Native shell: the real thing. Re-activating the AVAudioSession with
+      // .duckOthers is a system-level duck — no keep-alive choreography, and
+      // it works with the screen locked, which the web dance never could.
+      void native.duckStart();
+    } else {
+      // Hold the music out of the way for the whole burst rather than per
+      // line: a km marker is three queued items back to back, and restoring
+      // between each one made the music stutter in and out three times.
+      setAudioSession("transient");
+      // Retyping alone is not enough: iOS applies the session type when the
+      // session comes UP, and the keep-alive loop holds it up continuously
+      // from start() — activated under "ambient", so every later flip to
+      // "transient" lands on a session the OS already configured, and the
+      // music never ducks (a field regression introduced by unlocking the
+      // players inside start()). Pausing the keep-alive lets the phrase's own
+      // play() bring the session up fresh with duck-others actually applied;
+      // the gap with no audio is a few milliseconds, and the screen is on
+      // (AOD) so nothing gets suspended.
+      this.duckHold = true;
+      this.keepAlive?.pause();
+    }
     try {
       while (this.queue.length > 0) {
         const item = this.queue.shift()!;
@@ -323,11 +339,16 @@ export class VoiceEngine {
       }
     } finally {
       this.playing = false;
-      // Type first, then reactivate: the keep-alive's play() is what brings
-      // the session back up, and it must come up as "ambient" so the music
-      // returns to full volume.
-      setAudioSession("ambient");
-      this.duckHold = false;
+      if (native) {
+        // Deactivate-with-notify tells the music it may come back up.
+        void native.duckEnd();
+      } else {
+        // Type first, then reactivate: the keep-alive's play() is what brings
+        // the session back up, and it must come up as "ambient" so the music
+        // returns to full volume.
+        setAudioSession("ambient");
+        this.duckHold = false;
+      }
       this.keepAlive?.play().catch(() => {});
     }
   }

@@ -7,7 +7,8 @@ import path from "node:path";
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const suites = [
-  { file: "geo.sim.mjs", flags: [] },
+  // geo.ts now imports lib/native (a no-op off-device), so it needs the loader
+  { file: "geo.sim.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
   { file: "markers.test.mjs", flags: [] },
   { file: "audio.settle.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
   { file: "audio.duck.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },

@@ -4,7 +4,7 @@
 // watch. Timestamps and fix intervals are jittered with a seeded PRNG: an
 // earlier armed-resume bug passed a clean-clock simulation because the fake
 // fixes landed on exact window boundaries, and only failed on a real phone.
-// Run: node tests/geo.sim.mjs   (self-contained; geo.ts imports nothing)
+// Run: node --import ./tests/ts-resolve.mjs tests/geo.sim.mjs
 
 import assert from "node:assert";
 

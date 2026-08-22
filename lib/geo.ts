@@ -1,5 +1,7 @@
 // GPS tracking: watchPosition + haversine distance + rolling pace.
 
+import { runBuddyNative, type NativeFix } from "./native";
+
 export interface GeoSample {
   lat: number;
   lon: number;
@@ -88,6 +90,8 @@ export type GpsSignal = "acquiring" | "good" | "weak" | "lost" | "denied" | "una
 
 export class GeoTracker {
   private watchId: number | null = null;
+  private onUpdate: () => void = () => {};
+  private nativeSubs: { remove: () => void }[] = [];
   private last: GeoSample | null = null;
   private recent: { t: number; km: number }[] = []; // cumulative distance samples for rolling pace
   private history: { t: number; km: number }[] = []; // full-run samples for last-km moving average
@@ -153,24 +157,73 @@ export class GeoTracker {
   route: { lat: number; lon: number; t?: number }[] = [];
 
   start(onUpdate: () => void) {
+    this.onUpdate = onUpdate;
+    this.startedAt = Date.now();
+
+    // Native shell: fixes come from Core Location with background updates —
+    // the run keeps measuring with the screen locked, which the web
+    // Geolocation API in a WKWebView (or Safari) never could. Same ingest
+    // path, so every gate, filter and engine behaves identically.
+    const native = runBuddyNative();
+    if (native) {
+      void native
+        .addListener("location", (f: NativeFix) => {
+          this.ingest({
+            timestamp: f.timestamp,
+            coords: {
+              latitude: f.latitude,
+              longitude: f.longitude,
+              accuracy: f.accuracy,
+              speed: f.speed,
+            },
+          });
+        })
+        .then((h) => this.nativeSubs.push(h));
+      void native
+        .addListener("locationError", (e: { message: string; denied: boolean }) => {
+          this.denied = e.denied;
+          this.lastError = e.denied ? "Location permission denied" : "Waiting for GPS…";
+          this.onUpdate();
+        })
+        .then((h) => this.nativeSubs.push(h));
+      void native.startLocation();
+      return;
+    }
+
     if (!("geolocation" in navigator)) {
       this.unavailable = true;
       this.lastError = "Location not available on this device";
       return;
     }
-    this.startedAt = Date.now();
     this.watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const raw = pos.coords.speed;
-        const s: GeoSample = {
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          timestamp: pos.timestamp,
-          // iOS reports -1 (or null) when it has no Doppler solution.
-          speed: typeof raw === "number" && isFinite(raw) && raw >= 0 ? raw : null,
-        };
-        const now = Date.now();
+      (pos) => this.ingest(pos),
+      (err) => {
+        this.denied = err.code === err.PERMISSION_DENIED;
+        this.lastError = this.denied ? "Location permission denied" : "Waiting for GPS…";
+        this.onUpdate();
+      },
+      // maximumAge: 0 — never hand us a cached fix; a stale one replayed as new
+      // looks like a jump back to where we were a moment ago.
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
+  }
+
+  /** One fix, from either source, through every gate and engine. */
+  private ingest(pos: {
+    timestamp: number;
+    coords: { latitude: number; longitude: number; accuracy: number; speed: number | null };
+  }) {
+    const onUpdate = this.onUpdate;
+    const raw = pos.coords.speed;
+    const s: GeoSample = {
+      lat: pos.coords.latitude,
+      lon: pos.coords.longitude,
+      accuracy: pos.coords.accuracy,
+      timestamp: pos.timestamp,
+      // iOS reports -1 (or null) when it has no Doppler solution.
+      speed: typeof raw === "number" && isFinite(raw) && raw >= 0 ? raw : null,
+    };
+    const now = Date.now();
         this.denied = false;
         // Delivery-rate diagnostics, warm-up included: the question they
         // answer is "how sparsely was iOS feeding us", not "how far we ran".
@@ -237,16 +290,6 @@ export class GeoTracker {
         // is; without it, a coarse fix tells us nothing either way.
         if (s.speed !== null || usable) this.detectAutoPause(s, now);
         onUpdate();
-      },
-      (err) => {
-        this.denied = err.code === err.PERMISSION_DENIED;
-        this.lastError = this.denied ? "Location permission denied" : "Waiting for GPS…";
-        onUpdate();
-      },
-      // maximumAge: 0 — never hand us a cached fix; a stale one replayed as new
-      // looks like a jump back to where we were a moment ago.
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-    );
   }
 
   /** Forget the auto-pause state — for when the runner overrides it by hand. */
@@ -450,6 +493,15 @@ export class GeoTracker {
   stop() {
     if (this.watchId !== null) navigator.geolocation.clearWatch(this.watchId);
     this.watchId = null;
+    for (const sub of this.nativeSubs) {
+      try {
+        sub.remove();
+      } catch {
+        /* already gone */
+      }
+    }
+    this.nativeSubs = [];
+    void runBuddyNative()?.stopLocation();
   }
 
   /**
