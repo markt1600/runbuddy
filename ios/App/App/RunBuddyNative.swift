@@ -1,5 +1,5 @@
 import Capacitor
-import AVFAudio
+import AVFoundation
 import CoreLocation
 import UIKit
 
