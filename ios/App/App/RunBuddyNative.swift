@@ -171,11 +171,17 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
     }
 }
 
-// The storyboard instantiates this instead of the stock bridge controller so
-// the plugin above is registered before the web app loads.
+// The plugin's real registration is the "RunBuddyNativePlugin" entry in
+// capacitor.config.json's packageClassList — the same static path AppPlugin
+// and CAPBrowserPlugin use, which bakes the plugin into the bridge script
+// before the remote page loads. This subclass remains because the storyboard
+// names it; its instance registration is only a fallback for a build whose
+// bundled config predates that entry.
 @objc(AppViewController)
 class AppViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
-        bridge?.registerPluginInstance(RunBuddyNativePlugin())
+        if bridge?.plugin(withName: "RunBuddyNative") == nil {
+            bridge?.registerPluginInstance(RunBuddyNativePlugin())
+        }
     }
 }
