@@ -7,6 +7,17 @@
 interface CapacitorGlobal {
   isNativePlatform?: () => boolean;
   Plugins?: Record<string, unknown>;
+  /** Natively-registered plugins, announced by the injected bridge. */
+  PluginHeaders?: { name: string }[];
+  /** The low-level bridge: one promise-returning native call. */
+  nativePromise?: (plugin: string, method: string, options?: unknown) => Promise<unknown>;
+  /** Repeating-callback variant — what addListener rides on. */
+  nativeCallback?: (
+    plugin: string,
+    method: string,
+    options?: unknown,
+    callback?: (data?: unknown) => void
+  ) => string;
 }
 
 /** The fix events the native location plugin streams (see RunBuddyNative.swift). */
@@ -31,15 +42,52 @@ interface RunBuddyNativePlugin {
   ): Promise<{ remove: () => void }>;
 }
 
+const PLUGIN = "RunBuddyNative";
+let cached: RunBuddyNativePlugin | null | undefined;
+
 /**
  * The custom plugin registered by the shell's AppViewController. Null in
  * every browser AND in a native build that predates the plugin — callers
  * fall back to the web paths, so an old TestFlight build keeps working.
+ *
+ * Modern Capacitor does NOT auto-populate Capacitor.Plugins for natively
+ * registered plugins — it announces them in PluginHeaders and expects a JS
+ * proxy built over the low-level bridge (nativePromise / nativeCallback).
+ * That proxy is normally @capacitor/core's registerPlugin; building the
+ * same thing by hand here keeps the web bundle free of Capacitor entirely.
  */
 export function runBuddyNative(): RunBuddyNativePlugin | null {
-  if (!isNativeApp()) return null;
+  if (cached !== undefined) return cached;
+  if (!isNativeApp()) return null; // don't cache: pre-hydration SSR calls
   const cap = (window as { Capacitor?: CapacitorGlobal }).Capacitor;
-  return (cap?.Plugins?.RunBuddyNative as RunBuddyNativePlugin | undefined) ?? null;
+  const announced =
+    cap?.PluginHeaders?.some((h) => h.name === PLUGIN) ||
+    (cap?.Plugins && PLUGIN in cap.Plugins);
+  if (!announced || !cap?.nativePromise || !cap.nativeCallback) {
+    cached = null;
+    return null;
+  }
+  const promise = cap.nativePromise;
+  const callback = cap.nativeCallback;
+  const call = (method: string) => promise(PLUGIN, method, {}) as Promise<void>;
+  cached = {
+    configureAudio: () => call("configureAudio"),
+    duckStart: () => call("duckStart"),
+    duckEnd: () => call("duckEnd"),
+    startLocation: () => call("startLocation"),
+    stopLocation: () => call("stopLocation"),
+    addListener: (name, cb) => {
+      callback(PLUGIN, "addListener", { eventName: name }, (data) =>
+        cb(data as never)
+      );
+      return Promise.resolve({
+        // CAPPlugin's built-in removal is all-listeners; the only caller
+        // (GeoTracker.stop) drops both of its listeners at once anyway.
+        remove: () => void promise(PLUGIN, "removeAllListeners", {}),
+      });
+    },
+  };
+  return cached;
 }
 
 export function isNativeApp(): boolean {
