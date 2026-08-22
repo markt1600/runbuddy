@@ -96,6 +96,16 @@ export function isNativeApp(): boolean {
   return !!cap?.isNativePlatform?.();
 }
 
+/** What the shell's bridge actually announced — the bring-up diagnostic. */
+export function nativeDiagnostics(): string {
+  if (typeof window === "undefined") return "ssr";
+  const cap = (window as { Capacitor?: CapacitorGlobal }).Capacitor;
+  if (!cap?.isNativePlatform?.()) return "shell no";
+  const headers = (cap.PluginHeaders ?? []).map((h) => h.name);
+  const bridge = `${cap.nativePromise ? "P" : "-"}${cap.nativeCallback ? "C" : "-"}`;
+  return `shell yes · bridge ${bridge} · plugins [${headers.join(", ") || "none"}]`;
+}
+
 // The Capacitor plugin modules are loaded dynamically and only ever inside
 // the shell, so the web bundle's main chunks never carry them and browsers
 // never execute them.
