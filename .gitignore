@@ -6,3 +6,11 @@ out/
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+
+# iOS (Capacitor) — generated/build artifacts; the project itself is committed
+ios/App/App/public/
+ios/App/Pods/
+ios/App/output/
+ios/DerivedData/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcworkspace/xcuserdata/
