@@ -4,6 +4,8 @@ import type { VoiceEngine } from "./audio";
 import type { RunEnvironment } from "./enviro";
 import type { RunHistoryDigest } from "./history";
 import { hsFinishMs, wrFinishMs } from "./records";
+import { PERSONAS } from "./personas";
+import type { PersonaId } from "./types";
 
 // CoachEngine — decides WHAT the trainer says and WHEN.
 // tick() is called ~1x/second by the run screen with fresh stats.
@@ -98,6 +100,8 @@ export class CoachEngine {
   private runner: RunnerInfo | null = null;
   private history: RunHistoryDigest | null = null;
   private recordTold = new Set<"wr" | "hs">();
+  private cameoAt = 0; // when the second trainer barges in (0 = not scheduled)
+  private cameoStarted = false;
 
   constructor(
     persona: Persona,
@@ -314,6 +318,9 @@ export class CoachEngine {
     const now = Date.now();
     this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS);
     this.nextAnecdoteAt = now + this.gap(ANECDOTE_GAP_MS);
+    // Once per run, somewhere in minutes 5–12, a second trainer barges in.
+    // Not scaled by chattiness — it's the run's one set-piece.
+    this.cameoAt = now + (5 + Math.random() * 7) * 60_000;
 
     // ~10s intro at the start line. Prefer a freshly generated one (never the
     // same twice), but don't leave the runner in silence: if the API hasn't
@@ -545,6 +552,14 @@ export class CoachEngine {
       return;
     }
 
+    // 0a½. The cameo kicks off its API round-trip in the background — nothing
+    // is spoken until the finished script arrives, so no return here. Fired
+    // from tick so it can't land mid-pause.
+    if (this.cameoAt > 0 && !this.cameoStarted && now >= this.cameoAt) {
+      this.cameoStarted = true;
+      void this.playCameo(stats);
+    }
+
     // 0b. Target progress takes priority over everything else.
     if (this.targetMin > 0) {
       // Treadmill: no GPS, so distance and pace cues below don't apply —
@@ -679,6 +694,52 @@ export class CoachEngine {
       } else {
         this.sayFromLibrary("encourage");
       }
+    }
+  }
+
+  /**
+   * The run's set-piece: a second trainer barges in and the two argue about
+   * the runner's live numbers — a fresh four-line script every run, each line
+   * voiced by its own speaker. Waits for a quiet moment before queueing so
+   * all four lines fit the voice queue intact, and vanishes silently on any
+   * failure — a cameo that half-happens is worse than none.
+   */
+  private async playCameo(stats: RunStats) {
+    const others = (Object.keys(PERSONAS) as PersonaId[]).filter(
+      (id) => id !== this.persona.id
+    );
+    const cameoId = others[Math.floor(Math.random() * others.length)];
+    try {
+      const res = await fetch("/api/cameo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          persona: this.persona.id,
+          cameo: cameoId,
+          context: this.buildContext(stats),
+        }),
+      });
+      if (!res.ok) return;
+      const data: { lines: { persona: PersonaId; text: string; audioBase64: string }[] } =
+        await res.json();
+      if (this.disposed || !data.lines?.length) return;
+      // Let whatever is playing finish: the queue holds exactly four entries,
+      // so queueing into a busy moment would clip the skit's opening.
+      const waitStart = Date.now();
+      while (this.voice.busy && Date.now() - waitStart < 45_000) {
+        await new Promise((r) => setTimeout(r, 300));
+        if (this.disposed) return;
+      }
+      if (this.disposed) return;
+      for (const line of data.lines.slice(0, 4)) {
+        const name = PERSONAS[line.persona]?.shortName ?? "";
+        this.voice.say(
+          `${name}: ${line.text}`,
+          `data:audio/mpeg;base64,${line.audioBase64}`
+        );
+      }
+    } catch {
+      /* no keys, offline, model hiccup — the run just proceeds cameo-less */
     }
   }
 

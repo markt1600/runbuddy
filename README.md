@@ -299,6 +299,13 @@ you've just been beaten by a schoolkid. On a male 10K, Chapa's 1976 time
 pips Kiptum's extrapolated split by two seconds, so the schoolboy finishes
 first and both lines fire back to back.
 
+Once per run — somewhere in minutes 5–12 — a **second trainer barges in**
+and the two argue for about 25 seconds: a fresh four-line script written
+live from the run's actual stats (`/api/cameo`), each line voiced in its own
+speaker's ElevenLabs voice. Never from a library, never the same twice, and
+silently absent when the API keys aren't configured — a cameo that
+half-happens is worse than none, so all four lines render or none play.
+
 Simulated against synthetic noise, this holds a 10-minute stationary phone to
 0 m of phantom distance with Doppler (13 m without), and tracks running,
 walking, intervals, tunnels and Doppler dropouts to within 2.5% of truth.

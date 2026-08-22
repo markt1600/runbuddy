@@ -188,6 +188,84 @@ export async function generateLine(
   return text;
 }
 
+export interface CameoLine {
+  persona: PersonaId;
+  text: string;
+}
+
+/**
+ * Parse the model's A:/B: script into speaker-tagged lines. Exported for the
+ * unit test — the parser is where a formatting drift would silently eat the
+ * whole cameo. A = the runner's own trainer, B = the one barging in. Capped
+ * at 4 lines: the client voice queue holds exactly that many.
+ */
+export function parseCameoScript(
+  raw: string,
+  primary: PersonaId,
+  cameo: PersonaId
+): CameoLine[] {
+  const lines: CameoLine[] = [];
+  for (const line of raw.split("\n")) {
+    const m = line.trim().match(/^([AB]):\s*(.+)$/);
+    if (m && m[2].trim()) {
+      lines.push({ persona: m[1] === "A" ? primary : cameo, text: m[2].trim() });
+    }
+  }
+  return lines.slice(0, 4);
+}
+
+/**
+ * A one-off mid-run skit: another trainer barges in and the two argue —
+ * about the runner's live numbers, whose methods work, whether the runner
+ * is being coddled. Freshly written every run; never from a library.
+ */
+export async function generateCameo(
+  primary: PersonaId,
+  cameo: PersonaId,
+  context: PhraseContext
+): Promise<CameoLine[]> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY not configured");
+  }
+  const client = new Anthropic();
+  const pA = PERSONAS[primary];
+  const pB = PERSONAS[cameo];
+
+  const response = await client.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 500,
+    output_config: { effort: "low" },
+    system:
+      "You write a short comic interruption for a live running-coach app set in Singapore. " +
+      "The runner is mid-run, listening through earphones.\n\n" +
+      `CHARACTER A — the runner's trainer today (${pA.name}): ${pA.stylePrompt}\n\n` +
+      `CHARACTER B — another trainer from the same app, barging into the session (${pB.name}): ${pB.stylePrompt}\n\n` +
+      "Write EXACTLY 4 spoken lines, alternating in this order: B, A, B, A. " +
+      "B interrupts the run out of nowhere; the two get into a FRIENDLY argument — about the " +
+      "runner's live stats below, whose coaching works better, or whether the runner is being " +
+      "pushed hard enough. Ground at least two of the lines in the actual stats. Both stay " +
+      "fully in character and it stays good-natured — the runner should finish it grinning. " +
+      "At most 18 words per line, under 80 words total. No stage directions, no quotes, no emoji.\n" +
+      "Format strictly, nothing before or after:\n" +
+      "B: <line>\nA: <line>\nB: <line>\nA: <line>",
+    messages: [
+      {
+        role: "user",
+        content: `The runner, mid-run, right now:${contextLines(context)}`,
+      },
+    ],
+  });
+
+  if (response.stop_reason === "refusal") throw new Error("generation declined");
+  const raw = response.content
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+  const lines = parseCameoScript(raw, primary, cameo);
+  if (lines.length < 2) throw new Error("cameo script unparseable");
+  return lines;
+}
+
 /** Voice ID resolution: env var first, then the default in lib/personas.ts. */
 export function voiceIdFor(persona: PersonaId): string {
   const envName = `ELEVENLABS_VOICE_${persona.toUpperCase()}`;
