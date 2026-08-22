@@ -4,7 +4,14 @@ import { runBuddyNative } from "./native";
 
 // VoiceEngine — plays coach phrases on top of background music.
 //
-// iOS specifics:
+// Native shell: every clip goes through the plugin's AVAudioPlayer instead of
+// an <audio> element. WebKit force-pauses page media the instant the screen
+// locks and rejects play() while backgrounded — no session configuration
+// changes that policy — so in-page playback can never survive a locked-phone
+// run. Native playback can, and the plugin's looping silent buffer replaces
+// the web keep-alive element for the same reason.
+//
+// iOS Safari specifics (the web path, unchanged):
 // - navigator.audioSession.type = "ambient" lets our audio mix with the
 //   Spotify / Podcasts app instead of pausing it. While actually speaking we
 //   switch to "transient" so the music ducks under the voice, then restore.
@@ -151,11 +158,10 @@ export class VoiceEngine {
   /** The system pauses the keep-alive loop on interruption; start it again. */
   private onKeepAlivePause = () => {
     if (this.duckHold) return; // held down on purpose while the coach speaks
-    // In the shell, locking the screen pauses the elements too — but the
-    // native audio session and background location keep the app running, so
-    // restart regardless of visibility. In Safari the visibility gate stays:
-    // a hidden page fighting the system's pause just burns battery.
-    if (runBuddyNative() || document.visibilityState === "visible") {
+    // Safari-only (the shell's keep-alive is a native player): the visibility
+    // gate stays because a hidden page fighting the system's pause just burns
+    // battery, and WebKit refuses the play() anyway.
+    if (document.visibilityState === "visible") {
       this.keepAlive?.play().catch(() => {});
     }
   };
@@ -163,47 +169,54 @@ export class VoiceEngine {
   /** Must be called from a user gesture (Start Run tap) to unlock audio on iOS. */
   start() {
     activeEngine = this;
-    setAudioSession("ambient");
-    // Native shell: a real AVAudioSession (.playback + .mixWithOthers) so the
-    // coach keeps talking with the screen locked. The web keep-alive loop
-    // stays running underneath — it's the audio that KEEPS the session busy.
-    void runBuddyNative()?.configureAudio();
-    const silence = makeSilentWavUrl();
-    if (!this.keepAlive) {
-      this.keepAlive = new Audio(silence);
-      this.keepAlive.loop = true;
-      this.keepAlive.volume = 0.01;
-      this.keepAlive.addEventListener("pause", this.onKeepAlivePause);
-    }
-    this.keepAlive.play().catch(() => {});
     document.addEventListener("visibilitychange", this.onVisibility);
+    const native = runBuddyNative();
+    if (native) {
+      // Native shell: a real AVAudioSession (.playback + .mixWithOthers), a
+      // native silent loop for the background-audio claim, and every clip
+      // played by AVAudioPlayer — none of which needs a gesture unlock, and
+      // none of which WebKit can pause when the screen locks. The web
+      // keep-alive element and the unlock dance below are Safari-only.
+      void native.configureAudio();
+      void native.keepAliveStart();
+    } else {
+      setAudioSession("ambient");
+      const silence = makeSilentWavUrl();
+      if (!this.keepAlive) {
+        this.keepAlive = new Audio(silence);
+        this.keepAlive.loop = true;
+        this.keepAlive.volume = 0.01;
+        this.keepAlive.addEventListener("pause", this.onKeepAlivePause);
+      }
+      this.keepAlive.play().catch(() => {});
 
-    // Unlock the phrase player in the same gesture. iOS only allows a
-    // programmatic play() on an element that has already played once under a
-    // user gesture — and with a delayed start the first phrase is 10 seconds
-    // away, long past the activation window. Without this the very first MP3
-    // is rejected, and because the element never got unlocked every phrase
-    // after it fails too, so the whole run comes out in the robotic fallback
-    // voice. Playing a moment of silence here is what buys the unlock.
-    if (!this.player) this.player = new Audio();
-    this.player.src = silence;
-    this.player.volume = 0.01;
-    void this.player
-      .play()
-      .then(() => {
-        // Only tidy up if nothing real has claimed the element in the meantime.
-        // Volume is deliberately not restored here: playFile sets the persona's
-        // level before every phrase, and this promise can resolve after one has
-        // already started, which would stomp it back to full.
-        if (this.player && this.player.src === silence) {
-          this.player.pause();
-          this.player.currentTime = 0;
-        }
-      })
-      .catch(() => {});
-
+      // Unlock the phrase player in the same gesture. iOS only allows a
+      // programmatic play() on an element that has already played once under a
+      // user gesture — and with a delayed start the first phrase is 10 seconds
+      // away, long past the activation window. Without this the very first MP3
+      // is rejected, and because the element never got unlocked every phrase
+      // after it fails too, so the whole run comes out in the robotic fallback
+      // voice. Playing a moment of silence here is what buys the unlock.
+      if (!this.player) this.player = new Audio();
+      this.player.src = silence;
+      this.player.volume = 0.01;
+      void this.player
+        .play()
+        .then(() => {
+          // Only tidy up if nothing real has claimed the element in the meantime.
+          // Volume is deliberately not restored here: playFile sets the persona's
+          // level before every phrase, and this promise can resolve after one has
+          // already started, which would stomp it back to full.
+          if (this.player && this.player.src === silence) {
+            this.player.pause();
+            this.player.currentTime = 0;
+          }
+        })
+        .catch(() => {});
+    }
 
     // Prime speechSynthesis inside the gesture so later utterances are allowed
+    // (still the fallback voice in the shell if a clip fails to decode).
     if ("speechSynthesis" in window) {
       const u = new SpeechSynthesisUtterance(" ");
       u.volume = 0;
@@ -222,8 +235,14 @@ export class VoiceEngine {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     this.setSpeaking(false, null);
     setAudioSession("ambient");
-    // Stopped mid-burst in the shell: make sure the music isn't left ducked.
-    void runBuddyNative()?.duckEnd();
+    // Stopped mid-burst in the shell: silence the native player, drop the
+    // background-audio claim, and make sure the music isn't left ducked.
+    const native = runBuddyNative();
+    if (native) {
+      void native.stopPlayback();
+      void native.keepAliveStop();
+      void native.duckEnd();
+    }
   }
 
   /**
@@ -236,6 +255,9 @@ export class VoiceEngine {
     // Drop the restart handler first, or pausing the loop just starts it again.
     this.keepAlive?.removeEventListener("pause", this.onKeepAlivePause);
     this.keepAlive?.pause();
+    // The run is over and the summary screen is up (foreground), so the
+    // background-audio claim can go now; the sign-off still plays out.
+    void runBuddyNative()?.keepAliveStop();
     const startedAt = Date.now();
     const check = () => {
       if (!this.busy || Date.now() - startedAt > maxWaitMs) {
@@ -320,7 +342,11 @@ export class VoiceEngine {
             : "prerendered";
         try {
           if (item.audioUrl) {
-            await this.playFile(item.audioUrl);
+            if (native) {
+              await this.playNative(native, item.audioUrl);
+            } else {
+              await this.playFile(item.audioUrl);
+            }
           } else {
             await this.speakSynth(item.text);
           }
@@ -356,6 +382,45 @@ export class VoiceEngine {
         this.duckHold = false;
       }
       this.keepAlive?.play().catch(() => {});
+    }
+  }
+
+  /**
+   * Shell playback: hand the clip to the plugin's AVAudioPlayer. data: URLs
+   * carry their base64 already; blob: URLs (the cues) are fetched in-page —
+   * blobs are same-context so this always works; http(s) URLs (pre-rendered
+   * phrases) go over as URLs for the native side to fetch — no CORS there.
+   * The watchdog mirrors playFile's: a rejection falls back to synthesis.
+   */
+  private async playNative(
+    native: NonNullable<ReturnType<typeof runBuddyNative>>,
+    url: string
+  ): Promise<void> {
+    const volume = getVoiceVolume(this.persona.id);
+    let opts: { data?: string; url?: string; volume: number };
+    if (url.startsWith("data:")) {
+      opts = { data: url.slice(url.indexOf(",") + 1), volume };
+    } else if (url.startsWith("blob:")) {
+      const buf = await (await fetch(url)).arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let bin = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      }
+      opts = { data: btoa(bin), volume };
+    } else {
+      opts = { url: new URL(url, window.location.href).toString(), volume };
+    }
+    let watchdog: ReturnType<typeof setTimeout>;
+    try {
+      await Promise.race([
+        native.play(opts),
+        new Promise<never>((_, reject) => {
+          watchdog = setTimeout(() => reject(new Error("playback stalled")), 60_000);
+        }),
+      ]);
+    } finally {
+      clearTimeout(watchdog!);
     }
   }
 

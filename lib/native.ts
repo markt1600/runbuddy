@@ -34,6 +34,16 @@ interface RunBuddyNativePlugin {
   configureAudio(): Promise<void>;
   duckStart(): Promise<void>;
   duckEnd(): Promise<void>;
+  /**
+   * Play one clip through a native AVAudioPlayer — the only playback WebKit
+   * cannot pause when the screen locks. Pass raw base64 audio bytes as `data`,
+   * or an http(s) `url` the native side fetches itself (no CORS in play).
+   * Resolves when the clip finishes.
+   */
+  play(options: { data?: string; url?: string; volume?: number }): Promise<void>;
+  stopPlayback(): Promise<void>;
+  keepAliveStart(): Promise<void>;
+  keepAliveStop(): Promise<void>;
   startLocation(): Promise<void>;
   stopLocation(): Promise<void>;
   addListener(
@@ -69,11 +79,16 @@ export function runBuddyNative(): RunBuddyNativePlugin | null {
   }
   const promise = cap.nativePromise;
   const callback = cap.nativeCallback;
-  const call = (method: string) => promise(PLUGIN, method, {}) as Promise<void>;
+  const call = (method: string, options: unknown = {}) =>
+    promise(PLUGIN, method, options) as Promise<void>;
   cached = {
     configureAudio: () => call("configureAudio"),
     duckStart: () => call("duckStart"),
     duckEnd: () => call("duckEnd"),
+    play: (options) => call("play", options),
+    stopPlayback: () => call("stopPlayback"),
+    keepAliveStart: () => call("keepAliveStart"),
+    keepAliveStop: () => call("keepAliveStop"),
     startLocation: () => call("startLocation"),
     stopLocation: () => call("stopLocation"),
     addListener: (name, cb) => {
