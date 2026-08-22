@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { newStateToken, readSession, requestOrigin } from "@/lib/server/auth";
-import { spotifyConfigured } from "@/lib/server/spotify";
+import { SPOTIFY_SCOPES, spotifyConfigured } from "@/lib/server/spotify";
 
 const SPOTIFY_STATE_COOKIE = "runbuddy-spotify-state";
 
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     client_id: process.env.SPOTIFY_CLIENT_ID!,
     response_type: "code",
     redirect_uri: `${requestOrigin(req)}/api/spotify/callback`,
-    scope: "user-read-currently-playing user-read-playback-state user-modify-playback-state",
+    scope: SPOTIFY_SCOPES,
     state,
   });
   const res = NextResponse.redirect(

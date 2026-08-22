@@ -161,6 +161,22 @@ export async function openNativeLogin(): Promise<void> {
 }
 
 /**
+ * Native Connect Spotify. Left to itself the WebView's navigation to
+ * accounts.spotify.com gets punted to Safari, and the whole flow FINISHES in
+ * Safari — stranding the runner on the website. Instead the signed-in WebView
+ * asks the server for an authorize URL whose state carries the identity, opens
+ * it in the in-app browser sheet, and the callback deep-links back here.
+ */
+export async function openNativeSpotifyConnect(): Promise<void> {
+  const res = await fetch("/api/spotify/native-start");
+  if (!res.ok) return;
+  const { url } = (await res.json()) as { url?: string };
+  if (!url) return;
+  const { Browser } = await import("@capacitor/browser");
+  await Browser.open({ url });
+}
+
+/**
  * Installed once at app boot inside the shell: catches the runbuddy://auth
  * deep link, closes the in-app browser sheet, and sends the WebView through
  * /api/auth/native-complete to trade the handoff token for the real session
@@ -169,12 +185,27 @@ export async function openNativeLogin(): Promise<void> {
 export async function initNativeAuthListener(): Promise<void> {
   const { App } = await import("@capacitor/app");
   await App.addListener("appUrlOpen", ({ url }) => {
-    let token: string | null = null;
+    let params: URLSearchParams;
     try {
-      token = new URL(url).searchParams.get("token");
+      params = new URL(url).searchParams;
     } catch {
       return;
     }
+
+    // Spotify connect finished in the browser sheet: close it and, on
+    // success, tell whoever is showing connect state (the account screen
+    // listens) — no navigation, the runner is exactly where they tapped.
+    if (url.startsWith("runbuddy://spotify")) {
+      void import("@capacitor/browser")
+        .then(({ Browser }) => Browser.close())
+        .catch(() => {});
+      if (params.get("ok") === "1") {
+        window.dispatchEvent(new CustomEvent("runbuddy-spotify-connected"));
+      }
+      return;
+    }
+
+    const token = params.get("token");
     if (!token || !url.startsWith("runbuddy://auth")) return;
     void import("@capacitor/browser")
       .then(({ Browser }) => Browser.close())

@@ -7,6 +7,10 @@ import { getProfile, setProfileSpotify } from "./users";
 // AES-256-GCM under a key derived from AUTH_SECRET before they ever leave
 // the function.
 
+/** One place for the grant: what's-playing reads + run-screen transport. */
+export const SPOTIFY_SCOPES =
+  "user-read-currently-playing user-read-playback-state user-modify-playback-state";
+
 export function spotifyConfigured(): boolean {
   return !!(
     process.env.SPOTIFY_CLIENT_ID &&

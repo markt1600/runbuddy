@@ -2,12 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "./HomeScreen";
-import { isNativeApp, nativeDiagnostics, openNativeLogin, runBuddyNative } from "@/lib/native";
+import {
+  isNativeApp,
+  nativeDiagnostics,
+  openNativeLogin,
+  openNativeSpotifyConnect,
+  runBuddyNative,
+} from "@/lib/native";
 
 // Bumped manually when it matters that a device is seen running THIS web
 // build — the shell loads the site remotely, so "which code is my phone
 // actually executing" is a real question during native bring-up.
-const WEB_BUILD = "2026-08-22j";
+const WEB_BUILD = "2026-08-22k";
 
 // Account: who you are, your body stats (the trainer weaves these into its
 // improvised lines), and the one destructive-ish action — signing out — kept
@@ -116,6 +122,15 @@ export default function AccountScreen({
       cancelled = true;
     };
   }, [user]);
+
+  // The shell's Spotify connect finishes with a deep link, not a page load —
+  // flip the card to "connected" the moment the sheet closes on success.
+  useEffect(() => {
+    const onConnected = () =>
+      setSpotify((s) => (s ? { ...s, connected: true } : { configured: true, connected: true }));
+    window.addEventListener("runbuddy-spotify-connected", onConnected);
+    return () => window.removeEventListener("runbuddy-spotify-connected", onConnected);
+  }, []);
 
   // Derived live from whatever is typed, in whichever unit — never stored,
   // never editable. kg / m² after converting the display values back.
@@ -349,7 +364,18 @@ export default function AccountScreen({
                     </button>
                   </div>
                 ) : (
-                  <a className="cta secondary spotify-connect" href="/api/spotify/login">
+                  <a
+                    className="cta secondary spotify-connect"
+                    href="/api/spotify/login"
+                    onClick={(e) => {
+                      // Shell: run the OAuth in the in-app browser sheet and
+                      // come back via deep link — following the href would
+                      // finish the flow stranded in Safari.
+                      if (!isNativeApp()) return;
+                      e.preventDefault();
+                      void openNativeSpotifyConnect();
+                    }}
+                  >
                     Connect Spotify
                   </a>
                 )}
