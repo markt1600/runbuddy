@@ -2205,6 +2205,16 @@ input[type="range"]::-moz-range-thumb {
   text-decoration: none;
 }
 
+/* One quiet forensic line at the bottom of the account screen. */
+.account-diag {
+  margin-top: 28px;
+  font-family: var(--ff-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--label-3);
+  text-align: center;
+}
+
 .profile-hint {
   margin-top: 10px;
   font-size: 13px;

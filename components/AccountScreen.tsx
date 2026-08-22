@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "./HomeScreen";
-import { isNativeApp, openNativeLogin } from "@/lib/native";
+import { isNativeApp, openNativeLogin, runBuddyNative } from "@/lib/native";
+
+// Bumped manually when it matters that a device is seen running THIS web
+// build — the shell loads the site remotely, so "which code is my phone
+// actually executing" is a real question during native bring-up.
+const WEB_BUILD = "2026-08-22c";
 
 // Account: who you are, your body stats (the trainer weaves these into its
 // improvised lines), and the one destructive-ish action — signing out — kept
@@ -389,6 +394,14 @@ export default function AccountScreen({
           )}
         </>
       )}
+
+      {/* Native bring-up diagnostics. The shell loads this site remotely, so
+          "which code is the phone running, and did the plugin register" are
+          questions this one line answers without a Mac in the loop. */}
+      <p className="account-diag">
+        web {WEB_BUILD} · shell {isNativeApp() ? "yes" : "no"} · native plugin{" "}
+        {runBuddyNative() ? "yes" : "no"}
+      </p>
     </div>
   );
 }
