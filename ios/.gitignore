@@ -1,13 +1,13 @@
 App/build
 App/Pods
 App/output
-App/App/public
 DerivedData
 xcuserdata
 
 # Cordova plugins for Capacitor
 capacitor-cordova-ios-plugins
 
-# Generated Config files
-App/App/capacitor.config.json
-App/App/config.xml
+# NOTE: Capacitor's default ignore list also hides App/App/public,
+# capacitor.config.json and config.xml — but the Xcode build needs all three,
+# and this repo builds from fresh clones on machines that may not run the
+# Capacitor CLI. They are committed; `npx cap sync ios` refreshes them.

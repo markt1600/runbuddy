@@ -1,0 +1,15 @@
+{
+	"appId": "ai.marktan.runbuddy",
+	"appName": "Run Buddy",
+	"webDir": "public",
+	"server": {
+		"url": "https://run.marktan.ai"
+	},
+	"ios": {
+		"contentInset": "never"
+	},
+	"packageClassList": [
+		"AppPlugin",
+		"CAPBrowserPlugin"
+	]
+}
