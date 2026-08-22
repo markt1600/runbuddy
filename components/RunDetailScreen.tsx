@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatElapsed, formatPace } from "@/lib/geo";
 import { PERSONAS } from "@/lib/personas";
+import HealthPanel from "./HealthPanel";
 import RouteTileMap from "./RouteTileMap";
 import type { PersonaId, RunStats } from "@/lib/types";
 import type { RunSummary } from "./HomeScreen";
@@ -192,6 +193,15 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
             ` · correction added ${Math.round(stats.gps.bridgedKm * 1000)}m`}
         </div>
       )}
+
+      {/* Health syncs the Watch's workout minutes after a run ends, so the
+          detail page re-asks over the run's saved wall-clock window — refresh
+          here works days later, not just on the post-run summary. */}
+      <HealthPanel
+        sinceMs={run.startedAt}
+        untilMs={run.startedAt + run.wallSec * 1000}
+        appDistanceKm={treadmill ? null : run.distanceKm}
+      />
 
       {payload !== null && (
         <button className="run-export-link" onClick={() => void exportData()}>

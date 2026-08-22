@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatElapsed, formatPace } from "@/lib/geo";
 import { coachIsSpeaking } from "@/lib/audio";
-import { isNativeApp, runBuddyNative, type HealthRunSummary } from "@/lib/native";
 import { getVoiceVolume } from "@/lib/voiceLibrary";
+import HealthPanel from "./HealthPanel";
 import type { SpeedUnit } from "@/lib/units";
 import { drawRunCard, shareOrDownloadCard } from "@/lib/runCard";
 import type { Persona, RunStats } from "@/lib/types";
@@ -69,33 +69,14 @@ export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Pro
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [cardUrl, setCardUrl] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
-  const [health, setHealth] = useState<HealthRunSummary | null>(null);
-  const [healthNote, setHealthNote] = useState<string | null>(null);
-
-  // Apple Health, read-only and display-only: what did Health see over the
-  // same window we just ran? Recording is untouched — this exists so the
-  // numbers can be compared side by side. A Watch workout can take a moment
-  // to sync to the phone (or still be running), hence the refresh button.
-  const fetchHealth = useCallback(async () => {
-    const native = runBuddyNative();
-    if (!native) return;
-    setHealthNote(null);
-    try {
-      await native.healthAuthorize();
-      const sinceMs = stats.startedAt ?? Date.now() - stats.elapsedMs;
-      const untilMs = stats.startedAt
-        ? stats.startedAt + (stats.wallElapsedMs ?? stats.elapsedMs)
-        : Date.now();
-      setHealth(await native.healthRunSummary({ sinceMs, untilMs }));
-    } catch {
-      setHealthNote("Couldn't read Apple Health — this needs the newest app build.");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    void fetchHealth();
-  }, [fetchHealth]);
+  // The run's wall-clock window for the Health panel, pinned once — a
+  // Date.now() fallback recomputed per render would retrigger the fetch.
+  const healthWindow = useRef({
+    sinceMs: stats.startedAt ?? Date.now() - stats.elapsedMs,
+    untilMs: stats.startedAt
+      ? stats.startedAt + (stats.wallElapsedMs ?? stats.elapsedMs)
+      : Date.now(),
+  }).current;
 
   const headline = persona.positive ? "You crushed it!" : "Okay lah, not bad, chee bye.";
   const fallbackSub = persona.positive
@@ -286,102 +267,11 @@ export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Pro
         </div>
       )}
 
-      {/* What Apple Health saw over the same window — read-only, never stored,
-          shown so its numbers can be compared with the app's own. */}
-      {isNativeApp() && (
-        <>
-          <div className="section-header">Apple Health · read-only</div>
-          <div className="card health-card">
-            {healthNote ? (
-              <div className="health-line">{healthNote}</div>
-            ) : health === null ? (
-              <div className="health-line">Reading Apple Health…</div>
-            ) : !health.available ? (
-              <div className="health-line">Apple Health is not available on this device.</div>
-            ) : (
-              <>
-                {health.workout ? (
-                  <>
-                    <div className="split-row">
-                      <span className="k">{health.workout.activity} workout</span>
-                      <span>{health.workout.source}</span>
-                    </div>
-                    <div className="split-row">
-                      <span className="k">Workout time</span>
-                      <span>
-                        {new Date(health.workout.startMs).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                        –
-                        {new Date(health.workout.endMs).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}{" "}
-                        · {formatElapsed(health.workout.durationSec * 1000)}
-                      </span>
-                    </div>
-                    {health.workout.distanceKm !== undefined && (
-                      <div className="split-row">
-                        <span className="k">Workout distance</span>
-                        <span>
-                          {health.workout.distanceKm.toFixed(2)} km
-                          {!stats.treadmill &&
-                            ` (app: ${stats.distanceKm.toFixed(2)} km)`}
-                        </span>
-                      </div>
-                    )}
-                    {health.workout.calories !== undefined && (
-                      <div className="split-row">
-                        <span className="k">Active calories</span>
-                        <span>{Math.round(health.workout.calories)} kcal</span>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="health-line">
-                    No workout found in this window
-                    {(health.workoutCount ?? 0) > 0 ? " (another type exists)" : ""} — if your
-                    Watch is still recording, end the workout there and refresh.
-                  </div>
-                )}
-                {health.heartRate?.avg !== undefined ? (
-                  <div className="split-row">
-                    <span className="k">Heart rate</span>
-                    <span>
-                      {Math.round(health.heartRate.avg)} avg
-                      {health.heartRate.min !== undefined &&
-                        health.heartRate.max !== undefined &&
-                        ` · ${Math.round(health.heartRate.min)}–${Math.round(
-                          health.heartRate.max
-                        )}`}{" "}
-                      bpm
-                      {health.heartRateSamples ? ` (${health.heartRateSamples} samples)` : ""}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="health-line">
-                    No heart-rate samples in this window yet — Watch data can take a
-                    minute to sync.
-                  </div>
-                )}
-                {health.distanceKm !== undefined && (
-                  <div className="split-row">
-                    <span className="k">Health distance</span>
-                    <span>
-                      {health.distanceKm.toFixed(2)} km
-                      {!stats.treadmill && ` (app: ${stats.distanceKm.toFixed(2)} km)`}
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
-            <button className="cta secondary health-refresh" onClick={() => void fetchHealth()}>
-              ↻ Refresh Health data
-            </button>
-          </div>
-        </>
-      )}
+      <HealthPanel
+        sinceMs={healthWindow.sinceMs}
+        untilMs={healthWindow.untilMs}
+        appDistanceKm={stats.treadmill ? null : stats.distanceKm}
+      />
 
       {stats.splits.length > 0 && (
         <>
