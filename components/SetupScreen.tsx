@@ -21,6 +21,7 @@ import {
 } from "@/lib/prefs";
 import type { SpeedUnit } from "@/lib/units";
 import type { MusicSource, PersonaId } from "@/lib/types";
+import SpotifyTransport from "./SpotifyTransport";
 
 const MUSIC_META: Record<
   Exclude<MusicSource, "none">,
@@ -173,18 +174,29 @@ export default function SetupScreen({
         ))}
       </div>
 
-      {musicMeta && (
-        <div className="card music-widget" style={{ marginTop: 10 }}>
-          <span className={`music-icon ${musicMeta.className}`}>{musicMeta.icon}</span>
-          <span className="music-meta">
-            <div className="music-title">{musicMeta.title}</div>
-            <div className="music-sub">{musicMeta.sub}</div>
-          </span>
-          <a className="open-pill" href={musicMeta.link}>
-            Open
-          </a>
-        </div>
-      )}
+      {musicMeta &&
+        (() => {
+          const openCard = (
+            <div className="card music-widget" style={{ marginTop: 10 }}>
+              <span className={`music-icon ${musicMeta.className}`}>{musicMeta.icon}</span>
+              <span className="music-meta">
+                <div className="music-title">{musicMeta.title}</div>
+                <div className="music-sub">{musicMeta.sub}</div>
+              </span>
+              <a className="open-pill" href={musicMeta.link}>
+                Open
+              </a>
+            </div>
+          );
+          // Spotify connected: the transport replaces the open-the-app card —
+          // start the playlist and set the volume without leaving Run Buddy.
+          // Everyone else (guests, no link, other apps) sees the card as before.
+          return music === "spotify" ? (
+            <SpotifyTransport firstPollMs={400} intervalMs={30_000} openLink fallback={openCard} />
+          ) : (
+            openCard
+          );
+        })()}
 
       <div className="section-header">Speed Display</div>
       <div className="segmented">

@@ -7,7 +7,7 @@ import { isNativeApp, nativeDiagnostics, openNativeLogin, runBuddyNative } from 
 // Bumped manually when it matters that a device is seen running THIS web
 // build — the shell loads the site remotely, so "which code is my phone
 // actually executing" is a real question during native bring-up.
-const WEB_BUILD = "2026-08-22i";
+const WEB_BUILD = "2026-08-22j";
 
 // Account: who you are, your body stats (the trainer weaves these into its
 // improvised lines), and the one destructive-ish action — signing out — kept

@@ -1643,6 +1643,16 @@ input[type="range"]::-moz-range-thumb {
   color: var(--label-2);
 }
 
+.spotify-open-link {
+  flex-basis: 100%;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--label-3);
+  text-decoration: none;
+}
+
 /* Phrase-listing headers: label on the left, per-category generate on the right. */
 .cat-header {
   display: flex;
