@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  NATIVE_AUTH_COOKIE,
   SESSION_COOKIE,
   STATE_COOKIE,
   authConfigured,
   requestOrigin,
+  signHandoff,
   signSession,
 } from "@/lib/server/auth";
 import { recordUserLogin } from "@/lib/server/users";
@@ -51,13 +53,6 @@ export async function GET(req: NextRequest) {
       email: payload.email,
       picture: payload.picture,
     };
-    home.cookies.set(SESSION_COOKIE, signSession(user), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: true,
-      maxAge: 180 * 86_400,
-      path: "/",
-    });
     // Registry for the admin user directory. Awaited: serverless functions
     // can be reclaimed the moment the response returns, so fire-and-forget
     // writes silently vanish. Best-effort — sign-in never fails over it.
@@ -66,6 +61,27 @@ export async function GET(req: NextRequest) {
     } catch {
       /* profile write is not worth blocking a login */
     }
+
+    // Native flow: this response lands in the SYSTEM browser, whose cookies
+    // the app's WebView never sees — hand the identity back through the deep
+    // link instead, as a 60-second token the WebView trades for its own
+    // cookie at /api/auth/native-complete.
+    if (req.cookies.get(NATIVE_AUTH_COOKIE)?.value === "1") {
+      const native = NextResponse.redirect(
+        `runbuddy://auth?token=${encodeURIComponent(signHandoff(user))}`
+      );
+      native.cookies.delete(STATE_COOKIE);
+      native.cookies.delete(NATIVE_AUTH_COOKIE);
+      return native;
+    }
+
+    home.cookies.set(SESSION_COOKIE, signSession(user), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: true,
+      maxAge: 180 * 86_400,
+      path: "/",
+    });
     return home;
   } catch {
     return home;

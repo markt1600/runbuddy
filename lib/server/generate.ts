@@ -27,6 +27,8 @@ export interface PhraseContext {
   treadmill?: boolean;
   targetMinutes?: number;
   remainingMinutes?: number;
+  /** The runner's current Spotify track, e.g. "Running Up That Hill — Kate Bush" */
+  nowPlaying?: string;
   // Signed-in runner's account profile — self-reported on the account screen
   runnerName?: string;
   runnerAge?: number;
@@ -117,6 +119,10 @@ function contextLines(context: PhraseContext): string {
         ? `They have been stopped, not moving, for ${context.pausedSeconds} seconds`
         : null,
       context.localTime ? `Local time: ${context.localTime}` : null,
+      context.nowPlaying
+        ? `Playing in their ears right now: ${context.nowPlaying} — react to the music ` +
+          "only occasionally, when it's genuinely funny or apt"
+        : null,
     ].filter(Boolean);
     return `\n\nLive run stats:\n${lines.join("\n")}${runnerLines(context)}${historyLines(context)}`;
   }
@@ -140,6 +146,10 @@ function contextLines(context: PhraseContext): string {
       ? `They have been stopped, not moving, for ${context.pausedSeconds} seconds`
       : null,
     context.localTime ? `Local time: ${context.localTime}` : null,
+    context.nowPlaying
+      ? `Playing in their ears right now: ${context.nowPlaying} — react to the music ` +
+        "only occasionally, when it's genuinely funny or apt"
+      : null,
   ].filter(Boolean);
   const stats = lines.length ? `\n\nLive run stats:\n${lines.join("\n")}` : "";
   return `${stats}${runnerLines(context)}${historyLines(context)}`;

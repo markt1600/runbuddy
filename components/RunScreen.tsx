@@ -194,6 +194,38 @@ export default function RunScreen({
     coach.setHistory(history ?? null);
     coachRef.current = coach;
 
+    // Now-playing awareness: when the runner picked Spotify, poll what's in
+    // their ears and hand it to the coach's improvise context. First answer
+    // decides whether to keep going — {connected:false} covers guests, no
+    // Spotify link, server unconfigured — so the run costs nothing extra for
+    // everyone else.
+    let nowPlayingTimer: ReturnType<typeof setInterval> | null = null;
+    if (music === "spotify") {
+      const poll = async () => {
+        try {
+          const res = await fetch("/api/spotify/now-playing");
+          if (!res.ok) return;
+          const data: { connected: boolean; playing?: boolean; track?: string; artist?: string } =
+            await res.json();
+          if (!data.connected) {
+            if (nowPlayingTimer) clearInterval(nowPlayingTimer);
+            nowPlayingTimer = null;
+            return;
+          }
+          coach.setNowPlaying(
+            data.playing && data.track
+              ? `${data.track}${data.artist ? ` — ${data.artist}` : ""}`
+              : null
+          );
+        } catch {
+          /* offline blip — keep the last known track */
+        }
+      };
+      // Give the music a moment to actually start before the first look.
+      setTimeout(() => void poll(), 45_000);
+      nowPlayingTimer = setInterval(() => void poll(), 150_000);
+    }
+
     const geo = new GeoTracker();
     geoRef.current = geo;
     // Treadmill mode: never start the watch, so no location permission is
@@ -334,6 +366,7 @@ export default function RunScreen({
 
     return () => {
       clearInterval(interval);
+      if (nowPlayingTimer) clearInterval(nowPlayingTimer);
       coach.dispose();
       // A finished run gets to say its piece; anything else stops dead.
       if (finishedRef.current) voice.stopWhenIdle();

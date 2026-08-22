@@ -1,5 +1,7 @@
 "use client";
 
+import { isNativeApp, openNativeLogin } from "@/lib/native";
+
 // First-open choice when Google sign-in is configured: an account keeps your
 // run history; guest goes straight to the setup screen, exactly as the app
 // behaved before accounts existed. The choice is remembered either way.
@@ -18,7 +20,18 @@ export default function LandingScreen({ onGuest }: Props) {
       </div>
 
       <div className="landing-actions">
-        <a className="cta" href="/api/auth/login">
+        <a
+          className="cta"
+          href="/api/auth/login"
+          onClick={(e) => {
+            // Inside the shell, OAuth must happen in the system browser —
+            // Google refuses WKWebViews. Browsers take the plain link.
+            if (isNativeApp()) {
+              e.preventDefault();
+              void openNativeLogin();
+            }
+          }}
+        >
           Continue with Google
         </a>
         <button className="cta secondary" onClick={onGuest}>

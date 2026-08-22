@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readSession, uidHash } from "@/lib/server/auth";
 import { blobConfigured } from "@/lib/server/library";
 import { getProfile, updateProfile, type ProfileEdits } from "@/lib/server/users";
+import { spotifyConfigured } from "@/lib/server/spotify";
 
 // The signed-in user's own profile: read on the account screen, written when
 // they save their age / height / weight. Always keyed off the session — the
@@ -27,7 +28,11 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "sign in required" }, { status: 401 });
   if (!blobConfigured()) return NextResponse.json({ profile: pick(null), storage: false });
   const profile = await getProfile(uidHash(session.sub)).catch(() => null);
-  return NextResponse.json({ profile: pick(profile), storage: true });
+  return NextResponse.json({
+    profile: pick(profile),
+    storage: true,
+    spotify: { configured: spotifyConfigured(), connected: !!profile?.spotify },
+  });
 }
 
 /** null clears a field; a number must sit inside a sane human range. */

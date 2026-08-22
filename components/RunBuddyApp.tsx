@@ -32,6 +32,7 @@ import {
 import type { MusicSource, PersonaId, RunStats } from "@/lib/types";
 import type { RunnerInfo } from "@/lib/coach";
 import { buildHistoryDigest, type RunHistoryDigest } from "@/lib/history";
+import { initNativeAuthListener, isNativeApp } from "@/lib/native";
 
 type Screen =
   | "boot"
@@ -211,6 +212,12 @@ export default function RunBuddyApp() {
   // rendering isn't configured; the admin screen has the visible controls.
   useEffect(() => {
     void ensureVoiceLibrary(() => {});
+  }, []);
+
+  // Inside the native shell only: catch the sign-in deep link. A no-op in
+  // every browser — the Capacitor modules aren't even loaded there.
+  useEffect(() => {
+    if (isNativeApp()) void initNativeAuthListener();
   }, []);
 
   const persona = PERSONAS[personaId];

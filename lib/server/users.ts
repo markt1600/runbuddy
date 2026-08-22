@@ -23,6 +23,8 @@ export interface UserProfile {
   weightKg?: number;
   gender?: "female" | "male";
   units?: "metric" | "imperial";
+  /** Spotify OAuth tokens, AES-sealed (lib/server/spotify.ts) — never plaintext. */
+  spotify?: string;
 }
 
 /** The subset of the profile the account screen may edit. */
@@ -112,6 +114,17 @@ export async function updateProfile(
   if (edits.units) next.units = edits.units;
   await writeProfile(next);
   return next;
+}
+
+/** Store (or clear) the sealed Spotify tokens on a profile. */
+export async function setProfileSpotify(uid: string, sealed: string | null): Promise<void> {
+  if (!blobConfigured()) return;
+  const existing = await readProfile(uid);
+  if (!existing) return;
+  const next: UserProfile = { ...existing };
+  if (sealed === null) delete next.spotify;
+  else next.spotify = sealed;
+  await writeProfile(next);
 }
 
 export async function listUsers(): Promise<UserProfile[]> {

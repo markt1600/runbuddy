@@ -63,6 +63,40 @@ export function readSession(req: NextRequest): SessionUser | null {
   return verifySession(req.cookies.get(SESSION_COOKIE)?.value);
 }
 
+// ---- Native sign-in handoff ----
+// Google refuses OAuth inside WKWebViews, so the native app signs in through
+// the SYSTEM browser. That browser's cookies never reach the WebView, so the
+// callback hands the identity back through a deep link as a short-lived
+// single-purpose token, which /api/auth/native-complete (loaded BY the
+// WebView) exchanges for the normal session cookie. 60 seconds of validity —
+// it lives exactly as long as the redirect hop it rides.
+
+export const NATIVE_AUTH_COOKIE = "runbuddy-native-auth";
+
+export function signHandoff(user: SessionUser): string {
+  const payload = b64url(
+    Buffer.from(JSON.stringify({ ...user, exp: Date.now() + 60_000 }))
+  );
+  return `h1.${payload}.${hmac(`h1.${payload}`)}`;
+}
+
+export function verifyHandoff(token: string | undefined): SessionUser | null {
+  if (!token || !secret()) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3 || parts[0] !== "h1") return null;
+  const expected = Buffer.from(hmac(`h1.${parts[1]}`));
+  const got = Buffer.from(parts[2]);
+  if (expected.length !== got.length || !timingSafeEqual(expected, got)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+    if (typeof data.sub !== "string" || typeof data.exp !== "number") return null;
+    if (data.exp < Date.now()) return null;
+    return { sub: data.sub, name: data.name ?? "", email: data.email, picture: data.picture };
+  } catch {
+    return null;
+  }
+}
+
 export function newStateToken(): string {
   return b64url(randomBytes(24));
 }

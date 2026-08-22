@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "./HomeScreen";
+import { isNativeApp, openNativeLogin } from "@/lib/native";
 
 // Account: who you are, your body stats (the trainer weaves these into its
 // improvised lines), and the one destructive-ish action — signing out — kept
@@ -66,6 +67,7 @@ export default function AccountScreen({
   const [gender, setGender] = useState<Gender>(null);
   const [loaded, setLoaded] = useState(false);
   const [storage, setStorage] = useState(true);
+  const [spotify, setSpotify] = useState<{ configured: boolean; connected: boolean } | null>(null);
   const [status, setStatus] = useState<"idle" | "dirty" | "saving" | "saved" | "error">("idle");
   const [errorText, setErrorText] = useState("");
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -85,8 +87,10 @@ export default function AccountScreen({
             units: Units;
           };
           storage: boolean;
+          spotify?: { configured: boolean; connected: boolean };
         } | null) => {
           if (cancelled || !data) return;
+          if (data.spotify) setSpotify(data.spotify);
           const p = data.profile;
           const u = p.units === "imperial" ? "imperial" : "metric";
           setUnits(u);
@@ -321,6 +325,37 @@ export default function AccountScreen({
             </p>
           </div>
 
+          {spotify?.configured && (
+            <>
+              <div className="section-header">Music</div>
+              <div className="card profile-card">
+                {spotify.connected ? (
+                  <div className="spotify-row">
+                    <span className="spotify-status">✓ Spotify connected</span>
+                    <button
+                      className="spotify-disconnect"
+                      onClick={() => {
+                        void fetch("/api/spotify/disconnect", { method: "POST" }).finally(() =>
+                          setSpotify({ configured: true, connected: false })
+                        );
+                      }}
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                ) : (
+                  <a className="cta secondary spotify-connect" href="/api/spotify/login">
+                    Connect Spotify
+                  </a>
+                )}
+                <p className="profile-hint">
+                  Lets your trainer see what&apos;s playing mid-run and react to it —
+                  nothing else, and never controls playback.
+                </p>
+              </div>
+            </>
+          )}
+
           <p className="account-note">
             Your runs save automatically when you finish — distance, pace and every
             kilometre split, listed on your home screen.
@@ -338,7 +373,17 @@ export default function AccountScreen({
             when you finish.
           </p>
           {configured && (
-            <a className="cta" style={{ marginTop: 18, textAlign: "center", textDecoration: "none" }} href="/api/auth/login">
+            <a
+              className="cta"
+              style={{ marginTop: 18, textAlign: "center", textDecoration: "none" }}
+              href="/api/auth/login"
+              onClick={(e) => {
+                if (isNativeApp()) {
+                  e.preventDefault();
+                  void openNativeLogin();
+                }
+              }}
+            >
               Continue with Google
             </a>
           )}

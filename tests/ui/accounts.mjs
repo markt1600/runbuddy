@@ -249,6 +249,7 @@ async function stubAuth(page, me) {
       body: JSON.stringify({
         profile: { age: 47, heightCm: 175, weightKg: 72, gender: "male", units: "metric" },
         storage: true,
+        spotify: { configured: true, connected: false },
       }),
     });
   });
@@ -314,6 +315,12 @@ async function stubAuth(page, me) {
   assert.ok(Math.abs(putBody.heightCm - 175) < 0.1, `height not metric on the wire: ${putBody.heightCm}`);
   assert.ok(Math.abs(putBody.weightKg - 72.57) < 0.05, `weight not metric on the wire: ${putBody.weightKg}`);
   assert.strictEqual(await page.locator(".profile-status.saved").count(), 1, "no saved confirmation");
+  // Spotify block: server says configured-but-unconnected → the connect link.
+  assert.strictEqual(
+    await page.locator('.spotify-connect[href="/api/spotify/login"]').count(),
+    1,
+    "Spotify connect link missing"
+  );
   await browser.close();
   console.log("  ok   body stats load → toggle converts → save is metric");
 }

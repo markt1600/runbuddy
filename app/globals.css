@@ -2170,6 +2170,41 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 600;
 }
 
+/* Spotify connect block on the account screen */
+.spotify-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.spotify-status {
+  font-family: var(--ff-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #1a7a3c; /* Spotify-adjacent green, muted to sit on paper */
+  font-weight: 600;
+}
+
+.spotify-disconnect {
+  border: none;
+  background: transparent;
+  color: var(--label-3);
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.spotify-connect {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+}
+
 .profile-hint {
   margin-top: 10px;
   font-size: 13px;

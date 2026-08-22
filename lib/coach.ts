@@ -102,6 +102,7 @@ export class CoachEngine {
   private recordTold = new Set<"wr" | "hs">();
   private cameoAt = 0; // when the second trainer barges in (0 = not scheduled)
   private cameoStarted = false;
+  private nowPlaying: string | null = null;
 
   constructor(
     persona: Persona,
@@ -235,6 +236,11 @@ export class CoachEngine {
     this.history = history;
   }
 
+  /** The runner's current Spotify track ("Song — Artist"), when connected. */
+  setNowPlaying(track: string | null) {
+    this.nowPlaying = track;
+  }
+
   /** Library size + how much of it has pre-rendered ElevenLabs audio. */
   libraryStats() {
     return {
@@ -256,12 +262,14 @@ export class CoachEngine {
         }
       : {};
     const past = this.history ? { runnerHistory: this.history } : {};
+    const tune = this.nowPlaying ? { nowPlaying: this.nowPlaying } : {};
     // Treadmill runs have no GPS — omit distance, pace, speed and place so the
     // model never invents them.
     if (this.targetMin > 0) {
       return {
         ...who,
         ...past,
+        ...tune,
         elapsedMin: Math.round(stats.elapsedMs / 60000),
         localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         treadmill: true,
@@ -272,6 +280,7 @@ export class CoachEngine {
     return {
       ...who,
       ...past,
+      ...tune,
       distanceKm: Number(stats.distanceKm.toFixed(2)),
       elapsedMin: Math.round(stats.elapsedMs / 60000),
       localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
