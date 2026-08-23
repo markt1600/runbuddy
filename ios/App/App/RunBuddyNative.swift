@@ -49,6 +49,7 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
         CAPPluginMethod(name: "saveToPhotos", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "haptic", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "prefetchAudio", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cacheStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "appleSignIn", returnType: CAPPluginReturnPromise),
     ]
 
@@ -192,6 +193,18 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
      * pre-run warming never competes with the run itself for bandwidth.
      */
     private static let prefetchQueue = DispatchQueue(label: "runbuddy.voicecache", qos: .utility)
+
+    /** How much of this URL set is already on disk — the progress readout. */
+    @objc func cacheStatus(_ call: CAPPluginCall) {
+        let urls = call.getArray("urls", String.self) ?? []
+        var cached = 0
+        for raw in urls.prefix(500) {
+            if let path = cachePath(for: raw), FileManager.default.fileExists(atPath: path.path) {
+                cached += 1
+            }
+        }
+        call.resolve(["cached": cached, "total": min(urls.count, 500)])
+    }
 
     @objc func prefetchAudio(_ call: CAPPluginCall) {
         let urls = call.getArray("urls", String.self) ?? []

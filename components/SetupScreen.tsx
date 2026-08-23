@@ -7,6 +7,7 @@ import {
   loadLibraryState,
   pickSamplePhrase,
   playPhrase,
+  renderedUrlsFor,
 } from "@/lib/voiceLibrary";
 import { audioSessionSupported } from "@/lib/audio";
 import {
@@ -19,7 +20,7 @@ import {
   chattinessLabel,
   formatTargetPace,
 } from "@/lib/prefs";
-import { isNativeApp } from "@/lib/native";
+import { isNativeApp, runBuddyNative } from "@/lib/native";
 import type { SpeedUnit } from "@/lib/units";
 import type { MusicSource, PersonaId } from "@/lib/types";
 import SpotifyTransport from "./SpotifyTransport";
@@ -108,6 +109,44 @@ export default function SetupScreen({
     void loadLibraryState().then(() => setLibraryReady(true));
   }, []);
 
+  // Shell: start pulling the selected persona's voice pack onto disk the
+  // moment you're on this screen — not at Start Run — and show how far the
+  // download is. Old binaries without cacheStatus just skip the readout.
+  const [voicePack, setVoicePack] = useState<{ cached: number; total: number } | null>(null);
+  useEffect(() => {
+    const native = runBuddyNative();
+    if (!native || !libraryReady) {
+      setVoicePack(null);
+      return;
+    }
+    let cancelled = false;
+    const urls = renderedUrlsFor(personaId);
+    if (urls.length === 0) {
+      setVoicePack(null);
+      return;
+    }
+    void native.prefetchAudio({ urls }).catch(() => {});
+    const poll = async () => {
+      try {
+        const status = await native.cacheStatus({ urls });
+        if (!cancelled) setVoicePack(status);
+        return status;
+      } catch {
+        return null; // binary predates cacheStatus — prefetch still runs
+      }
+    };
+    void poll();
+    const timer = setInterval(() => {
+      void poll().then((s) => {
+        if (s && s.cached >= s.total) clearInterval(timer);
+      });
+    }, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [personaId, libraryReady]);
+
   const previewVoice = (id: PersonaId, e: React.MouseEvent) => {
     e.stopPropagation();
     const sample = pickSamplePhrase(id);
@@ -155,6 +194,16 @@ export default function SetupScreen({
           <span className="persona-check">{p.id === personaId ? "✓" : ""}</span>
         </button>
       ))}
+
+      {/* Offline voice-pack progress (shell): every phrase downloaded here
+          plays from disk mid-run — dead zones only cost the improvised lines. */}
+      {voicePack && (
+        <div className="voicepack-line">
+          {voicePack.cached >= voicePack.total
+            ? `✓ ${PERSONAS[personaId].shortName}'s voice pack is on this phone · ${voicePack.total} phrases`
+            : `⬇︎ Downloading ${PERSONAS[personaId].shortName}'s voice pack… ${voicePack.cached}/${voicePack.total}`}
+        </div>
+      )}
 
       <div className="section-header">Background Audio</div>
       <div className="segmented">

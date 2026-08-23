@@ -76,6 +76,8 @@ interface RunBuddyNativePlugin {
   haptic(options: { kind: "tap" | "medium" | "heavy" | "success" | "warning" }): Promise<void>;
   /** Warm the on-disk voice cache with any of these URLs not yet stored. */
   prefetchAudio(options: { urls: string[] }): Promise<{ queued: number }>;
+  /** How many of these URLs are already cached on disk. */
+  cacheStatus(options: { urls: string[] }): Promise<{ cached: number; total: number }>;
   /** Apple's native sign-in sheet. Rejects when the runner cancels. */
   appleSignIn(): Promise<{ identityToken: string; name?: string; email?: string }>;
   /** Show the Health read-permission sheet (first time only; no-op after). */
@@ -131,6 +133,7 @@ export function runBuddyNative(): RunBuddyNativePlugin | null {
     saveToPhotos: (options) => call("saveToPhotos", options),
     haptic: (options) => call("haptic", options),
     prefetchAudio: (options) => call<{ queued: number }>("prefetchAudio", options),
+    cacheStatus: (options) => call<{ cached: number; total: number }>("cacheStatus", options),
     appleSignIn: () =>
       call<{ identityToken: string; name?: string; email?: string }>("appleSignIn"),
     healthAuthorize: () => call<{ available: boolean }>("healthAuthorize"),

@@ -2236,6 +2236,17 @@ input[type="range"]::-moz-range-thumb {
   margin-top: 10px;
 }
 
+/* Offline voice-pack progress (setup, shell only) */
+.voicepack-line {
+  margin-top: 10px;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--label-3);
+  text-align: center;
+}
+
 /* Personal-records board (home) */
 .pr-board {
   margin-top: 6px;
