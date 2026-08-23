@@ -279,6 +279,41 @@ scenario("corrected engine: tunnel span is credited once, not twice", () => {
   );
 });
 
+scenario("start gap: movement during GPS acquisition is credited once", () => {
+  // The 14km field run: coarse fixes for the first ~35s (first accepted fix
+  // at t=36), runner already moving. The Doppler fallback pays for the gap
+  // and the first chord must NOT claw it back.
+  const t = new GeoTracker();
+  const w = makeWorld(t, mulberry32(21), { accuracy: 60 }); // too coarse to anchor
+  w.speedMps = 2.8;
+  w.advance(35);
+  w.accuracy = 10;
+  w.advance(300);
+  const truth = (335 * 2.8) / 1000;
+  assert.ok(
+    Math.abs(t.distanceKm - truth) / truth < 0.08,
+    `measured ${t.distanceKm.toFixed(3)}km for a ${truth.toFixed(3)}km run with slow acquisition`
+  );
+  const diag = t.fixDiagnostics();
+  assert.ok(diag.startKm > 0.05, `start credit not recorded (${(diag.startKm * 1000).toFixed(0)}m)`);
+});
+
+scenario("start gap: standing at the start line credits nothing", () => {
+  const t = new GeoTracker();
+  const w = makeWorld(t, mulberry32(22), { accuracy: 60 });
+  w.speedMps = 0; // waiting at the start while GPS settles
+  w.advance(35);
+  w.accuracy = 10;
+  w.speedMps = 2.8;
+  w.advance(120);
+  const truth = (120 * 2.8) / 1000;
+  assert.ok(
+    t.distanceKm < truth * 1.1,
+    `standing acquisition over-credited: ${t.distanceKm.toFixed(3)}km for ${truth.toFixed(3)}km of motion`
+  );
+  assert.ok(t.fixDiagnostics().startKm < 0.01, "start credit invented movement");
+});
+
 if (failures > 0) {
   console.error(`geo.sim: ${failures} scenario(s) failed`);
   process.exit(1);

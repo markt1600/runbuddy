@@ -151,6 +151,43 @@ export async function getRun(sub: string, basename: string): Promise<SavedRun | 
   }
 }
 
+/**
+ * Adopt a device's distance (the Watch's, via the Health panel) over the
+ * app's. Distance and its derivatives change; splits stay app-measured and
+ * the original reading is preserved in stats.confirmed for provenance. The
+ * basename encodes distance, so this is a re-save under the new name plus a
+ * delete of the old blob.
+ */
+export async function confirmRunDistance(
+  sub: string,
+  basename: string,
+  distanceKm: number,
+  source: string
+): Promise<{ id: string; stats: RunStats } | null> {
+  const run = await getRun(sub, basename);
+  if (!run || run.stats.treadmill) return null;
+  const stats = run.stats;
+  // A confirmation is a small correction, not a rewrite — a device reading
+  // wildly off the app's is a bug or the wrong workout, refuse it.
+  if (Math.abs(distanceKm - stats.distanceKm) > Math.max(1, stats.distanceKm * 0.15)) {
+    return null;
+  }
+  stats.confirmed = {
+    source: source.slice(0, 60),
+    appDistanceKm: stats.distanceKm,
+    at: Date.now(),
+  };
+  stats.distanceKm = distanceKm;
+  if (stats.elapsedMs > 0 && distanceKm > 0) {
+    stats.avgPaceSecPerKm = stats.elapsedMs / 1000 / distanceKm;
+    stats.avgSpeedKmh = distanceKm / (stats.elapsedMs / 3_600_000);
+  }
+  const saved = await saveRun(sub, run.personaId, stats);
+  if ("rejected" in saved) return null;
+  if (saved.id !== basename) await deleteRun(sub, basename);
+  return { id: saved.id, stats };
+}
+
 /** Ownership is structural: the pathname is rebuilt from the session's own
  *  uid hash, so a user can only ever delete inside their own prefix. */
 export async function deleteRun(sub: string, basename: string): Promise<boolean> {

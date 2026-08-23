@@ -65,6 +65,8 @@ interface RunBuddyNativePlugin {
   keepAliveStop(): Promise<void>;
   startLocation(): Promise<void>;
   stopLocation(): Promise<void>;
+  /** Add one base64 PNG to the photo library (add-only permission). */
+  saveToPhotos(options: { data: string }): Promise<void>;
   /** Show the Health read-permission sheet (first time only; no-op after). */
   healthAuthorize(): Promise<{ available: boolean }>;
   /** Read-only: what Health recorded during [sinceMs, untilMs]. */
@@ -114,6 +116,7 @@ export function runBuddyNative(): RunBuddyNativePlugin | null {
     keepAliveStop: () => call("keepAliveStop"),
     startLocation: () => call("startLocation"),
     stopLocation: () => call("stopLocation"),
+    saveToPhotos: (options) => call("saveToPhotos", options),
     healthAuthorize: () => call<{ available: boolean }>("healthAuthorize"),
     healthRunSummary: (options) => call<HealthRunSummary>("healthRunSummary", options),
     addListener: (name, cb) => {

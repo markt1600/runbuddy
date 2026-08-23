@@ -143,6 +143,8 @@ export class GeoTracker {
   // Doppler credit granted while good fixes were absent — subtracted from the
   // first chord that spans the outage, so the stretch counts exactly once.
   private outagePoolKm = 0;
+  /** Doppler-measured distance covered before the first accepted fix. */
+  private startCreditKm = 0;
   // What the legacy engine would have read, integrated in parallel — the
   // difference is the correction's net effect, surfaced on the summary.
   private shadowLegacyKm = 0;
@@ -323,6 +325,16 @@ export class GeoTracker {
     } else if (!this.last) {
       this.last = f;
       this.pushRoutePoint(f);
+      // Start-gap credit: the Doppler fallback has been counting since the
+      // warm-up while position fixes were still too coarse to anchor. No
+      // chord will ever span that opening stretch — the anchor starts HERE —
+      // so the pool is settled as earned rather than left to be docked from
+      // the first chord, which was silently clawing the run's first ~80m
+      // back (a 14km field run started crediting only at t=36s). The credit
+      // is measured, not guessed: Doppler's stationarity gate kept it at
+      // zero for anyone standing at the start line.
+      this.startCreditKm = this.outagePoolKm;
+      this.outagePoolKm = 0;
     } else if (!this.stationary) {
       const d = haversineKm(this.last, f);
       const dtHrs = (f.timestamp - this.last.timestamp) / 3_600_000;
@@ -574,12 +586,14 @@ export class GeoTracker {
     maxFixGapSec: number;
     overCapSec: number;
     bridgedKm: number;
+    startKm: number;
   } {
     return {
       avgFixGapSec: this.fixGapCount > 0 ? this.fixGapSumSec / this.fixGapCount : null,
       maxFixGapSec: this.fixGapMaxSec,
       overCapSec: this.fixGapOverCapSec,
       bridgedKm: this.bridgedKm,
+      startKm: this.startCreditKm,
     };
   }
 

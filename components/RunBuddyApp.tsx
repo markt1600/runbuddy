@@ -68,6 +68,9 @@ export default function RunBuddyApp() {
   const [personaId, setPersonaId] = useState<PersonaId>("ahbeng");
   const [music, setMusic] = useState<MusicSource>("spotify");
   const [finalStats, setFinalStats] = useState<RunStats | null>(null);
+  // The just-saved run's id, for the summary's confirm-with-Watch button —
+  // null until the save round-trips (or forever, for guests).
+  const [savedRunId, setSavedRunId] = useState<string | null>(null);
   const [speedUnit, setSpeedUnitState] = useState<SpeedUnit>("kmh");
   const [chattiness, setChattinessState] = useState(CHATTINESS_DEFAULT);
   const [targetKm, setTargetKmState] = useState(0);
@@ -327,6 +330,7 @@ export default function RunBuddyApp() {
           history={runHistory}
           onFinish={(stats) => {
             setFinalStats(stats);
+            setSavedRunId(null);
             setScreen("summary");
             // Best-effort history save. The server drops sub-minute or
             // sub-50m runs on purpose — those are pocket-starts, not runs.
@@ -336,7 +340,11 @@ export default function RunBuddyApp() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ personaId, stats }),
               })
-                .then(() => refreshHistory()) // next run's coach knows this one
+                .then((res) => (res.ok ? res.json() : null))
+                .then((data: { id?: string } | null) => {
+                  if (data?.id) setSavedRunId(data.id);
+                  refreshHistory(); // next run's coach knows this one
+                })
                 .catch(() => {});
             }
           }}
@@ -346,9 +354,11 @@ export default function RunBuddyApp() {
         <SummaryScreen
           persona={persona}
           stats={finalStats}
+          runId={savedRunId}
           speedUnit={speedUnit}
           onDone={() => {
             setFinalStats(null);
+            setSavedRunId(null);
             setScreen(auth.user ? "home" : "setup");
           }}
         />

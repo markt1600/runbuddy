@@ -17,14 +17,30 @@ interface Props {
   untilMs: number;
   /** The app's own distance for the side-by-side; null for treadmill runs. */
   appDistanceKm?: number | null;
+  /** Already confirmed against a device (persisted on the run). */
+  confirmed?: { source: string; appDistanceKm: number } | null;
+  /**
+   * Offered on the summary: adopt the workout's distance as the run's
+   * official one. Resolves true when the run was updated.
+   */
+  onConfirm?: (w: { distanceKm: number; source: string }) => Promise<boolean>;
 }
 
 const clock = (ms: number) =>
   new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-export default function HealthPanel({ sinceMs, untilMs, appDistanceKm }: Props) {
+export default function HealthPanel({
+  sinceMs,
+  untilMs,
+  appDistanceKm,
+  confirmed = null,
+  onConfirm,
+}: Props) {
   const [health, setHealth] = useState<HealthRunSummary | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<"idle" | "busy" | "done" | "failed">(
+    "idle"
+  );
 
   const fetchHealth = useCallback(async () => {
     const native = runBuddyNative();
@@ -124,6 +140,49 @@ export default function HealthPanel({ sinceMs, untilMs, appDistanceKm }: Props) 
                   {health.distanceKm.toFixed(2)} km{appSide}
                 </span>
               </div>
+            )}
+            {confirmed ? (
+              <div className="health-line">
+                ✓ Confirmed — this run uses the {confirmed.source} distance (the app
+                measured {confirmed.appDistanceKm.toFixed(2)} km).
+              </div>
+            ) : confirmState === "done" ? (
+              <div className="health-line">
+                ✓ Run updated — the stats and the share card now use the Watch
+                distance.
+              </div>
+            ) : (
+              onConfirm &&
+              health.workout?.distanceKm !== undefined &&
+              appDistanceKm !== null &&
+              appDistanceKm !== undefined &&
+              Math.abs(health.workout.distanceKm - appDistanceKm) > 0.015 && (
+                <>
+                  <button
+                    className="cta secondary health-refresh"
+                    disabled={confirmState === "busy"}
+                    onClick={() => {
+                      const w = health.workout!;
+                      setConfirmState("busy");
+                      void onConfirm({
+                        distanceKm: w.distanceKm!,
+                        source: w.source,
+                      }).then((ok) => setConfirmState(ok ? "done" : "failed"));
+                    }}
+                  >
+                    {confirmState === "busy"
+                      ? "Updating…"
+                      : `✓ Confirm run at ${health.workout.distanceKm.toFixed(2)} km (${
+                          health.workout.source
+                        })`}
+                  </button>
+                  {confirmState === "failed" && (
+                    <div className="health-line">
+                      Couldn&apos;t update the run — check the connection and try again.
+                    </div>
+                  )}
+                </>
+              )
             )}
           </>
         )}

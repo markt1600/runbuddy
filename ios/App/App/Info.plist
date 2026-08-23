@@ -73,6 +73,8 @@
 	<string>Allowing background location keeps your run tracking while the screen is locked or the phone is in an armband.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>After a run, Run Buddy reads your workout, heart rate and distance from Apple Health so you can compare it with what the app measured.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Saving your run card adds the picture to your photo library.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

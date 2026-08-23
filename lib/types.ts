@@ -114,5 +114,8 @@ export interface RunStats {
     maxFixGapSec: number;
     overCapSec: number; // run-seconds beyond the integrator's per-fix credit cap
     bridgedKm: number; // the correction's net effect vs the legacy engine
+    startKm?: number; // Doppler-measured movement before the first accepted fix
   };
+  /** Set when the runner adopted a device's distance over the app's. */
+  confirmed?: { source: string; appDistanceKm: number; at: number };
 }

@@ -1,4 +1,5 @@
 import { formatElapsed } from "./geo";
+import { runBuddyNative } from "./native";
 import { formatInUnit, unitSuffix, type SpeedUnit } from "./units";
 import type { Persona, RunStats } from "./types";
 
@@ -445,7 +446,21 @@ export function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
 export async function shareOrDownloadCard(
   canvas: HTMLCanvasElement,
   filename: string
-): Promise<"shared" | "downloaded" | "failed"> {
+): Promise<"shared" | "downloaded" | "photos" | "failed"> {
+  // Native shell: straight into the photo library — no share sheet, no
+  // downloads folder, the card is in Photos where it will actually be used.
+  // Any failure (permission denied, old binary) falls through to the web path.
+  const native = runBuddyNative();
+  if (native) {
+    try {
+      const dataUrl = canvas.toDataURL("image/png");
+      await native.saveToPhotos({ data: dataUrl.slice(dataUrl.indexOf(",") + 1) });
+      return "photos";
+    } catch {
+      /* fall through */
+    }
+  }
+
   const blob = await canvasToBlob(canvas);
   if (!blob) return "failed";
   const file = new File([blob], filename, { type: "image/png" });

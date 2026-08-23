@@ -2,6 +2,7 @@ import Capacitor
 import AVFoundation
 import CoreLocation
 import HealthKit
+import Photos
 import UIKit
 
 // The native layer the WebView cannot provide for itself:
@@ -40,6 +41,7 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
         CAPPluginMethod(name: "stopLocation", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthAuthorize", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthRunSummary", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveToPhotos", returnType: CAPPluginReturnPromise),
     ]
 
     private var locationManager: CLLocationManager?
@@ -237,6 +239,37 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
             self.keepAlivePlayer?.stop()
             self.keepAlivePlayer = nil
             call.resolve()
+        }
+    }
+
+    // ---- Photo library (add-only) ----
+
+    /**
+     * Save one PNG (the run card) straight into the photo library. Uses the
+     * add-only authorization level, so the permission sheet says "add photos"
+     * and the app can never read or see the library.
+     */
+    @objc func saveToPhotos(_ call: CAPPluginCall) {
+        guard let b64 = call.getString("data"),
+              let data = Data(base64Encoded: b64),
+              let image = UIImage(data: data) else {
+            call.reject("bad image data")
+            return
+        }
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            guard status == .authorized || status == .limited else {
+                call.reject("photos permission denied")
+                return
+            }
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }) { ok, err in
+                if ok {
+                    call.resolve()
+                } else {
+                    call.reject("save failed: \(err?.localizedDescription ?? "unknown")")
+                }
+            }
         }
     }
 

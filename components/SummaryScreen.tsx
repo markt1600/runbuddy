@@ -12,6 +12,8 @@ import type { Persona, RunStats } from "@/lib/types";
 interface Props {
   persona: Persona;
   stats: RunStats;
+  /** The saved run's id — null for guests or while the save is in flight. */
+  runId: string | null;
   speedUnit: SpeedUnit;
   onDone: () => void;
 }
@@ -64,11 +66,46 @@ function RouteMap({ route, accent }: { route: RunStats["route"]; accent: string 
   );
 }
 
-export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Props) {
+export default function SummaryScreen({
+  persona,
+  stats: initialStats,
+  runId: initialRunId,
+  speedUnit,
+  onDone,
+}: Props) {
   const [comment, setComment] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [cardUrl, setCardUrl] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
+  // Local because confirming against the Watch amends them in place — the
+  // stat grid and the card both redraw from whatever is here.
+  const [stats, setStats] = useState(initialStats);
+  const runIdRef = useRef(initialRunId);
+  runIdRef.current = initialRunId ?? runIdRef.current;
+
+  /**
+   * Adopt the Watch's distance as the run's official one: persists to the
+   * saved run (whose id changes — the pathname encodes distance) and updates
+   * everything on this screen. Returns false so the panel can say so.
+   */
+  const confirmDistance = async (w: { distanceKm: number; source: string }) => {
+    const id = runIdRef.current;
+    if (!id) return false;
+    try {
+      const res = await fetch(`/api/runs/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ distanceKm: w.distanceKm, source: w.source }),
+      });
+      if (!res.ok) return false;
+      const data: { id: string; stats: RunStats } = await res.json();
+      runIdRef.current = data.id;
+      setStats(data.stats);
+      return true;
+    } catch {
+      return false;
+    }
+  };
   // The run's wall-clock window for the Health panel, pinned once — a
   // Date.now() fallback recomputed per render would retrigger the fetch.
   const healthWindow = useRef({
@@ -185,9 +222,11 @@ export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Pro
     setSaveNote(
       result === "shared"
         ? null
-        : result === "downloaded"
-          ? "Saved to your downloads"
-          : "Couldn't save — long-press the image to save it instead"
+        : result === "photos"
+          ? "✓ Saved to your Photos"
+          : result === "downloaded"
+            ? "Saved to your downloads"
+            : "Couldn't save — long-press the image to save it instead"
     );
   }, []);
 
@@ -264,6 +303,8 @@ export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Pro
             ` · ${Math.round(stats.gps.overCapSec)}s beyond the credit cap`}
           {stats.gps.bridgedKm >= 0.005 &&
             ` · correction added ${Math.round(stats.gps.bridgedKm * 1000)}m`}
+          {(stats.gps.startKm ?? 0) >= 0.005 &&
+            ` · start credit ${Math.round((stats.gps.startKm ?? 0) * 1000)}m`}
         </div>
       )}
 
@@ -271,6 +312,8 @@ export default function SummaryScreen({ persona, stats, speedUnit, onDone }: Pro
         sinceMs={healthWindow.sinceMs}
         untilMs={healthWindow.untilMs}
         appDistanceKm={stats.treadmill ? null : stats.distanceKm}
+        confirmed={stats.confirmed ?? null}
+        onConfirm={initialRunId && !stats.treadmill ? confirmDistance : undefined}
       />
 
       {stats.splits.length > 0 && (

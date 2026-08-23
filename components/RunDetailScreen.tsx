@@ -191,6 +191,8 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
             ` · ${Math.round(stats.gps.overCapSec)}s beyond the credit cap`}
           {stats.gps.bridgedKm >= 0.005 &&
             ` · correction added ${Math.round(stats.gps.bridgedKm * 1000)}m`}
+          {(stats.gps.startKm ?? 0) >= 0.005 &&
+            ` · start credit ${Math.round((stats.gps.startKm ?? 0) * 1000)}m`}
         </div>
       )}
 
@@ -201,6 +203,7 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
         sinceMs={run.startedAt}
         untilMs={run.startedAt + run.wallSec * 1000}
         appDistanceKm={treadmill ? null : run.distanceKm}
+        confirmed={stats?.confirmed ?? null}
       />
 
       {payload !== null && (
