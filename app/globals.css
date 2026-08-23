@@ -2047,12 +2047,6 @@ input[type="range"]::-moz-range-thumb {
   border-top: 1px solid var(--separator);
 }
 
-/* The hole the floating pill hovers over: sized to the pill (plus a little
-   air) so Home / Account / Admin group snugly around it, never under it. */
-.tab-spacer {
-  flex: 0 1 min(44%, 182px);
-}
-
 .tab-side {
   flex: 1 1 0;
   display: flex;
@@ -2089,15 +2083,13 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* The one action that matters gets the weight: a raised red pill, dead
-   centre, floating a little proud of the bar. The gradient + inset
-   highlight/shade pair is the 3D — lit from above, seated below — and
-   pressing it visibly pushes it down into its shadow. */
+   centre of the bar — horizontally between the equal side groups,
+   vertically centred in the pane. The gradient + inset highlight/shade
+   pair is the 3D — lit from above, seated below — and pressing it visibly
+   pushes it down into its shadow. */
 .tab-run {
-  position: absolute;
-  left: 50%;
-  top: -14px;
-  transform: translateX(-50%);
-  width: min(42%, 174px);
+  flex: 0 1 min(44%, 182px);
+  align-self: center;
   border: none;
   border-radius: 999px;
   background: var(--accent);
@@ -2114,9 +2106,9 @@ input[type="range"]::-moz-range-thumb {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   cursor: pointer;
-  padding: 14px 6px 13px;
+  padding: 12px 6px 11px;
   box-shadow:
-    0 6px 14px rgba(0, 0, 0, 0.28),
+    0 5px 12px rgba(0, 0, 0, 0.26),
     0 2px 4px rgba(0, 0, 0, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     inset 0 -2px 0 rgba(0, 0, 0, 0.22);
@@ -2124,9 +2116,9 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .tab-run:active {
-  transform: translateX(-50%) translateY(3px);
+  transform: translateY(2px);
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.24),
+    0 2px 5px rgba(0, 0, 0, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     inset 0 -1px 0 rgba(0, 0, 0, 0.2);
 }

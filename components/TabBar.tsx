@@ -48,7 +48,6 @@ export default function TabBar({
           </button>
         )}
       </div>
-      <div className="tab-spacer" aria-hidden />
       <button className="tab-run" onClick={onRun}>
         {runLabel}
       </button>
