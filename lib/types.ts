@@ -47,8 +47,13 @@ export interface Phrase {
   id: string;
   category: PhraseCategory;
   text: string;
-  /** Only for "conditional" phrases: when this line is allowed to play. */
-  condition?: PhraseCondition;
+  /**
+   * When this line is allowed to play. Required on "conditional" openers;
+   * optional on ANY other phrase whose words assume a time of day or the
+   * weather ("you complain about running in the evening?") — the pickers
+   * skip it whenever the condition doesn't hold. An array means any-of.
+   */
+  condition?: PhraseCondition | PhraseCondition[];
   /** Only for "km_marker" phrases: which kilometre this line announces. */
   km?: number;
   /**

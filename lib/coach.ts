@@ -365,8 +365,17 @@ export class CoachEngine {
   }
 
 
+  /** Does this phrase's time-of-day / weather condition hold right now? */
+  private conditionOk(p: Phrase): boolean {
+    if (!p.condition) return true;
+    const now = this.currentConditions();
+    return Array.isArray(p.condition)
+      ? p.condition.some((c) => now.includes(c))
+      : now.includes(p.condition);
+  }
+
   private pick(category: PhraseCategory): Phrase | null {
-    const pool = allPhrasesFor(this.persona.id, category);
+    const pool = allPhrasesFor(this.persona.id, category).filter((p) => this.conditionOk(p));
     if (pool.length === 0) return null;
     const fresh = pool.filter((p) => !this.used.has(p.id));
     const source = fresh.length > 0 ? fresh : pool;
@@ -492,8 +501,10 @@ export class CoachEngine {
    */
   private sayConditionalOpener() {
     const conditions = this.currentConditions();
-    const pool = allPhrasesFor(this.persona.id, "conditional").filter(
-      (p) => p.condition && conditions.includes(p.condition)
+    const pool = allPhrasesFor(this.persona.id, "conditional").filter((p) =>
+      Array.isArray(p.condition)
+        ? p.condition.some((c) => conditions.includes(c))
+        : p.condition !== undefined && conditions.includes(p.condition)
     );
     if (pool.length === 0) return;
     const phrase = pool[Math.floor(Math.random() * pool.length)];
@@ -514,7 +525,7 @@ export class CoachEngine {
 
   /** Round-robin through the intro monologues, persisted across runs. */
   private sayIntroFromLibrary() {
-    const pool = allPhrasesFor(this.persona.id, "intro");
+    const pool = allPhrasesFor(this.persona.id, "intro").filter((p) => this.conditionOk(p));
     if (pool.length === 0) {
       this.sayFromLibrary("start");
       return;

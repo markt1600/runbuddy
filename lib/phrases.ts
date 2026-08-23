@@ -101,7 +101,7 @@ const ahbeng: Phrase[] = [
   { id: "ab-anec-3", category: "anecdote", text: "You know last time I also fat one ah. Then my encik scold me kanina every single day until I run 2.4 in nine minutes. Now I pass the scolding to you. Tradition, chee bye." },
   { id: "ab-anec-4", category: "anecdote", text: "Oi listen ah, your heart pump five litres of blood per minute when resting. Now? Twenty litres sia. Your heart work harder than your lan jiao brain — don't embarrass it!" },
   { id: "ab-anec-5", category: "anecdote", text: "That kancheong feeling when you run? Adrenaline lah, chee bye. Free one, no need buy from pharmacy. Enjoy!" },
-  { id: "ab-anec-6", category: "anecdote", text: "Last time Singapore marathon start at 4am you know. FOUR A M, kanina! You complain about running in the evening? Sibei pampered sia." },
+  { id: "ab-anec-6", category: "anecdote", condition: ["evening", "night"], text: "Last time Singapore marathon start at 4am you know. FOUR A M, kanina! You complain about running in the evening? Sibei pampered sia." },
   { id: "ab-anec-7", category: "anecdote", text: "Cheetah can run 100 kilometre per hour, but 30 seconds only then pengsan. You? Cannot run fast AND cannot run long, wah lau. Today we fix one of them lah." },
   { id: "ab-anec-8", category: "anecdote", text: "You know why runner hit the wall at 30K? Body run out of carbo, chee bye. That's why I never let you run 30K. See? I sibei considerate one, kanina." },
   { id: "ab-anec-9", category: "anecdote", text: "Humans are the best long distance animal on Earth leh, can outrun horse over one full day. So you got NO lan jiao excuse — your ancestors chase antelope for dinner!" },
@@ -631,7 +631,7 @@ const coach: Phrase[] = [
 const flirty: Phrase[] = [
   // ---- intro (~10s opening monologue, rotated between runs) ----
   { id: "ca-intro-1", category: "intro", text: "Well, well... look who came back for more. I've been thinking about you, you know. Now stretch those gorgeous legs for me, nice and slow. Ready? Because I certainly am. Off you go, handsome." },
-  { id: "ca-intro-2", category: "intro", text: "Mmm, there you are. I was starting to think you'd forgotten about me. Big deep breath in... and out. Good. I love it when you listen. Let's see how long you can keep going tonight." },
+  { id: "ca-intro-2", category: "intro", condition: ["evening", "night"], text: "Mmm, there you are. I was starting to think you'd forgotten about me. Big deep breath in... and out. Good. I love it when you listen. Let's see how long you can keep going tonight." },
   { id: "ca-intro-3", category: "intro", text: "Hello you. Fair warning — I'm going to be watching every single step, so try to make it look good. Start easy, find your rhythm, and don't disappoint me. I have very high expectations." },
   { id: "ca-intro-4", category: "intro", text: "Oh, you're actually doing this? Bold. I like bold. Shoulders back, chin up, and let's go — I want to see what that stamina of yours is really made of." },
   { id: "ca-intro-5", category: "intro", text: "Just you and me for the next little while. No distractions, no excuses. Warm up gently, gorgeous — I don't want you pulling anything before the fun part. Let's move." },
@@ -689,7 +689,7 @@ const flirty: Phrase[] = [
   { id: "ca-pd-12", category: "pace_down", text: "Look at you go. I knew you had that in you." },
   // ---- milestone ----
   { id: "ca-mile-1", category: "milestone", text: "Another kilometre for me? You shouldn't have. But do it again." },
-  { id: "ca-mile-2", category: "milestone", text: "Mmm, that's another one down. You're spoiling me tonight." },
+  { id: "ca-mile-2", category: "milestone", condition: ["evening", "night"], text: "Mmm, that's another one down. You're spoiling me tonight." },
   { id: "ca-mile-3", category: "milestone", text: "One more kilometre in the bank, darling. I'm keeping count of everything you do." },
   { id: "ca-mile-4", category: "milestone", text: "That's another one. Keep this up and I'll have to start taking you seriously." },
   // ---- anecdotes ----
@@ -701,7 +701,7 @@ const flirty: Phrase[] = [
   { id: "ca-anec-6", category: "anecdote", text: "Your heart is a muscle, and right now it's beating faster because of me. Well — because of the running. Let's say it's both and move on." },
   { id: "ca-anec-7", category: "anecdote", text: "Apparently humans are the best endurance animals on the planet. We can outlast almost anything. Personally, I find endurance to be a very attractive quality." },
   { id: "ca-anec-8", category: "anecdote", text: "Runners tend to sleep deeper and wake up happier. So tonight when you're lying there feeling wonderful, you can thank me. You're very welcome, by the way." },
-  { id: "ca-anec-9", category: "anecdote", text: "Someone once said the hardest step is the one out the front door. You took that step for me tonight, and honestly? That's the sexiest thing you've done all week." },
+  { id: "ca-anec-9", category: "anecdote", condition: ["evening", "night"], text: "Someone once said the hardest step is the one out the front door. You took that step for me tonight, and honestly? That's the sexiest thing you've done all week." },
   { id: "ca-anec-10", category: "anecdote", text: "Cold water after a run helps your muscles recover. Just a tip. Picture that however you like, darling — I'm only being professional." },
   // ---- finish ----
   { id: "ca-fin-1", category: "finish", text: "And we're done. Look at you, all flushed and out of breath. I'd say that was a very good session." },
@@ -907,7 +907,7 @@ const flirty: Phrase[] = [
   { id: "ca-wr-m-12", category: "wr_finish", target: 12, wr: "male", text: "Did you know — Kelvin Kiptum, fastest marathoner ever, two hours and thirty-five seconds for forty-two K? Your twelve K would be done right now at his pace — thirty-four eighteen. You're slower... but far more interesting. Push on." },
   { id: "ca-wr-m-14", category: "wr_finish", target: 14, wr: "male", text: "Fact break, gorgeous. Kelvin Kiptum — history's fastest marathon man, two hours and thirty-five seconds. Running your fourteen K, he'd have just finished — forty minutes flat. Flat! Meanwhile you get me for company the whole way. Lucky you." },
   { id: "ca-wr-m-15", category: "wr_finish", target: 15, wr: "male", text: "Something to think about, handsome: Kelvin Kiptum, fastest marathon ever — two hours and thirty-five seconds. Your fifteen K at that pace ends right now. Forty-two fifty-two. He finishes alone, though. You finish with me. Keep moving." },
-  { id: "ca-wr-m-hm", category: "wr_finish", target: 21.1, wr: "male", text: "Fun fact, gorgeous. Kelvin Kiptum — the fastest marathon man ever, two hours and thirty-five seconds for the full marathon. He'd be finishing your half marathon right now — one hour and eighteen seconds. Just over an hour! You? You get to spend all morning with me instead. Everybody wins." },
+  { id: "ca-wr-m-hm", category: "wr_finish", target: 21.1, wr: "male", text: "Fun fact, gorgeous. Kelvin Kiptum — the fastest marathon man ever, two hours and thirty-five seconds for the full marathon. He'd be finishing your half marathon right now — one hour and eighteen seconds. Just over an hour! You? You get to spend all this time with me instead. Everybody wins." },
   // ---- wr_finish: Chepngetich (female record, 2:09:56) ----
   { id: "ca-wr-f-3", category: "wr_finish", target: 3, wr: "female", text: "Fun fact, gorgeous. Ruth Chepngetich — fastest marathon woman alive. Two hours, nine minutes, fifty-six seconds for forty-two K. Your three K at her pace? Done right... now. Nine fourteen, and barely out of breath. Jealous? Show me something." },
   { id: "ca-wr-f-5", category: "wr_finish", target: 5, wr: "female", text: "Story time. Ruth Chepngetich — the fastest marathon any woman has ever run, two hours nine fifty-six. If she were doing your five K, she'd be finishing right now — fifteen twenty-four. She's incredible... but she doesn't whisper encouragement like I do. Keep going." },
@@ -915,7 +915,7 @@ const flirty: Phrase[] = [
   { id: "ca-wr-f-12", category: "wr_finish", target: 12, wr: "female", text: "Did you know — Ruth Chepngetich, fastest woman ever over the marathon, two hours nine fifty-six? Your twelve K would be finished right now at her pace — thirty-six fifty-seven. You're slower... but you're mine. Push on." },
   { id: "ca-wr-f-14", category: "wr_finish", target: 14, wr: "female", text: "Fact break, gorgeous. Ruth Chepngetich — history's fastest marathon woman, two hours, nine minutes and fifty-six seconds. Running your fourteen K, she'd have just finished — forty-three oh-seven. Meanwhile you get me for the whole distance. I call that winning." },
   { id: "ca-wr-f-15", category: "wr_finish", target: 15, wr: "female", text: "Something to think about: Ruth Chepngetich, the fastest marathon woman ever — two hours nine fifty-six. Your fifteen K at that pace ends right now. Forty-six eleven. She finishes alone, though. You finish with me. Keep moving." },
-  { id: "ca-wr-f-hm", category: "wr_finish", target: 21.1, wr: "female", text: "Fun fact, gorgeous. Ruth Chepngetich — the fastest marathon woman ever, two hours, nine minutes, fifty-six seconds for the full marathon. She'd be finishing your half marathon right now — one hour, four minutes, fifty-eight. You? You get all morning with me. I know which I'd choose." },
+  { id: "ca-wr-f-hm", category: "wr_finish", target: 21.1, wr: "female", text: "Fun fact, gorgeous. Ruth Chepngetich — the fastest marathon woman ever, two hours, nine minutes, fifty-six seconds for the full marathon. She'd be finishing your half marathon right now — one hour, four minutes, fifty-eight. You? You get all this time with me. I know which I'd choose." },
   // ---- hs_finish: US high school record holders ----
   { id: "ca-hs-m-5", category: "hs_finish", target: 5, wr: "male", text: "Slightly awkward fact, handsome: Daniel Simmons, an American high school kid, ran five K in thirteen twenty-six. He'd be finishing your run right... now. Beaten by a teenager. Don't pout — I still think you're the more interesting one. Prove me right." },
   { id: "ca-hs-f-5", category: "hs_finish", target: 5, wr: "female", text: "Little fact, gorgeous: Jane Hedengren — an American high school girl — just became the first ever under fifteen minutes for five K. Fourteen fifty-eight. She'd be done with your run right now. A schoolgirl! Don't worry... experience has its own charms. Show me some." },
@@ -930,7 +930,7 @@ const loanshark: Phrase[] = [
   { id: "al-intro-3", category: "intro", text: "Wah lau eh, you actually opened the door. Very brave. Now listen carefully: every kilometre you run today, I take five dollars off your interest. Every kilometre you DON'T, I add ten. Start moving, chee bye!" },
   { id: "al-intro-4", category: "intro", text: "Eh! Where you think you going? Oh — running? GOOD. That's my favourite. I chase, you run, we both get exercise. Sibei healthy relationship we have. Now MOVE before I get creative!" },
   { id: "al-intro-5", category: "intro", text: "Kanina, the interest compounding while you standing there doing nothing! Every second you waste, your debt getting fatter than you. So RUN lah! Run like your credit score depends on it — because it does!" },
-  { id: "al-intro-6", category: "intro", text: "Good evening ah. I'm here about a small matter of some money. Very small. Only your entire life savings plus interest. But we can discuss while you run. I run also. I'm right behind you, chee bye. GO!" },
+  { id: "al-intro-6", category: "intro", condition: ["evening", "night"], text: "Good evening ah. I'm here about a small matter of some money. Very small. Only your entire life savings plus interest. But we can discuss while you run. I run also. I'm right behind you, chee bye. GO!" },
   // ---- start ----
   { id: "al-start-1", category: "start", text: "GO GO GO! I'm right behind you, chee bye!" },
   { id: "al-start-2", category: "start", text: "Run lah! Kanina, don't make me chase you in my good slippers!" },
@@ -1017,7 +1017,7 @@ const loanshark: Phrase[] = [
   { id: "al-anec-2", category: "anecdote", text: "Kanina, let me tell you about compound interest. It's the eighth wonder of the world. Einstein said that. He also said those who understand it, earn it. Those who don't — well. Here you are, running." },
   { id: "al-anec-3", category: "anecdote", text: "Last time I chased one uncle for three years. Three years, chee bye! Then he ran a marathon, got fit, got a promotion, and paid me in full. So actually I'm like a personal trainer. With paperwork." },
   { id: "al-anec-4", category: "anecdote", text: "You know running one hour burn seven hundred calories? Also burn about zero dollars of your debt. But at least you look good while broke, kanina." },
-  { id: "al-anec-5", category: "anecdote", text: "Fun fact ah: the human body can outrun a horse over long distance. But nobody can outrun compound interest. Nobody. Not even you, chee bye. Still — nice try tonight." },
+  { id: "al-anec-5", category: "anecdote", condition: ["evening", "night"], text: "Fun fact ah: the human body can outrun a horse over long distance. But nobody can outrun compound interest. Nobody. Not even you, chee bye. Still — nice try tonight." },
   { id: "al-anec-6", category: "anecdote", text: "My boss always say: never lend to a runner. Too hard to catch. I never listen. Now look at me — jogging behind you at nine at night like a fool. Kanina." },
   { id: "al-anec-7", category: "anecdote", text: "You know what's cheaper than borrowing from me? Everything. Literally everything. A bank. Your mother. Selling one kidney. But no — you came to Ah Long. And here we are, running." },
   { id: "al-anec-8", category: "anecdote", text: "Eh, adrenaline is free you know. Same feeling as when your phone ring and it's my number. So actually I been giving you free cardio for months already. You're welcome, chee bye." },
