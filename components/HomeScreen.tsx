@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { loadPrTable, type PrTable } from "@/lib/efforts";
 import { formatElapsed, formatPace } from "@/lib/geo";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/types";
@@ -43,6 +44,7 @@ function runTimeOfDay(ms: number): string {
 export default function HomeScreen({ user, historyAvailable, onOpenRun, onStart }: Props) {
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [prs, setPrs] = useState<PrTable | null>(null);
 
   useEffect(() => {
     if (!historyAvailable) return;
@@ -50,7 +52,15 @@ export default function HomeScreen({ user, historyAvailable, onOpenRun, onStart 
     void fetch("/api/runs")
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
       .then((data: { runs: RunSummary[] }) => {
-        if (!cancelled) setRuns(data.runs);
+        if (cancelled) return;
+        setRuns(data.runs);
+        // Best 1/5/10km efforts — cached per run, so this is instant after
+        // the first visit and only mines newly saved runs.
+        void loadPrTable(data.runs)
+          .then((table) => {
+            if (!cancelled) setPrs(table);
+          })
+          .catch(() => {});
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -66,6 +76,31 @@ export default function HomeScreen({ user, historyAvailable, onOpenRun, onStart 
     <div className="fade-in home">
       <h1 className="large-title">Run Buddy</h1>
       <p className="subtitle">Welcome back, {firstName}.</p>
+
+      {/* Best rolling 1/5/10km efforts across every saved run — mined from
+          the route traces, not just whole-km splits. The coach beats these
+          live mid-run; here they're the scoreboard. */}
+      {prs && (prs["1"] || prs["5"] || prs["10"]) && (
+        <>
+          <div className="section-header">Personal Records</div>
+          <div className="card pr-board">
+            {(["1", "5", "10"] as const).map((key) => {
+              const rec = prs[key];
+              if (!rec) return null;
+              const paceSec = rec.sec / Number(key);
+              return (
+                <div className="pr-row" key={key}>
+                  <span className="pr-dist">🏅 {key} km</span>
+                  <span className="pr-time">{formatElapsed(rec.sec * 1000)}</span>
+                  <span className="pr-sub">
+                    {formatPace(paceSec)} /km · {runDate(rec.startedAt)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <div className="section-header">Your Runs</div>
       {!historyAvailable ? (

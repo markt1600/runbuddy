@@ -32,6 +32,8 @@ interface Props {
   runner?: RunnerInfo | null;
   /** Their saved-run digest — what the coach "remembers" about them. */
   history?: RunHistoryDigest | null;
+  /** Best 1/5/10km efforts from history — live PR announcements compare here. */
+  personalRecords?: { targetKm: number; sec: number; startedAt: number }[] | null;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -49,6 +51,7 @@ export default function RunScreen({
   startDelaySec,
   runner,
   history,
+  personalRecords,
   onFinish,
 }: Props) {
   const treadmill = targetMin > 0;
@@ -197,6 +200,7 @@ export default function RunScreen({
     const coach = new CoachEngine(persona, voice, chattiness, targetKm, targetMin, targetPaceSec);
     coach.setRunner(runner ?? null);
     coach.setHistory(history ?? null);
+    coach.setPersonalRecords(personalRecords ?? null);
     coachRef.current = coach;
 
     // Offline armour (shell only): warm this persona's whole rendered
@@ -358,6 +362,9 @@ export default function RunScreen({
         coach.tickPaused(stats);
       } else {
         coach.tick(stats);
+        // A rolling effort just dipped under a stored PR → the coach's
+        // fireworks, once per distance per run.
+        if (!treadmill) coach.checkPersonalRecords(geo.bestEffortsSec(), stats);
       }
     }, 1000);
 

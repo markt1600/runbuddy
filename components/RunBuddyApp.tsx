@@ -33,6 +33,7 @@ import {
 import type { MusicSource, PersonaId, RunStats } from "@/lib/types";
 import type { RunnerInfo } from "@/lib/coach";
 import { buildHistoryDigest, type RunHistoryDigest } from "@/lib/history";
+import { loadPrTable } from "@/lib/efforts";
 import { initNativeAuthListener, isNativeApp } from "@/lib/native";
 
 type Screen =
@@ -66,6 +67,9 @@ export default function RunBuddyApp() {
   const [openRun, setOpenRun] = useState<RunSummary | null>(null);
   const [runnerStats, setRunnerStats] = useState<Omit<RunnerInfo, "name"> | null>(null);
   const [runHistory, setRunHistory] = useState<RunHistoryDigest | null>(null);
+  const [personalRecords, setPersonalRecords] = useState<
+    { targetKm: number; sec: number; startedAt: number }[] | null
+  >(null);
   const [personaId, setPersonaId] = useState<PersonaId>("ahbeng");
   const [music, setMusic] = useState<MusicSource>("spotify");
   const [finalStats, setFinalStats] = useState<RunStats | null>(null);
@@ -114,9 +118,25 @@ export default function RunBuddyApp() {
   const refreshHistory = () => {
     void fetch("/api/runs")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { runs: { startedAt: number; distanceKm: number; movingSec: number }[] } | null) => {
-        if (data?.runs) setRunHistory(buildHistoryDigest(data.runs));
-      })
+      .then(
+        (data: {
+          runs: { id: string; startedAt: number; distanceKm: number; movingSec: number }[];
+        } | null) => {
+          if (!data?.runs) return;
+          setRunHistory(buildHistoryDigest(data.runs));
+          // Best 1/5/10km efforts, mined once per run and cached — the coach
+          // compares the live run against these for PR announcements.
+          void loadPrTable(data.runs)
+            .then((table) => {
+              setPersonalRecords(
+                (Object.entries(table) as [string, { sec: number; startedAt: number }][]).map(
+                  ([km, rec]) => ({ targetKm: Number(km), sec: rec.sec, startedAt: rec.startedAt })
+                )
+              );
+            })
+            .catch(() => {});
+        }
+      )
       .catch(() => {});
   };
 
@@ -126,6 +146,7 @@ export default function RunBuddyApp() {
     if (!auth.user) {
       setRunnerStats(null);
       setRunHistory(null);
+      setPersonalRecords(null);
       return;
     }
     if (auth.historyAvailable) refreshHistory();
@@ -371,6 +392,7 @@ export default function RunBuddyApp() {
               : null
           }
           history={runHistory}
+          personalRecords={personalRecords}
           onFinish={(stats) => {
             setFinalStats(stats);
             setSavedRunId(null);

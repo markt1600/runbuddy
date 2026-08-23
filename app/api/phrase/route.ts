@@ -47,6 +47,13 @@ const INSTRUCTIONS: Partial<Record<PhraseCategory, string>> = {
     "The runner just FINISHED their run — this is your closing comment on the whole thing. " +
     "React to their actual numbers (distance, time, pace or speed) in your persona: proud, " +
     "backhanded, whatever fits. Send them off wanting to come back tomorrow.",
+  pr:
+    "THE RUNNER JUST SET A PERSONAL RECORD, mid-run, right now: the context tells you the " +
+    "distance (prDistanceKm), their new best time over it (prNewTime) and the old best they " +
+    "just beat (prOldTime, set prDaysAgo days ago). This is the run's fireworks — one " +
+    "triumphant line in your persona. Say the distance and that it's their fastest ever; " +
+    "quote at most ONE of the times, naturally. The run is still going — send them onward, " +
+    "don't wrap up.",
 };
 
 export async function POST(req: NextRequest) {

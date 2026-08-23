@@ -145,6 +145,13 @@ export class GeoTracker {
   private outagePoolKm = 0;
   /** Doppler-measured distance covered before the first accepted fix. */
   private startCreditKm = 0;
+  // Rolling best efforts over the classic distances, updated per accepted
+  // fix with a two-pointer over the full-run history — what the live PR
+  // announcements compare against. Windows spanning a pause carry the
+  // standing time, so they simply never win.
+  private static EFFORT_TARGETS_KM = [1, 5, 10];
+  private effortPtr = [0, 0, 0];
+  private effortBest: (number | null)[] = [null, null, null];
   // What the legacy engine would have read, integrated in parallel — the
   // difference is the correction's net effect, surfaced on the summary.
   private shadowLegacyKm = 0;
@@ -366,6 +373,40 @@ export class GeoTracker {
     this.history.push(sample);
     const cutoff = now - 60_000;
     while (this.recent.length > 2 && this.recent[0].t < cutoff) this.recent.shift();
+    this.updateEfforts();
+  }
+
+  /** Advance the rolling-effort windows with the newest history sample. */
+  private updateEfforts() {
+    const h = this.history;
+    const j = h.length - 1;
+    if (j < 1) return;
+    for (let k = 0; k < GeoTracker.EFFORT_TARGETS_KM.length; k++) {
+      const target = GeoTracker.EFFORT_TARGETS_KM[k];
+      let i = this.effortPtr[k];
+      while (h[j].km - h[i + 1]?.km >= target) i++;
+      this.effortPtr[k] = i;
+      if (h[j].km - h[i].km < target) continue;
+      // Interpolate the moment the window's start crossed (km[j] - target).
+      const need = h[j].km - target;
+      const segKm = h[i + 1].km - h[i].km;
+      const frac = segKm > 0 ? (need - h[i].km) / segKm : 0;
+      const tStart = h[i].t + frac * (h[i + 1].t - h[i].t);
+      const sec = (h[j].t - tStart) / 1000;
+      if (sec > 0 && (this.effortBest[k] === null || sec < this.effortBest[k]!)) {
+        this.effortBest[k] = sec;
+      }
+    }
+  }
+
+  /** This run's best rolling efforts so far, for the distances it has covered. */
+  bestEffortsSec(): { targetKm: number; sec: number }[] {
+    const out: { targetKm: number; sec: number }[] = [];
+    GeoTracker.EFFORT_TARGETS_KM.forEach((targetKm, k) => {
+      const sec = this.effortBest[k];
+      if (sec !== null) out.push({ targetKm, sec });
+    });
+    return out;
   }
 
   /**

@@ -37,6 +37,17 @@ const FRESH_PACE_CHANCE = 0.35;
 const LOITER_FIRST_MS = 45_000;
 const LOITER_REPEAT_MS: [number, number] = [40_000, 70_000];
 
+/** "23:41" / "1:02:07" — how an effort time reads aloud in a prompt. */
+function formatEffort(sec: number): string {
+  const total = Math.round(sec);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0
+    ? `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
+    : `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 function formatPaceShort(secPerKm: number | null): string | undefined {
   if (secPerKm === null || !isFinite(secPerKm) || secPerKm > 30 * 60) return undefined;
   const m = Math.floor(secPerKm / 60);
@@ -102,6 +113,9 @@ export class CoachEngine {
   private runner: RunnerInfo | null = null;
   private history: RunHistoryDigest | null = null;
   private recordTold = new Set<"wr" | "hs">();
+  /** Stored PRs from the account's history, and which have been beaten aloud. */
+  private prs: { targetKm: number; sec: number; startedAt: number }[] | null = null;
+  private prTold = new Set<number>();
   private cameoAt = 0; // when the second trainer barges in (0 = not scheduled)
   private cameoStarted = false;
   private nowPlaying: string | null = null;
@@ -226,6 +240,36 @@ export class CoachEngine {
   /** Weather + locality, fetched by the run screen once GPS locks on. */
   setEnvironment(env: RunEnvironment) {
     this.env = env;
+  }
+
+  /** The account's best 1/5/10km efforts, mined from history (lib/efforts). */
+  setPersonalRecords(prs: { targetKm: number; sec: number; startedAt: number }[] | null) {
+    this.prs = prs;
+  }
+
+  /**
+   * Called each tick with the run's rolling best efforts: the first moment
+   * one dips under the stored PR, the coach celebrates — once per distance
+   * per run, with a haptic, in a live-generated line. Beating it "by a
+   * clear second" filters float jitter at the boundary.
+   */
+  checkPersonalRecords(efforts: { targetKm: number; sec: number }[], stats: RunStats) {
+    if (!this.prs || this.disposed) return;
+    for (const e of efforts) {
+      if (this.prTold.has(e.targetKm)) continue;
+      const pr = this.prs.find((p) => p.targetKm === e.targetKm);
+      if (!pr || e.sec >= pr.sec - 1) continue;
+      this.prTold.add(e.targetKm);
+      vibrate([60, 80, 60, 80, 120]);
+      void this.fetchFresh("pr", stats, {
+        prDistanceKm: e.targetKm,
+        prNewTime: formatEffort(e.sec),
+        prOldTime: formatEffort(pr.sec),
+        prDaysAgo: Math.max(0, Math.round((Date.now() - pr.startedAt) / 86_400_000)),
+      }).then((line) => {
+        if (line && !this.disposed) this.voice.say(line.text, line.url);
+      });
+    }
   }
 
   /** Signed-in runner's profile — folded into every improvised line's context. */

@@ -14,6 +14,7 @@ const suites = [
   { file: "audio.duck.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
   { file: "history.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
   { file: "wr.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
+  { file: "efforts.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
   { file: "cameo.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
 ];
 

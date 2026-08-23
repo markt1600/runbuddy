@@ -25,7 +25,8 @@ export type PhraseCategory =
   | "progress_time" // checkpoint on a preset time target
   | "target_hit" // the target distance was reached
   | "wr_finish" // the marathon WR holder would have finished your target right now
-  | "hs_finish"; // the US high school record holder just finished your 5K/10K
+  | "hs_finish" // the US high school record holder just finished your 5K/10K
+  | "pr"; // they just beat their own personal record (generated only)
 
 /**
  * What has to be true for a "conditional" phrase to be eligible. Evaluated
