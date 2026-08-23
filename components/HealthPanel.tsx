@@ -143,12 +143,12 @@ export default function HealthPanel({
             )}
             {confirmed ? (
               <div className="health-line">
-                ✓ Confirmed — this run uses the {confirmed.source} distance (the app
+                ✓ Conformed — this run uses the {confirmed.source} distance (the app
                 measured {confirmed.appDistanceKm.toFixed(2)} km).
               </div>
             ) : confirmState === "done" ? (
               <div className="health-line">
-                ✓ Run updated — the stats and the share card now use the Watch
+                ✓ Run conformed — the stats and the share card now use the Watch
                 distance.
               </div>
             ) : (
@@ -172,7 +172,7 @@ export default function HealthPanel({
                   >
                     {confirmState === "busy"
                       ? "Updating…"
-                      : `✓ Confirm run at ${health.workout.distanceKm.toFixed(2)} km (${
+                      : `✓ Conform run to ${health.workout.distanceKm.toFixed(2)} km (${
                           health.workout.source
                         })`}
                   </button>

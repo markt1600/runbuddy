@@ -124,7 +124,7 @@ export function audioSessionSupported(): boolean {
 export class VoiceEngine {
   private keepAlive: HTMLAudioElement | null = null;
   private player: HTMLAudioElement | null = null;
-  private queue: { text: string; audioUrl?: string; cue?: boolean }[] = [];
+  private queue: { text: string; audioUrl?: string; cue?: boolean; volume?: number }[] = [];
   private playing = false;
   private persona: Persona;
   private intentionalPause = false;
@@ -274,12 +274,17 @@ export class VoiceEngine {
     return this.speaking || this.queue.length > 0;
   }
 
-  say(text: string, audioUrl?: string) {
+  /**
+   * `volume` overrides the run persona's playback level for this one line —
+   * cameo lines pass their own speaker's admin level, so a guest voice isn't
+   * played at the host's setting.
+   */
+  say(text: string, audioUrl?: string, volume?: number) {
     // Lines never overlap: drain() plays them strictly one at a time. The cap
     // only stops a backlog building up so far that the coach ends up narrating
     // a part of the run you've already left behind.
     if (this.queue.length >= 4) this.queue.shift();
-    this.queue.push({ text, audioUrl });
+    this.queue.push({ text, audioUrl, volume });
     void this.drain();
   }
 
@@ -343,9 +348,9 @@ export class VoiceEngine {
         try {
           if (item.audioUrl) {
             if (native) {
-              await this.playNative(native, item.audioUrl);
+              await this.playNative(native, item.audioUrl, item.volume);
             } else {
-              await this.playFile(item.audioUrl);
+              await this.playFile(item.audioUrl, item.volume);
             }
           } else {
             await this.speakSynth(item.text);
@@ -394,9 +399,10 @@ export class VoiceEngine {
    */
   private async playNative(
     native: NonNullable<ReturnType<typeof runBuddyNative>>,
-    url: string
+    url: string,
+    volumeOverride?: number
   ): Promise<void> {
-    const volume = getVoiceVolume(this.persona.id);
+    const volume = volumeOverride ?? getVoiceVolume(this.persona.id);
     let opts: { data?: string; url?: string; volume: number };
     if (url.startsWith("data:")) {
       opts = { data: url.slice(url.indexOf(",") + 1), volume };
@@ -424,7 +430,7 @@ export class VoiceEngine {
     }
   }
 
-  private playFile(url: string): Promise<void> {
+  private playFile(url: string, volumeOverride?: number): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.player) this.player = new Audio();
       const p = this.player;
@@ -468,7 +474,7 @@ export class VoiceEngine {
       // Per-persona level, set in admin. Everyone is at full by default; this
       // only exists to pull a voice down if one ever renders hot, since an
       // element cannot go above 1 and so cannot lift one.
-      p.volume = getVoiceVolume(this.persona.id);
+      p.volume = volumeOverride ?? getVoiceVolume(this.persona.id);
       p.src = url;
       p.play().catch((err) => settle(() => reject(err)));
     });

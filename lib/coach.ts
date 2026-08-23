@@ -1,4 +1,4 @@
-import { allPhrasesFor, getPhraseUrl, renderedCount } from "./voiceLibrary";
+import { allPhrasesFor, getPhraseUrl, getVoiceVolume, renderedCount } from "./voiceLibrary";
 import type { Persona, Phrase, PhraseCategory, PhraseCondition, RunStats } from "./types";
 import type { VoiceEngine } from "./audio";
 import type { RunEnvironment } from "./enviro";
@@ -742,9 +742,12 @@ export class CoachEngine {
       if (this.disposed) return;
       for (const line of data.lines.slice(0, 4)) {
         const name = PERSONAS[line.persona]?.shortName ?? "";
+        // Each line at its OWN speaker's admin level — without this, the
+        // guest's lines play at the host persona's setting.
         this.voice.say(
           `${name}: ${line.text}`,
-          `data:audio/mpeg;base64,${line.audioBase64}`
+          `data:audio/mpeg;base64,${line.audioBase64}`,
+          getVoiceVolume(line.persona)
         );
       }
     } catch {

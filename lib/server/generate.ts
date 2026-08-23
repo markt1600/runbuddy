@@ -303,6 +303,10 @@ export async function renderVoiceBuffer(
           similarity_boost: 0.8,
           style: 0.6,
           speed: settings[persona].speed,
+          // Explicit: omitted, quieter-natured voices (Cassie) render
+          // noticeably softer than the rest — a cameo where one side of the
+          // argument is barely audible.
+          use_speaker_boost: true,
         },
       }),
     }
