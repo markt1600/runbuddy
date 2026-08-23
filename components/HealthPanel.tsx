@@ -141,6 +141,12 @@ export default function HealthPanel({
                 </span>
               </div>
             )}
+            {health.statsSource && (
+              <div className="health-line">
+                Heart rate and distance from {health.statsSource} only — other
+                trackers&apos; overlapping data (WHOOP etc.) is excluded.
+              </div>
+            )}
             {confirmed ? (
               <div className="health-line">
                 ✓ Conformed — this run uses the {confirmed.source} distance (the app

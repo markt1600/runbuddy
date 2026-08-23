@@ -542,7 +542,16 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
         }
         let group = DispatchGroup()
 
-        // The workout Health recorded over our window — prefer a run.
+        // An Apple Watch is the wearable of record here: when both it and
+        // another tracker (WHOOP, a ring) logged the same run, the Watch's
+        // workout wins, and the sample queries below are restricted to the
+        // same device so its numbers aren't polluted by a second stream.
+        func isWatch(_ w: HKWorkout) -> Bool {
+            if w.sourceRevision.productType?.hasPrefix("Watch") == true { return true }
+            return w.sourceRevision.source.name.localizedCaseInsensitiveContains("apple watch")
+        }
+
+        // The workout first — its source decides how the rest is filtered.
         group.enter()
         let workoutQuery = HKSampleQuery(
             sampleType: .workoutType(),
@@ -550,35 +559,62 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
             limit: 10,
             sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
         ) { _, samples, _ in
-            defer { group.leave() }
             let workouts = (samples as? [HKWorkout]) ?? []
             put("workoutCount", workouts.count)
-            guard let w = workouts.first(where: { $0.workoutActivityType == .running }) ?? workouts.first
-            else { return }
-            var info: [String: Any] = [
-                "activity": w.workoutActivityType == .running ? "Running" : "Workout",
-                "source": w.sourceRevision.source.name,
-                "startMs": w.startDate.timeIntervalSince1970 * 1000.0,
-                "endMs": w.endDate.timeIntervalSince1970 * 1000.0,
-                "durationSec": w.duration,
-            ]
-            if #available(iOS 16.0, *) {
-                if let d = w.statistics(for: HKQuantityType(.distanceWalkingRunning))?.sumQuantity() {
-                    info["distanceKm"] = d.doubleValue(for: .meter()) / 1000.0
+            let running = workouts.filter { $0.workoutActivityType == .running }
+            let chosen = running.first(where: isWatch)
+                ?? workouts.first(where: isWatch)
+                ?? running.first
+                ?? workouts.first
+            var samplePredicate = window
+            if let w = chosen {
+                var info: [String: Any] = [
+                    "activity": w.workoutActivityType == .running ? "Running" : "Workout",
+                    "source": w.sourceRevision.source.name,
+                    "startMs": w.startDate.timeIntervalSince1970 * 1000.0,
+                    "endMs": w.endDate.timeIntervalSince1970 * 1000.0,
+                    "durationSec": w.duration,
+                ]
+                if #available(iOS 16.0, *) {
+                    if let d = w.statistics(for: HKQuantityType(.distanceWalkingRunning))?.sumQuantity() {
+                        info["distanceKm"] = d.doubleValue(for: .meter()) / 1000.0
+                    }
+                    if let e = w.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity() {
+                        info["calories"] = e.doubleValue(for: .kilocalorie())
+                    }
                 }
-                if let e = w.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity() {
-                    info["calories"] = e.doubleValue(for: .kilocalorie())
+                put("workout", info)
+                if isWatch(w) {
+                    put("statsSource", w.sourceRevision.source.name)
+                    samplePredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                        window,
+                        HKQuery.predicateForObjects(from: [w.sourceRevision.source]),
+                    ])
                 }
             }
-            put("workout", info)
+            // Sub-queries enter the group before the workout query leaves it,
+            // so the notify below can't fire between them.
+            self.runHealthSampleQueries(predicate: samplePredicate, group: group, put: put)
+            group.leave()
         }
         healthStore.execute(workoutQuery)
 
+        group.notify(queue: .main) {
+            call.resolve(result)
+        }
+    }
+
+    /** HR stats + sample count + distance sum, under the given predicate. */
+    private func runHealthSampleQueries(
+        predicate: NSPredicate,
+        group: DispatchGroup,
+        put: @escaping (String, Any) -> Void
+    ) {
         if let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate) {
             group.enter()
             let hrStats = HKStatisticsQuery(
                 quantityType: hrType,
-                quantitySamplePredicate: window,
+                quantitySamplePredicate: predicate,
                 options: [.discreteAverage, .discreteMin, .discreteMax]
             ) { _, stats, _ in
                 defer { group.leave() }
@@ -594,7 +630,7 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
 
             group.enter()
             let hrCount = HKSampleQuery(
-                sampleType: hrType, predicate: window,
+                sampleType: hrType, predicate: predicate,
                 limit: HKObjectQueryNoLimit, sortDescriptors: nil
             ) { _, samples, _ in
                 defer { group.leave() }
@@ -603,13 +639,14 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
             healthStore.execute(hrCount)
         }
 
-        // Health's own distance over the window: a statistics sum applies the
-        // Health app's source de-duplication, so Watch + iPhone don't double.
+        // Health's distance over the window. Under a Watch source filter this
+        // IS the Watch's record; unfiltered, the statistics sum still applies
+        // the Health app's own source de-duplication.
         if let dType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning) {
             group.enter()
             let distSum = HKStatisticsQuery(
                 quantityType: dType,
-                quantitySamplePredicate: window,
+                quantitySamplePredicate: predicate,
                 options: .cumulativeSum
             ) { _, stats, _ in
                 defer { group.leave() }
@@ -618,10 +655,6 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
                 }
             }
             healthStore.execute(distSum)
-        }
-
-        group.notify(queue: .main) {
-            call.resolve(result)
         }
     }
 

@@ -47,6 +47,8 @@ export interface HealthRunSummary {
   heartRateSamples?: number;
   /** Health's own de-duplicated distance sum over the window. */
   distanceKm?: number;
+  /** Set when HR/distance were restricted to one device (the Apple Watch). */
+  statsSource?: string;
 }
 
 interface RunBuddyNativePlugin {
