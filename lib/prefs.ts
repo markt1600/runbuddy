@@ -123,6 +123,31 @@ export function chattinessLabel(v: number): string {
   return "Non-stop";
 }
 
+// Run-card background photo, stored as a downscaled JPEG data URL. Device
+// local by design: the photo never leaves the phone, and localStorage's ~5MB
+// budget comfortably holds one card-sized image.
+const CARD_BG_KEY = "runbuddy-card-bg";
+
+export function loadCardBg(): string | null {
+  try {
+    const v = localStorage.getItem(CARD_BG_KEY);
+    return v && v.startsWith("data:image/") ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Returns false when storage refuses (quota) — the caller says so. */
+export function saveCardBg(dataUrl: string | null): boolean {
+  try {
+    if (dataUrl === null) localStorage.removeItem(CARD_BG_KEY);
+    else localStorage.setItem(CARD_BG_KEY, dataUrl);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Auto-pause: freeze the clock when the runner stops moving, and pick it back
 // up when they start again. On by default — it's what every running app does —
 // but it needs GPS, so it has no effect in treadmill mode.

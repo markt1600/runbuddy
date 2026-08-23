@@ -259,6 +259,8 @@ export interface RunCardOptions {
   unit: SpeedUnit;
   comment: string;
   date?: Date;
+  /** Optional photo behind everything, cover-cropped and heavily washed out. */
+  background?: HTMLImageElement | null;
 }
 
 export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
@@ -273,6 +275,18 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   // ---- background ----
   ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, S, S);
+  // Custom photo: cover-cropped to the square, then buried under a heavy
+  // paper wash — the picture is atmosphere, and the ink (which is dark, so
+  // the wash must LIGHTEN, not dim to black) stays readable on top.
+  const bg = opts.background;
+  if (bg && bg.naturalWidth > 0 && bg.naturalHeight > 0) {
+    const scale = Math.max(S / bg.naturalWidth, S / bg.naturalHeight);
+    const dw = bg.naturalWidth * scale;
+    const dh = bg.naturalHeight * scale;
+    ctx.drawImage(bg, (S - dw) / 2, (S - dh) / 2, dw, dh);
+    ctx.fillStyle = `${PAPER}d2`; // ≈82% wash
+    ctx.fillRect(0, 0, S, S);
+  }
   // A whisper of the persona's colour, not a glow — on paper this reads as a
   // wash in the stock rather than a light source.
   const wash = ctx.createRadialGradient(S / 2, S * 0.42, 40, S / 2, S * 0.42, S * 0.62);
@@ -422,12 +436,32 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   ctx.fillStyle = persona.accent;
   ctx.fillRect(PAD, boxY, 8, boxH);
 
-  ctx.font = `italic 500 32px ${fonts.display}`;
   ctx.fillStyle = INK;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  const lines = wrapLines(ctx, `“${comment}”`, S - PAD * 2 - 80, 3);
-  const lineH = 44;
+  // Auto-fit: the closing line is generated and varies a lot in length, and a
+  // fixed 3-lines-of-32px clamp was cutting quotes off mid-sentence. Step the
+  // type down until the whole quote fits the box; only the floor size may
+  // still ellipsise, and only for truly runaway text.
+  const maxW = S - PAD * 2 - 80;
+  const lineHFor = (size: number) => Math.round(size * 1.375);
+  let fontSize = 32;
+  let lines: string[];
+  for (;;) {
+    ctx.font = `italic 500 ${fontSize}px ${fonts.display}`;
+    const cap = Math.max(1, Math.floor((boxH - 20) / lineHFor(fontSize)));
+    const natural = wrapLines(ctx, `“${comment}”`, maxW, 99);
+    if (natural.length <= cap) {
+      lines = natural;
+      break;
+    }
+    if (fontSize <= 22) {
+      lines = wrapLines(ctx, `“${comment}”`, maxW, cap);
+      break;
+    }
+    fontSize -= 2;
+  }
+  const lineH = lineHFor(fontSize);
   const startY = boxY + boxH / 2 - ((lines.length - 1) * lineH) / 2;
   lines.forEach((line, i) => ctx.fillText(line, PAD + 42, startY + i * lineH));
 

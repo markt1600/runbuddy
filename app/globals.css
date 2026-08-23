@@ -2190,6 +2190,24 @@ input[type="range"]::-moz-range-thumb {
   appearance: textfield;
 }
 
+/* Run-card background picker (account) */
+.card-bg-pick {
+  display: block;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.card-bg-clear {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.card .run-card-img {
+  margin: 4px 0 0;
+}
+
 /* Text variant (home city): wider, left-aligned, proportional face. */
 .profile-input-text {
   width: 170px;

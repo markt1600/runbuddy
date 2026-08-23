@@ -9,11 +9,16 @@ import {
   openNativeSpotifyConnect,
   runBuddyNative,
 } from "@/lib/native";
+import { PERSONAS } from "@/lib/personas";
+import { loadCardBg, saveCardBg } from "@/lib/prefs";
+import { drawRunCard } from "@/lib/runCard";
+import { loadSpeedUnit } from "@/lib/units";
+import type { RunStats } from "@/lib/types";
 
 // Bumped manually when it matters that a device is seen running THIS web
 // build — the shell loads the site remotely, so "which code is my phone
 // actually executing" is a real question during native bring-up.
-const WEB_BUILD = "2026-08-23c";
+const WEB_BUILD = "2026-08-23d";
 
 // Account: who you are, your body stats (the trainer weaves these into its
 // improvised lines), and the one destructive-ish action — signing out — kept
@@ -83,6 +88,121 @@ export default function AccountScreen({
   const [status, setStatus] = useState<"idle" | "dirty" | "saving" | "saved" | "error">("idle");
   const [errorText, setErrorText] = useState("");
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [cardBg, setCardBg] = useState<string | null>(null);
+  const [cardPreview, setCardPreview] = useState<string | null>(null);
+  const [cardNote, setCardNote] = useState<string | null>(null);
+  const previewStatsRef = useRef<RunStats | null>(null);
+
+  /** Real numbers if the runner has a saved outdoor run, a sensible 5k if not. */
+  const previewStats = async (): Promise<RunStats> => {
+    if (previewStatsRef.current) return previewStatsRef.current;
+    let stats: RunStats | null = null;
+    if (user) {
+      try {
+        const list = (await fetch("/api/runs").then((r) => (r.ok ? r.json() : null))) as {
+          runs?: { id: string; distanceKm: number }[];
+        } | null;
+        const latest = list?.runs?.find((r) => r.distanceKm > 0);
+        if (latest) {
+          const body = (await fetch(`/api/runs/${encodeURIComponent(latest.id)}`).then((r) =>
+            r.ok ? r.json() : null
+          )) as { stats?: RunStats } | null;
+          if (body?.stats) stats = body.stats;
+        }
+      } catch {
+        /* dummy below */
+      }
+    }
+    if (!stats) {
+      stats = {
+        elapsedMs: 31 * 60_000 + 42_000,
+        distanceKm: 5.21,
+        paceSecPerKm: 360,
+        avgPaceSecPerKm: 365,
+        speedNowKmh: 10,
+        lastKmSpeedKmh: 10.1,
+        avgSpeedKmh: 9.9,
+        splits: [372_000, 366_000, 361_000, 359_000, 352_000],
+        route: [],
+        startedAt: Date.now(),
+      };
+    }
+    previewStatsRef.current = stats;
+    return stats;
+  };
+
+  const renderCardPreview = async (bg: string | null) => {
+    const stats = await previewStats();
+    const img = await new Promise<HTMLImageElement | null>((resolve) => {
+      if (!bg) return resolve(null);
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => resolve(null);
+      i.src = bg;
+    });
+    const canvas = document.createElement("canvas");
+    drawRunCard(canvas, {
+      persona: PERSONAS.ahbeng,
+      stats,
+      unit: loadSpeedUnit(),
+      comment: "This is how every card will look from now on. Nice backdrop!",
+      background: img,
+    });
+    setCardPreview(canvas.toDataURL("image/png"));
+  };
+
+  // A previously chosen photo: show it (with the preview) on arrival.
+  useEffect(() => {
+    const bg = loadCardBg();
+    if (bg) {
+      setCardBg(bg);
+      void renderCardPreview(bg);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const CARD_BG_MAX = 1440;
+
+  /** Downscale to card-ish resolution, store as JPEG, preview immediately. */
+  const onCardBgPick = async (file: File | null) => {
+    if (!file) return;
+    setCardNote(null);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(String(fr.result));
+        fr.onerror = () => reject(fr.error);
+        fr.readAsDataURL(file);
+      });
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error("bad image"));
+        i.src = dataUrl;
+      });
+      const scale = Math.min(1, CARD_BG_MAX / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+      c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+      c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+      const jpeg = c.toDataURL("image/jpeg", 0.82);
+      if (!saveCardBg(jpeg)) {
+        setCardNote("Couldn't store the photo on this device — try a smaller one.");
+        return;
+      }
+      setCardBg(jpeg);
+      void renderCardPreview(jpeg);
+    } catch {
+      setCardNote("Couldn't read that image — try a different photo.");
+    }
+  };
+
+  const clearCardBg = () => {
+    saveCardBg(null);
+    setCardBg(null);
+    setCardPreview(null);
+    setCardNote(null);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -409,6 +529,36 @@ export default function AccountScreen({
               </div>
             </>
           )}
+
+          <div className="section-header">Run Card</div>
+          <div className="card profile-card">
+            <label className="cta secondary card-bg-pick">
+              {cardBg ? "📷 Change background photo" : "📷 Add a background photo"}
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  void onCardBgPick(e.target.files?.[0] ?? null);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {cardPreview && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="run-card-img" src={cardPreview} alt="Run card preview" />
+            )}
+            {cardBg && (
+              <button className="cta secondary card-bg-clear" onClick={clearCardBg}>
+                Remove photo — back to the classic card
+              </button>
+            )}
+            {cardNote && <div className="save-note">{cardNote}</div>}
+            <p className="profile-hint">
+              The photo sits behind every run card from now on, washed right down so
+              the stats stay readable. It never leaves this device.
+            </p>
+          </div>
 
           <p className="account-note">
             Your runs save automatically when you finish — distance, pace and every

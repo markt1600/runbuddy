@@ -6,6 +6,7 @@ import { coachIsSpeaking } from "@/lib/audio";
 import { getVoiceVolume } from "@/lib/voiceLibrary";
 import HealthPanel from "./HealthPanel";
 import type { SpeedUnit } from "@/lib/units";
+import { loadCardBg } from "@/lib/prefs";
 import { drawRunCard, shareOrDownloadCard } from "@/lib/runCard";
 import type { Persona, RunStats } from "@/lib/types";
 
@@ -189,6 +190,9 @@ export default function SummaryScreen({
   // Redraw whenever the coach's line lands, so the saved card carries it.
   useEffect(() => {
     let cancelled = false;
+    // The chosen background photo (account setting, device-local). Drawn
+    // without it first so the card is never blank, again once it decodes.
+    let bgImg: HTMLImageElement | null = null;
     const draw = () => {
       const canvas = canvasRef.current;
       if (!canvas || cancelled) return;
@@ -197,9 +201,19 @@ export default function SummaryScreen({
         stats,
         unit: speedUnit,
         comment: comment ?? fallbackSub,
+        background: bgImg,
       });
       setCardUrl(canvas.toDataURL("image/png"));
     };
+    const bgUrl = loadCardBg();
+    if (bgUrl) {
+      const img = new Image();
+      img.onload = () => {
+        bgImg = img;
+        draw();
+      };
+      img.src = bgUrl;
+    }
     // Canvas silently falls back to a system font for any family that has not
     // finished loading, and the card is a PNG — whatever it draws is baked in.
     // Draw once now so the card is never blank, then again once the webfonts
