@@ -33,35 +33,40 @@ export default function TabBar({
   onAdmin,
 }: Props) {
   return (
+    // Two equal-flex side groups around a pill-sized hole: the hole stays at
+    // the exact centre — under the absolutely-centred floating pill — no
+    // matter how many tabs each side happens to have.
     <nav className="tab-bar">
-      {showHome && (
-        <button
-          className={`tab-item tab-home${active === "home" ? " active" : ""}`}
-          onClick={onHome}
-        >
-          <span className="tab-icon">🏠</span>
-          <span className="tab-label">Home</span>
-        </button>
-      )}
-      {/* Inert hole the floating pill hovers over — keeps the flat tabs
-          distributed left and right of the true centre whatever their count. */}
+      <div className="tab-side">
+        {showHome && (
+          <button
+            className={`tab-item tab-home${active === "home" ? " active" : ""}`}
+            onClick={onHome}
+          >
+            <span className="tab-icon">🏠</span>
+            <span className="tab-label">Home</span>
+          </button>
+        )}
+      </div>
       <div className="tab-spacer" aria-hidden />
       <button className="tab-run" onClick={onRun}>
         {runLabel}
       </button>
-      <button
-        className={`tab-item tab-account${active === "account" ? " active" : ""}`}
-        onClick={onAccount}
-      >
-        <span className="tab-icon">👤</span>
-        <span className="tab-label">Account</span>
-      </button>
-      {showAdmin && (
-        <button className="tab-item tab-admin" onClick={onAdmin}>
-          <span className="tab-icon">⚙</span>
-          <span className="tab-label">Admin</span>
+      <div className="tab-side">
+        <button
+          className={`tab-item tab-account${active === "account" ? " active" : ""}`}
+          onClick={onAccount}
+        >
+          <span className="tab-icon">👤</span>
+          <span className="tab-label">Account</span>
         </button>
-      )}
+        {showAdmin && (
+          <button className="tab-item tab-admin" onClick={onAdmin}>
+            <span className="tab-icon">⚙</span>
+            <span className="tab-label">Admin</span>
+          </button>
+        )}
+      </div>
     </nav>
   );
 }

@@ -2047,12 +2047,22 @@ input[type="range"]::-moz-range-thumb {
   border-top: 1px solid var(--separator);
 }
 
+/* The hole the floating pill hovers over: sized to the pill (plus a little
+   air) so Home / Account / Admin group snugly around it, never under it. */
 .tab-spacer {
-  flex: 1.5;
+  flex: 0 1 min(44%, 182px);
+}
+
+.tab-side {
+  flex: 1 1 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-evenly;
+  min-width: 0;
 }
 
 .tab-item {
-  flex: 1;
+  flex: 0 1 72px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2085,9 +2095,9 @@ input[type="range"]::-moz-range-thumb {
 .tab-run {
   position: absolute;
   left: 50%;
-  top: -16px;
+  top: -14px;
   transform: translateX(-50%);
-  width: min(52%, 230px);
+  width: min(42%, 174px);
   border: none;
   border-radius: 999px;
   background: var(--accent);
@@ -2104,7 +2114,7 @@ input[type="range"]::-moz-range-thumb {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   cursor: pointer;
-  padding: 16px 6px 15px;
+  padding: 14px 6px 13px;
   box-shadow:
     0 6px 14px rgba(0, 0, 0, 0.28),
     0 2px 4px rgba(0, 0, 0, 0.18),
@@ -2217,6 +2227,58 @@ input[type="range"]::-moz-range-thumb {
   font-variant-numeric: tabular-nums;
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* Home-city autocomplete (account) */
+.profile-row-city {
+  position: relative;
+}
+
+.city-suggest {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin-top: 4px;
+  padding: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--separator-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+.city-suggest-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--label);
+  font-size: 15px;
+  text-align: left;
+  padding: 10px 10px;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+}
+
+.city-suggest-item:active {
+  background: var(--bg);
+}
+
+.city-suggest-sub {
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--label-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Run-card background picker (account) */

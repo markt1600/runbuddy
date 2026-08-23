@@ -18,7 +18,7 @@ import type { RunStats } from "@/lib/types";
 // Bumped manually when it matters that a device is seen running THIS web
 // build — the shell loads the site remotely, so "which code is my phone
 // actually executing" is a real question during native bring-up.
-const WEB_BUILD = "2026-08-23e";
+const WEB_BUILD = "2026-08-23f";
 
 // Account: who you are, your body stats (the trainer weaves these into its
 // improvised lines), and the one destructive-ish action — signing out — kept
@@ -202,6 +202,58 @@ export default function AccountScreen({
     setCardBg(null);
     setCardPreview(null);
     setCardNote(null);
+  };
+
+  // Home-city autocomplete: Open-Meteo's keyless geocoder (same provider as
+  // the weather), debounced, so what gets saved is a real city's canonical
+  // name — which is also what the GPS reverse-geocode reports mid-run, so
+  // travel detection compares like with like. Typing free-hand still works;
+  // the list is a strong nudge, not a cage.
+  const [citySugg, setCitySugg] = useState<
+    { name: string; country?: string; admin1?: string }[]
+  >([]);
+  const citySeqRef = useRef(0);
+  const cityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const lookupCity = (q: string) => {
+    if (cityTimerRef.current) clearTimeout(cityTimerRef.current);
+    const query = q.trim();
+    if (query.length < 2) {
+      setCitySugg([]);
+      return;
+    }
+    cityTimerRef.current = setTimeout(async () => {
+      const seq = ++citySeqRef.current;
+      try {
+        const res = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+            query
+          )}&count=6&language=en&format=json`
+        );
+        const data = (await res.json()) as {
+          results?: { name?: string; country?: string; admin1?: string }[];
+        };
+        if (seq !== citySeqRef.current) return; // a newer keystroke owns the box
+        const seen = new Set<string>();
+        const out: { name: string; country?: string; admin1?: string }[] = [];
+        for (const r of data.results ?? []) {
+          if (!r.name) continue;
+          const key = `${r.name}|${r.country ?? ""}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push({ name: r.name, country: r.country, admin1: r.admin1 });
+        }
+        setCitySugg(out.slice(0, 5));
+      } catch {
+        /* offline — free typing still works */
+      }
+    }, 300);
+  };
+
+  const pickCity = (name: string) => {
+    setHomeCity(name);
+    setCitySugg([]);
+    markDirty();
   };
 
   useEffect(() => {
@@ -402,20 +454,44 @@ export default function AccountScreen({
                 ))}
               </div>
             </div>
-            <label className="profile-row">
+            <label className="profile-row profile-row-city">
               <span className="profile-label">Home city</span>
               <input
                 className="profile-input profile-input-text"
                 type="text"
                 placeholder="From your next run"
                 maxLength={60}
+                autoComplete="off"
                 value={homeCity}
                 onChange={(e) => {
                   setHomeCity(e.target.value);
                   markDirty();
+                  lookupCity(e.target.value);
                 }}
+                onBlur={() => setTimeout(() => setCitySugg([]), 200)}
               />
               <span className="profile-unit">✈️</span>
+              {citySugg.length > 0 && (
+                <div className="city-suggest">
+                  {citySugg.map((s) => (
+                    <button
+                      key={`${s.name}|${s.country ?? ""}|${s.admin1 ?? ""}`}
+                      type="button"
+                      className="city-suggest-item"
+                      // mousedown beats the input's blur, so the tap lands
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        pickCity(s.name);
+                      }}
+                    >
+                      {s.name}
+                      <span className="city-suggest-sub">
+                        {[s.admin1, s.country].filter(Boolean).join(", ")}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </label>
             <label className="profile-row">
               <span className="profile-label">Height</span>
