@@ -43,6 +43,9 @@ export default function TabBar({
           <span className="tab-label">Home</span>
         </button>
       )}
+      {/* Inert hole the floating pill hovers over — keeps the flat tabs
+          distributed left and right of the true centre whatever their count. */}
+      <div className="tab-spacer" aria-hidden />
       <button className="tab-run" onClick={onRun}>
         {runLabel}
       </button>

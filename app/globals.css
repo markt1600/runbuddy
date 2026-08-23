@@ -2037,6 +2037,7 @@ input[type="range"]::-moz-range-thumb {
    nor fixed, so there is nothing iOS Safari can detach, bounce or hide. The
    first sticky version drifted with the rubber-band; this one cannot move. */
 .tab-bar {
+  position: relative; /* the run pill floats, centred, above this bar */
   flex-shrink: 0;
   display: flex;
   align-items: stretch;
@@ -2044,6 +2045,10 @@ input[type="range"]::-moz-range-thumb {
   padding: 10px 14px calc(env(safe-area-inset-bottom) + 8px);
   background: var(--bg);
   border-top: 1px solid var(--separator);
+}
+
+.tab-spacer {
+  flex: 1.5;
 }
 
 .tab-item {
@@ -2073,24 +2078,48 @@ input[type="range"]::-moz-range-thumb {
   letter-spacing: 0.12em;
 }
 
-/* The one action that matters gets the weight. */
+/* The one action that matters gets the weight: a raised red pill, dead
+   centre, floating a little proud of the bar. The gradient + inset
+   highlight/shade pair is the 3D — lit from above, seated below — and
+   pressing it visibly pushes it down into its shadow. */
 .tab-run {
-  flex: 1.6;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
+  position: absolute;
+  left: 50%;
+  top: -16px;
+  transform: translateX(-50%);
+  width: min(52%, 230px);
+  border: none;
+  border-radius: 999px;
   background: var(--accent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 80%, #fff) 0%,
+    var(--accent) 45%,
+    color-mix(in srgb, var(--accent) 76%, #000) 100%
+  );
   color: var(--on-accent);
   font-family: var(--ff-mono);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   cursor: pointer;
-  padding: 13px 6px;
-  transition: transform 0.12s ease;
+  padding: 16px 6px 15px;
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.28),
+    0 2px 4px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.22);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
-.tab-run:active { transform: scale(0.97); }
+.tab-run:active {
+  transform: translateX(-50%) translateY(3px);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
 
 /* ---------- Account screen ---------- */
 
