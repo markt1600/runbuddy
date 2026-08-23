@@ -19,6 +19,7 @@ import {
   chattinessLabel,
   formatTargetPace,
 } from "@/lib/prefs";
+import { isNativeApp } from "@/lib/native";
 import type { SpeedUnit } from "@/lib/units";
 import type { MusicSource, PersonaId } from "@/lib/types";
 import SpotifyTransport from "./SpotifyTransport";
@@ -426,7 +427,7 @@ export default function SetupScreen({
 
       <div className="section-header">Before You Go</div>
       <div className="card" style={{ padding: "12px 16px", fontSize: 13, color: "var(--label-2)", lineHeight: 1.5 }}>
-        {!audioSessionSupported() && (
+        {!audioSessionSupported() && !isNativeApp() && (
           <>
             ⚠ This iOS version won&apos;t let a web app soften other apps&apos; audio, so your
             music will stay at full volume while your buddy talks — turn it down yourself
@@ -435,9 +436,20 @@ export default function SetupScreen({
             <br />
           </>
         )}
-        Start your music first, then hit Start Run — the voice mixes over it.
-        Flip your ringer switch ON so you can hear your buddy. Keep the screen
-        on (we&apos;ll dim it into a runner-friendly always-on mode).
+        {isNativeApp() ? (
+          <>
+            Start your music first, then hit Start Run — the voice ducks under it.
+            Flip your ringer switch ON so you can hear your buddy. Lock the phone
+            whenever you like: your buddy keeps talking and the GPS keeps tracking
+            with the screen off.
+          </>
+        ) : (
+          <>
+            Start your music first, then hit Start Run — the voice mixes over it.
+            Flip your ringer switch ON so you can hear your buddy. Keep the screen
+            on (we&apos;ll dim it into a runner-friendly always-on mode).
+          </>
+        )}
       </div>
 
     </div>

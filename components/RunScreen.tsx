@@ -8,6 +8,7 @@ import { CoachEngine, type RunnerInfo } from "@/lib/coach";
 import type { RunHistoryDigest } from "@/lib/history";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
 import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
+import { isNativeApp } from "@/lib/native";
 import type { MusicSource, Persona, RunStats } from "@/lib/types";
 import SpotifyTransport from "./SpotifyTransport";
 
@@ -496,6 +497,10 @@ export default function RunScreen({
           ? "Podcasts"
           : null;
 
+  // The shell ducks through a real AVAudioSession; Safari needs the web
+  // audioSession API. Either way "softening" is the truth to display.
+  const canDuck = audioSessionSupported() || isNativeApp();
+
   const GPS_META: Record<GpsSignal, { cls: string; label: string }> = {
     good: { cls: "good", label: "GPS" },
     weak: { cls: "weak", label: "GPS weak" },
@@ -547,13 +552,23 @@ export default function RunScreen({
               ? "Phone in the sleeve — starting soon"
               : "Phone in the sleeve — resuming soon"}
           </div>
-          {/* The one mistake that silences the trainer for a whole run, and the
-              moment they're most likely to make it — phone in hand, about to
-              be put away. */}
+          {/* Web/PWA: the one mistake that silences the trainer for a whole
+              run, at the moment they're most likely to make it — phone in
+              hand, about to be put away. The native shell survives the side
+              button (background audio + GPS), so there it's an invitation. */}
           <div className="sleeve-notice">
-            <strong>Don&apos;t press the side button.</strong> Run Buddy locks the screen for
-            you — it&apos;s already locked. If you lock the phone yourself, iOS mutes your
-            buddy until you unlock it again.
+            {isNativeApp() ? (
+              <>
+                <strong>Lock the phone if you like.</strong> Your buddy keeps talking and
+                the GPS keeps tracking with the screen off.
+              </>
+            ) : (
+              <>
+                <strong>Don&apos;t press the side button.</strong> Run Buddy locks the screen
+                for you — it&apos;s already locked. If you lock the phone yourself, iOS mutes
+                your buddy until you unlock it again.
+              </>
+            )}
           </div>
         </>
       ) : (
@@ -570,9 +585,18 @@ export default function RunScreen({
           </div>
           {awaitingMovement && (
             <div className="sleeve-notice">
-              <strong>Don&apos;t press the side button.</strong> Run Buddy locks the screen for
-              you — it&apos;s already locked. If you lock the phone yourself, iOS mutes your
-              buddy until you unlock it again.
+              {isNativeApp() ? (
+                <>
+                  <strong>Lock the phone if you like.</strong> Your buddy keeps talking and
+                  the GPS keeps tracking with the screen off.
+                </>
+              ) : (
+                <>
+                  <strong>Don&apos;t press the side button.</strong> Run Buddy locks the screen
+                  for you — it&apos;s already locked. If you lock the phone yourself, iOS mutes
+                  your buddy until you unlock it again.
+                </>
+              )}
             </div>
           )}
         </>
@@ -659,7 +683,7 @@ export default function RunScreen({
 
       {treadmill ? (
         <div className="env-line">
-          {musicLabel ? audioSessionSupported()
+          {musicLabel ? canDuck
             ? `Softening ${musicLabel} when the coach speaks · ringer on 🔔`
             : `${musicLabel} stays at full volume on this iOS · ringer on 🔔` : "Location tracking off"}
         </div>
@@ -671,7 +695,7 @@ export default function RunScreen({
         </div>
       ) : (
         <div className="env-line">
-          {envLine ?? (musicLabel ? audioSessionSupported()
+          {envLine ?? (musicLabel ? canDuck
             ? `Softening ${musicLabel} when the coach speaks · ringer on 🔔`
             : `${musicLabel} stays at full volume on this iOS · ringer on 🔔` : "")}
         </div>
