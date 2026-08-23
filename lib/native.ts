@@ -60,6 +60,11 @@ interface RunBuddyNativePlugin {
    * Resolves when the clip finishes.
    */
   play(options: { data?: string; url?: string; volume?: number }): Promise<void>;
+  /**
+   * Native text-to-speech — the fallback voice. WebKit suspends the page's
+   * speechSynthesis while the screen is locked; AVSpeechSynthesizer doesn't.
+   */
+  speak(options: { text: string; rate?: number; pitch?: number; lang?: string }): Promise<void>;
   stopPlayback(): Promise<void>;
   keepAliveStart(): Promise<void>;
   keepAliveStop(): Promise<void>;
@@ -117,6 +122,7 @@ export function runBuddyNative(): RunBuddyNativePlugin | null {
     duckStart: () => call("duckStart"),
     duckEnd: () => call("duckEnd"),
     play: (options) => call("play", options),
+    speak: (options) => call("speak", options),
     stopPlayback: () => call("stopPlayback"),
     keepAliveStart: () => call("keepAliveStart"),
     keepAliveStop: () => call("keepAliveStop"),

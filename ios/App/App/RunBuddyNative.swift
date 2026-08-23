@@ -29,7 +29,7 @@ import UIKit
 
 @objc(RunBuddyNativePlugin)
 public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate,
-    AVAudioPlayerDelegate, ASAuthorizationControllerDelegate,
+    AVAudioPlayerDelegate, AVSpeechSynthesizerDelegate, ASAuthorizationControllerDelegate,
     ASAuthorizationControllerPresentationContextProviding {
     public let identifier = "RunBuddyNativePlugin"
     public let jsName = "RunBuddyNative"
@@ -38,6 +38,7 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
         CAPPluginMethod(name: "duckStart", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "duckEnd", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "play", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "speak", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopPlayback", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "keepAliveStart", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "keepAliveStop", returnType: CAPPluginReturnPromise),
@@ -240,6 +241,26 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
         }
     }
 
+    public func speechSynthesizer(
+        _ synthesizer: AVSpeechSynthesizer,
+        didFinish utterance: AVSpeechUtterance
+    ) {
+        DispatchQueue.main.async {
+            self.speakCall?.resolve()
+            self.speakCall = nil
+        }
+    }
+
+    public func speechSynthesizer(
+        _ synthesizer: AVSpeechSynthesizer,
+        didCancel utterance: AVSpeechUtterance
+    ) {
+        DispatchQueue.main.async {
+            self.speakCall?.resolve()
+            self.speakCall = nil
+        }
+    }
+
     public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         DispatchQueue.main.async {
             guard player === self.voicePlayer else { return }
@@ -258,7 +279,48 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
             self.voiceCall?.resolve()
             self.voicePlayer = nil
             self.voiceCall = nil
+            self.speechSynth?.stopSpeaking(at: .immediate)
+            self.speakCall?.resolve()
+            self.speakCall = nil
             call.resolve()
+        }
+    }
+
+    // ---- Native speech synthesis (the fallback voice) ----
+    //
+    // When a phrase has no rendered recording (or its download fails), the
+    // web layer falls back to text-to-speech — but WebKit's speechSynthesis
+    // is suspended while the screen is locked, which turned every fallback
+    // into silence mid-run. AVSpeechSynthesizer sits on the app's audio
+    // session like the AVAudioPlayer does, so the robot voice survives the
+    // lock screen too.
+
+    private var speechSynth: AVSpeechSynthesizer?
+    private var speakCall: CAPPluginCall?
+
+    @objc func speak(_ call: CAPPluginCall) {
+        guard let text = call.getString("text"), !text.isEmpty else {
+            call.reject("text required")
+            return
+        }
+        let rate = Float(call.getDouble("rate") ?? 1.0)
+        let pitch = Float(call.getDouble("pitch") ?? 1.0)
+        let lang = call.getString("lang") ?? "en-US"
+        DispatchQueue.main.async {
+            if self.speechSynth == nil {
+                let s = AVSpeechSynthesizer()
+                s.delegate = self
+                self.speechSynth = s
+            }
+            self.speakCall?.resolve() // never leave a superseded promise hanging
+            self.speakCall = call
+            let u = AVSpeechUtterance(string: text)
+            u.voice = AVSpeechSynthesisVoice(language: lang)
+                ?? AVSpeechSynthesisVoice(language: "en-US")
+            // Web rate 1.0 ≈ the platform default; scale around it.
+            u.rate = min(max(AVSpeechUtteranceDefaultSpeechRate * rate, 0.1), 0.7)
+            u.pitchMultiplier = min(max(pitch, 0.5), 2.0)
+            self.speechSynth?.speak(u)
         }
     }
 

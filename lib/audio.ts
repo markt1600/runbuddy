@@ -432,7 +432,9 @@ export class VoiceEngine {
     let watchdog: ReturnType<typeof setTimeout>;
     try {
       await Promise.race([
-        native.play(opts),
+        // One immediate retry before giving up: a single dropped fetch at the
+        // wrong moment once swallowed a one-shot record announcement whole.
+        native.play(opts).catch(() => native.play(opts)),
         new Promise<never>((_, reject) => {
           watchdog = setTimeout(() => reject(new Error("playback stalled")), 60_000);
         }),
@@ -493,6 +495,27 @@ export class VoiceEngine {
   }
 
   private speakSynth(text: string): Promise<void> {
+    // Shell: the native synthesizer sits on the app's audio session, so the
+    // fallback voice keeps working with the screen locked — the page's
+    // speechSynthesis is suspended there and every fallback came out as
+    // silence. Watchdogged like everything else; failure just moves on.
+    const native = runBuddyNative();
+    if (native) {
+      let watchdog: ReturnType<typeof setTimeout>;
+      return Promise.race([
+        native
+          .speak({
+            text,
+            rate: this.persona.tts.rate,
+            pitch: this.persona.tts.pitch,
+            lang: this.persona.tts.lang,
+          })
+          .catch(() => {}),
+        new Promise<void>((resolve) => {
+          watchdog = setTimeout(resolve, Math.min(text.length * 120 + 4000, 45_000));
+        }),
+      ]).finally(() => clearTimeout(watchdog!));
+    }
     return new Promise((resolve) => {
       if (!("speechSynthesis" in window)) return resolve();
       const u = new SpeechSynthesisUtterance(text);
