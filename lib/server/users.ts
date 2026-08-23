@@ -1,6 +1,7 @@
-import { list, put } from "@vercel/blob";
+import { del, list, put } from "@vercel/blob";
 import { blobConfigured } from "./library";
 import { uidHash, type SessionUser } from "./auth";
+import { listRunsByHash, moveRunsBetweenHashes } from "./runs";
 
 // Registry of accounts that have signed in, one profile blob per user, keyed
 // by the same HMAC'd id the run store uses — which is exactly what lets the
@@ -202,6 +203,75 @@ export async function createAccountLink(
     await writeProfile({ ...profile, linked }).catch(() => {});
   }
   return null;
+}
+
+/**
+ * Fold the other account's profile gaps into the main one — main's values
+ * always win, empties fill from the absorbed side (including the sealed
+ * Spotify connection) — then delete the orphaned profile blob so the admin
+ * directory doesn't show a ghost.
+ */
+async function absorbProfile(mainUid: string, otherUid: string): Promise<void> {
+  const [main, other] = await Promise.all([readProfile(mainUid), readProfile(otherUid)]);
+  if (main && other) {
+    const next: UserProfile = { ...main };
+    if (next.age === undefined) next.age = other.age;
+    if (next.heightCm === undefined) next.heightCm = other.heightCm;
+    if (next.weightKg === undefined) next.weightKg = other.weightKg;
+    if (next.gender === undefined) next.gender = other.gender;
+    if (next.units === undefined) next.units = other.units;
+    if (next.homeCity === undefined) next.homeCity = other.homeCity;
+    if (next.spotify === undefined) next.spotify = other.spotify;
+    await writeProfile(next);
+  }
+  if (other) {
+    try {
+      const pathname = profilePath(otherUid);
+      const page = await list({ prefix: pathname, limit: 1 });
+      const hit = page.blobs.find((b) => b.pathname === pathname);
+      if (hit) await del(hit.url);
+    } catch {
+      /* a stale ghost in the admin list, nothing worse */
+    }
+  }
+}
+
+/**
+ * Link two identities into ONE account, the way a runner thinks about it:
+ * whichever side has more runs is the MAIN account, the other identity's
+ * runs are moved into it, and from then on either sign-in opens the main
+ * account. Ties (usually 0–0) keep the currently signed-in side as main.
+ * Returns the canonical sub, or an error message for the user.
+ */
+export async function linkAndMerge(
+  sessionSub: string,
+  otherSub: string
+): Promise<{ canonicalSub: string } | { error: string }> {
+  if (!blobConfigured()) return { error: "no storage connected" };
+  if (sessionSub === otherSub) return { canonicalSub: sessionSub };
+  const existing = await getLinkedCanonicalSub(otherSub);
+  if (existing === sessionSub) return { canonicalSub: sessionSub }; // already done
+  if (existing) return { error: "that identity is already linked to a different account" };
+
+  const [runsSession, runsOther] = await Promise.all([
+    listRunsByHash(uidHash(sessionSub)).catch(() => []),
+    listRunsByHash(uidHash(otherSub)).catch(() => []),
+  ]);
+  const main = runsOther.length > runsSession.length ? otherSub : sessionSub;
+  const other = main === sessionSub ? otherSub : sessionSub;
+
+  // Order matters for crash-safety: runs first (restartable), then profile,
+  // then the link record — logins only start resolving to main once
+  // everything they should find there has arrived.
+  await moveRunsBetweenHashes(uidHash(other), uidHash(main));
+  await absorbProfile(uidHash(main), uidHash(other)).catch(() => {});
+  const err = await createAccountLink(
+    other,
+    main,
+    other.startsWith("apple:") ? "apple" : "google"
+  );
+  if (err) return { error: err };
+  return { canonicalSub: main };
 }
 
 /** Store (or clear) the sealed Spotify tokens on a profile. */

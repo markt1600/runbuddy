@@ -11,8 +11,10 @@ import {
   uidHash,
   verifyLinkIntent,
 } from "@/lib/server/auth";
-import { listRunsByHash } from "@/lib/server/runs";
-import { createAccountLink, getLinkedCanonicalSub, getProfile, recordUserLogin } from "@/lib/server/users";
+import { getLinkedCanonicalSub, getProfile, linkAndMerge, recordUserLogin } from "@/lib/server/users";
+
+// Link completions move run blobs between accounts one by one.
+export const maxDuration = 60;
 
 // Google redirects back here with a one-time code; trade it for an identity
 // and set the session cookie. The id_token arrives directly from Google's
@@ -59,37 +61,37 @@ export async function GET(req: NextRequest) {
     };
 
     // Account linking completion: a signed intent cookie means the runner —
-    // already signed in as another (canonical) account in the app — asked
-    // for THIS Google identity to be linked onto it. Write the link, then
-    // fall through into the normal native handoff signed in as the
-    // canonical account. A Google identity that already has runs of its own
-    // is refused (that's a merge, not a link) via the deep link's reason.
+    // already signed in as another account in the app — asked for THIS
+    // Google identity to be joined with it. Merge-into-main: whichever side
+    // has more runs becomes the account both sign-ins open (so linking a
+    // history-rich Google onto a fresh Apple sign-in lands you back IN the
+    // Google account, history and all). Then fall through into the normal
+    // native handoff signed in as the main account.
     const linkIntent = verifyLinkIntent(req.cookies.get(NATIVE_LINK_COOKIE)?.value);
     if (linkIntent) {
-      let reason: string | null = null;
-      if (linkIntent !== user.sub) {
-        const runs = await listRunsByHash(uidHash(user.sub)).catch(() => []);
-        reason =
-          runs.length > 0
-            ? "that Google account already has its own run history"
-            : await createAccountLink(user.sub, linkIntent, "google");
-      }
-      if (reason) {
+      const result = await linkAndMerge(linkIntent, user.sub).catch(() => ({
+        error: "link failed — try again",
+      }));
+      if ("error" in result) {
         const failed = NextResponse.redirect(
-          `runbuddy://linked?ok=0&reason=${encodeURIComponent(reason)}`
+          `runbuddy://linked?ok=0&reason=${encodeURIComponent(result.error)}`
         );
         failed.cookies.delete(STATE_COOKIE);
         failed.cookies.delete(NATIVE_AUTH_COOKIE);
         failed.cookies.delete(NATIVE_LINK_COOKIE);
         return failed;
       }
-      const canonicalProfile = await getProfile(uidHash(linkIntent)).catch(() => null);
-      user = {
-        sub: linkIntent,
-        name: canonicalProfile?.name ?? user.name,
-        email: canonicalProfile?.email ?? user.email,
-        picture: canonicalProfile?.picture ?? user.picture,
-      };
+      if (result.canonicalSub !== user.sub) {
+        const canonicalProfile = await getProfile(uidHash(result.canonicalSub)).catch(
+          () => null
+        );
+        user = {
+          sub: result.canonicalSub,
+          name: canonicalProfile?.name ?? user.name,
+          email: canonicalProfile?.email ?? user.email,
+          picture: canonicalProfile?.picture ?? user.picture,
+        };
+      }
     } else {
       // A LINKED Google identity signs in as its canonical account — both
       // providers land in the same runs and profile, on web and in the app.

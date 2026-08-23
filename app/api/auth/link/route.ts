@@ -1,26 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  SESSION_COOKIE,
   readSession,
   requestOrigin,
   signLinkIntent,
+  signSession,
   uidHash,
+  type SessionUser,
 } from "@/lib/server/auth";
 import { verifyAppleIdentityToken } from "@/lib/server/apple";
-import { listRunsByHash } from "@/lib/server/runs";
-import { createAccountLink } from "@/lib/server/users";
+import { getProfile, linkAndMerge } from "@/lib/server/users";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // merging moves run blobs one by one
 
-// Account linking, both directions.
+// Account linking, both directions, with merge-into-main semantics: the
+// side with more runs becomes the MAIN account, the other identity's runs
+// move into it, and either sign-in opens the main account from then on.
 //
-// POST: link an APPLE identity onto the signed-in (canonical) account — the
-// shell already ran Apple's native sheet, so the identity token arrives
-// inline and the link is written right here. An Apple identity that already
-// has its own run history is refused: that would be a merge, not a link.
+// POST: link an APPLE identity — the shell already ran Apple's native
+// sheet, so the identity token arrives inline. When the merge decides the
+// OTHER side is main (it had the history), the session is re-issued as the
+// main account right here; the client reloads either way.
 //
 // GET: start linking a GOOGLE identity — returns the login URL (with a
-// signed link intent) for the shell to open in the browser sheet; the OAuth
-// callback finishes the link and deep-links back into the app.
+// signed link intent) for the shell's browser sheet; the OAuth callback
+// finishes the merge and deep-links back into the app.
 
 export async function POST(req: NextRequest) {
   const session = readSession(req);
@@ -32,21 +37,32 @@ export async function POST(req: NextRequest) {
   const verified = await verifyAppleIdentityToken(body.identityToken);
   if (!verified) return NextResponse.json({ error: "invalid token" }, { status: 401 });
 
-  const linkedSub = `apple:${verified.sub}`;
-  if (linkedSub !== session.sub) {
-    const runs = await listRunsByHash(uidHash(linkedSub)).catch(() => []);
-    if (runs.length > 0) {
-      return NextResponse.json(
-        { error: "that Apple ID already has its own run history" },
-        { status: 409 }
-      );
-    }
-    const err = await createAccountLink(linkedSub, session.sub, "apple").catch(
-      () => "link failed"
-    );
-    if (err) return NextResponse.json({ error: err }, { status: 409 });
+  const result = await linkAndMerge(session.sub, `apple:${verified.sub}`).catch(() => ({
+    error: "link failed — try again",
+  }));
+  if ("error" in result) {
+    return NextResponse.json({ error: result.error }, { status: 409 });
   }
-  return NextResponse.json({ ok: true });
+
+  const res = NextResponse.json({ ok: true });
+  if (result.canonicalSub !== session.sub) {
+    // The Apple side turned out to be main — re-issue the session as it.
+    const profile = await getProfile(uidHash(result.canonicalSub)).catch(() => null);
+    const user: SessionUser = {
+      sub: result.canonicalSub,
+      name: profile?.name ?? session.name,
+      email: profile?.email ?? session.email,
+      picture: profile?.picture ?? session.picture,
+    };
+    res.cookies.set(SESSION_COOKIE, signSession(user), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: true,
+      maxAge: 180 * 86_400,
+      path: "/",
+    });
+  }
+  return res;
 }
 
 export async function GET(req: NextRequest) {

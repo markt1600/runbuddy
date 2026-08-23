@@ -180,10 +180,10 @@ export async function openNativeLogin(): Promise<void> {
  * cancels the sheet or anything fails (the landing page just stays put).
  */
 /**
- * Link an Apple ID onto the signed-in account, inline: native sheet →
- * identity token → /api/auth/link (which refuses an Apple ID that already
- * has its own run history). Resolves the server's error message, or null
- * on success / silent-cancel.
+ * Link an Apple ID with the signed-in account, inline: native sheet →
+ * identity token → /api/auth/link, which merges into whichever side has
+ * more runs (the "main" account) and reloads. Resolves the server's error
+ * message, or null on success / silent-cancel.
  */
 export async function nativeLinkApple(): Promise<string | null> {
   const native = runBuddyNative();
@@ -200,7 +200,12 @@ export async function nativeLinkApple(): Promise<string | null> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identityToken: cred.identityToken }),
     });
-    if (res.ok) return null;
+    if (res.ok) {
+      // The merge may have made the OTHER side the main account (and
+      // re-issued the session as it) — a reload shows whichever won.
+      window.location.href = "/";
+      return null;
+    }
     const data = (await res.json().catch(() => null)) as { error?: string } | null;
     return data?.error ?? "link failed";
   } catch {

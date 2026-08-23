@@ -188,6 +188,36 @@ export async function confirmRunDistance(
   return { id: saved.id, stats };
 }
 
+/**
+ * Move every run from one account into another (account merge). Runs are
+ * keyed by start time, and two runs cannot start at the same millisecond,
+ * so this is collision-free; copy-then-delete per blob means a failure
+ * mid-way strands nothing — a retry re-copies whatever remains.
+ */
+export async function moveRunsBetweenHashes(fromUid: string, toUid: string): Promise<number> {
+  const runs = await listRunsByHash(fromUid);
+  let moved = 0;
+  for (const run of runs) {
+    try {
+      const res = await fetch(run.url, { cache: "no-store" });
+      if (!res.ok) continue;
+      const body = await res.text();
+      await put(`${PREFIX}/${toUid}/${run.id}`, body, {
+        access: "public",
+        contentType: "application/json",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        cacheControlMaxAge: 0,
+      });
+      await del(run.url);
+      moved++;
+    } catch {
+      /* leave the original where it is; a later retry re-copies it */
+    }
+  }
+  return moved;
+}
+
 /** Ownership is structural: the pathname is rebuilt from the session's own
  *  uid hash, so a user can only ever delete inside their own prefix. */
 export async function deleteRun(sub: string, basename: string): Promise<boolean> {
