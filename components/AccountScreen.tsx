@@ -6,6 +6,8 @@ import {
   isNativeApp,
   nativeAppleLogin,
   nativeDiagnostics,
+  nativeLinkApple,
+  openNativeGoogleLink,
   openNativeLogin,
   openNativeSpotifyConnect,
   runBuddyNative,
@@ -89,6 +91,12 @@ export default function AccountScreen({
   const [cardBg, setCardBg] = useState<string | null>(null);
   const [cardPreview, setCardPreview] = useState<string | null>(null);
   const [cardNote, setCardNote] = useState<string | null>(null);
+  const [account, setAccount] = useState<{
+    provider: "google" | "apple";
+    linked: string[];
+  } | null>(null);
+  const [linkNote, setLinkNote] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
   const previewStatsRef = useRef<RunStats | null>(null);
 
   /** Real numbers if the runner has a saved outdoor run, a sensible 5k if not. */
@@ -271,9 +279,11 @@ export default function AccountScreen({
           };
           storage: boolean;
           spotify?: { configured: boolean; connected: boolean };
+          account?: { provider: "google" | "apple"; linked: string[] };
         } | null) => {
           if (cancelled || !data) return;
           if (data.spotify) setSpotify(data.spotify);
+          if (data.account) setAccount(data.account);
           const p = data.profile;
           const u = p.units === "imperial" ? "imperial" : "metric";
           setUnits(u);
@@ -304,6 +314,34 @@ export default function AccountScreen({
     window.addEventListener("runbuddy-spotify-connected", onConnected);
     return () => window.removeEventListener("runbuddy-spotify-connected", onConnected);
   }, []);
+
+  // A refused Google link comes back through its own deep link (a successful
+  // one reloads the whole app signed in, so there is nothing to hear).
+  useEffect(() => {
+    const onLinkFailed = (e: Event) => {
+      const detail = (e as CustomEvent<{ reason?: string }>).detail;
+      setLinkNote(detail?.reason ?? "link failed");
+      setLinkBusy(false);
+    };
+    window.addEventListener("runbuddy-link-failed", onLinkFailed);
+    return () => window.removeEventListener("runbuddy-link-failed", onLinkFailed);
+  }, []);
+
+  /** Link an Apple ID onto this (Google) account via the native sheet. */
+  const linkApple = async () => {
+    setLinkBusy(true);
+    setLinkNote(null);
+    const err = await nativeLinkApple();
+    setLinkBusy(false);
+    if (err) {
+      setLinkNote(err);
+      return;
+    }
+    setAccount((a) =>
+      a ? { ...a, linked: Array.from(new Set([...a.linked, "apple"])) } : a
+    );
+    setLinkNote("✓ Linked — either sign-in now opens this account.");
+  };
 
   // Derived live from whatever is typed, in whichever unit — never stored,
   // never editable. kg / m² after converting the display values back.
@@ -394,8 +432,47 @@ export default function AccountScreen({
             <div>
               <div className="account-name">{user.name}</div>
               {user.email && <div className="account-email">{user.email}</div>}
+              {account && (
+                <div className="account-providers">
+                  {account.provider === "apple" ? " Apple" : "Google"}
+                  {account.linked.length > 0 &&
+                    ` · linked: ${account.linked
+                      .map((p) => (p === "apple" ? " Apple" : "Google"))
+                      .join(", ")}`}
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Linking: either sign-in button should open THIS account. Only in
+              the shell — both flows need the native sheet / browser sheet. */}
+          {account && isNativeApp() && (
+            <>
+              {account.provider === "google" && !account.linked.includes("apple") && (
+                <button
+                  className="cta secondary link-account-btn"
+                  disabled={linkBusy}
+                  onClick={() => void linkApple()}
+                >
+                  {linkBusy ? "Linking…" : " Link your Apple ID"}
+                </button>
+              )}
+              {account.provider === "apple" && !account.linked.includes("google") && (
+                <button
+                  className="cta secondary link-account-btn"
+                  disabled={linkBusy}
+                  onClick={() => {
+                    setLinkBusy(true);
+                    setLinkNote(null);
+                    void openNativeGoogleLink();
+                  }}
+                >
+                  {linkBusy ? "Linking…" : "Link your Google account"}
+                </button>
+              )}
+              {linkNote && <p className="save-note">{linkNote}</p>}
+            </>
+          )}
 
           <div className="section-header">Your stats</div>
           <div className="card profile-card">

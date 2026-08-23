@@ -101,6 +101,40 @@ export function newStateToken(): string {
   return b64url(randomBytes(24));
 }
 
+// ---- Account linking ----
+// Linking Google onto an Apple-canonical account runs the Google OAuth in
+// the system browser sheet, which has no session cookie — so the WebView
+// first mints this signed intent ("the signed-in account <sub> wants the
+// NEXT Google identity linked to it") and the login route carries it to the
+// callback in a cookie. Ten minutes, single purpose.
+
+export const NATIVE_LINK_COOKIE = "runbuddy-native-link";
+
+export function signLinkIntent(sub: string): string {
+  const payload = b64url(
+    Buffer.from(JSON.stringify({ sub, n: b64url(randomBytes(12)), exp: Date.now() + 600_000 }))
+  );
+  return `l1.${payload}.${hmac(`l1.${payload}`)}`;
+}
+
+/** The canonical sub that asked for the link, or null. */
+export function verifyLinkIntent(token: string | undefined): string | null {
+  if (!token || !secret()) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3 || parts[0] !== "l1") return null;
+  const expected = Buffer.from(hmac(`l1.${parts[1]}`));
+  const got = Buffer.from(parts[2]);
+  if (expected.length !== got.length || !timingSafeEqual(expected, got)) return null;
+  try {
+    const data = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+    if (typeof data.sub !== "string" || typeof data.exp !== "number") return null;
+    if (data.exp < Date.now()) return null;
+    return data.sub;
+  } catch {
+    return null;
+  }
+}
+
 // ---- Native Spotify connect ----
 // In the shell, the Spotify OAuth runs in the system browser sheet, whose
 // cookie jar never holds the app's session — so the OAuth state parameter

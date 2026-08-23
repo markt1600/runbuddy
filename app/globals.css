@@ -2221,6 +2221,21 @@ input[type="range"]::-moz-range-thumb {
   appearance: textfield;
 }
 
+.account-providers {
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--label-3);
+  margin-top: 3px;
+}
+
+.link-account-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+}
+
 /* Sign in with Apple — Apple's HIG wants the black button, and it only
    renders in the shell where the native sheet exists. */
 .apple-signin {

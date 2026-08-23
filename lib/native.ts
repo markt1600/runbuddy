@@ -179,6 +179,50 @@ export async function openNativeLogin(): Promise<void> {
  * fetch — then a reload arrives signed in. Resolves false when the runner
  * cancels the sheet or anything fails (the landing page just stays put).
  */
+/**
+ * Link an Apple ID onto the signed-in account, inline: native sheet →
+ * identity token → /api/auth/link (which refuses an Apple ID that already
+ * has its own run history). Resolves the server's error message, or null
+ * on success / silent-cancel.
+ */
+export async function nativeLinkApple(): Promise<string | null> {
+  const native = runBuddyNative();
+  if (!native) return "native app required";
+  let cred: { identityToken: string };
+  try {
+    cred = await native.appleSignIn();
+  } catch {
+    return null; // cancelled the sheet — say nothing
+  }
+  try {
+    const res = await fetch("/api/auth/link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identityToken: cred.identityToken }),
+    });
+    if (res.ok) return null;
+    const data = (await res.json().catch(() => null)) as { error?: string } | null;
+    return data?.error ?? "link failed";
+  } catch {
+    return "network error — try again";
+  }
+}
+
+/**
+ * Link a Google account onto the signed-in (Apple-canonical) account: the
+ * OAuth runs in the browser sheet carrying a signed link intent; success
+ * returns through the normal auth deep link (reloading signed in, same
+ * account), refusal through runbuddy://linked with a reason.
+ */
+export async function openNativeGoogleLink(): Promise<void> {
+  const res = await fetch("/api/auth/link");
+  if (!res.ok) return;
+  const { url } = (await res.json()) as { url?: string };
+  if (!url) return;
+  const { Browser } = await import("@capacitor/browser");
+  await Browser.open({ url });
+}
+
 export async function nativeAppleLogin(): Promise<boolean> {
   const native = runBuddyNative();
   if (!native) return false;
@@ -239,6 +283,21 @@ export async function initNativeAuthListener(): Promise<void> {
       if (params.get("ok") === "1") {
         window.dispatchEvent(new CustomEvent("runbuddy-spotify-connected"));
       }
+      return;
+    }
+
+    // Account linking REFUSED (a successful link comes back through the
+    // normal runbuddy://auth reload instead): close the sheet and hand the
+    // reason to the account screen.
+    if (url.startsWith("runbuddy://linked")) {
+      void import("@capacitor/browser")
+        .then(({ Browser }) => Browser.close())
+        .catch(() => {});
+      window.dispatchEvent(
+        new CustomEvent("runbuddy-link-failed", {
+          detail: { reason: params.get("reason") ?? "link failed" },
+        })
+      );
       return;
     }
 

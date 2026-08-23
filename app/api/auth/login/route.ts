@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   NATIVE_AUTH_COOKIE,
+  NATIVE_LINK_COOKIE,
   STATE_COOKIE,
   authConfigured,
   newStateToken,
   requestOrigin,
+  verifyLinkIntent,
 } from "@/lib/server/auth";
 
 // Kicks off the Google authorization-code flow. The redirect URI is this
@@ -37,6 +39,20 @@ export async function GET(req: NextRequest) {
   // setting a cookie the WebView will never see.
   if (req.nextUrl.searchParams.get("native") === "1") {
     res.cookies.set(NATIVE_AUTH_COOKIE, "1", {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: true,
+      maxAge: 600,
+      path: "/",
+    });
+  }
+  // Account linking: the WebView minted a signed intent ("link the NEXT
+  // Google identity to account <sub>") because the browser sheet running
+  // this flow has no session cookie. Verified here, carried to the callback
+  // in its own cookie.
+  const linkToken = req.nextUrl.searchParams.get("linkToken");
+  if (linkToken && verifyLinkIntent(linkToken)) {
+    res.cookies.set(NATIVE_LINK_COOKIE, linkToken, {
       httpOnly: true,
       sameSite: "lax",
       secure: true,

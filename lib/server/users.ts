@@ -29,6 +29,8 @@ export interface UserProfile {
    * the first saved run's city when empty (and never auto-overwritten after).
    */
   homeCity?: string;
+  /** Providers linked ONTO this canonical account (e.g. ["apple"]). */
+  linked?: string[];
   /** Spotify OAuth tokens, AES-sealed (lib/server/spotify.ts) — never plaintext. */
   spotify?: string;
 }
@@ -135,6 +137,71 @@ export async function setProfileHomeCityIfUnset(uid: string, city: string): Prom
   const existing = await readProfile(uid);
   if (!existing || existing.homeCity) return;
   await writeProfile({ ...existing, homeCity: city });
+}
+
+// ---- Account linking ----
+// One small blob per LINKED identity, keyed by that identity's uid hash,
+// containing the canonical account's sub: every sign-in path looks its
+// provider identity up here first and, when a link exists, proceeds as the
+// canonical account — so Google and Apple land in the same runs and profile.
+// The raw canonical sub in the body is the same sensitivity class as the
+// email the profile blob already stores; pathnames stay underivable.
+
+interface AccountLink {
+  sub: string; // the canonical account
+  provider: string; // what kind of identity was linked ("google" | "apple")
+  linkedAt: number;
+}
+
+const linkPath = (uid: string) => `links/${uid}.json`;
+
+/** The canonical sub this provider identity is linked to, or null. */
+export async function getLinkedCanonicalSub(linkedSub: string): Promise<string | null> {
+  if (!blobConfigured()) return null;
+  const pathname = linkPath(uidHash(linkedSub));
+  try {
+    const page = await list({ prefix: pathname, limit: 1 });
+    const hit = page.blobs.find((b) => b.pathname === pathname);
+    if (!hit) return null;
+    const res = await fetch(hit.url, { cache: "no-store" });
+    if (!res.ok) return null;
+    const link = (await res.json()) as AccountLink;
+    return typeof link.sub === "string" && link.sub ? link.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Link a provider identity onto a canonical account. Returns an error string
+ * for the user, or null on success (idempotent when already linked here).
+ */
+export async function createAccountLink(
+  linkedSub: string,
+  canonicalSub: string,
+  provider: string
+): Promise<string | null> {
+  if (!blobConfigured()) return "no storage connected";
+  if (linkedSub === canonicalSub) return "that is already this account";
+  const existing = await getLinkedCanonicalSub(linkedSub);
+  if (existing === canonicalSub) return null; // already linked here — done
+  if (existing) return "that identity is already linked to a different account";
+
+  const link: AccountLink = { sub: canonicalSub, provider, linkedAt: Date.now() };
+  await put(linkPath(uidHash(linkedSub)), JSON.stringify(link), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+  });
+  // Remember on the canonical profile, for the account screen's display.
+  const profile = await readProfile(uidHash(canonicalSub)).catch(() => null);
+  if (profile) {
+    const linked = Array.from(new Set([...(profile.linked ?? []), provider]));
+    await writeProfile({ ...profile, linked }).catch(() => {});
+  }
+  return null;
 }
 
 /** Store (or clear) the sealed Spotify tokens on a profile. */

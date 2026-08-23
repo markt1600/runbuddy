@@ -47,6 +47,12 @@ export async function GET(req: NextRequest) {
     profile: pick(profile),
     storage: true,
     spotify: { configured: spotifyConfigured(), connected: !!profile?.spotify },
+    // Which provider IS this account, and which others are linked onto it —
+    // the account screen's linking section reads this.
+    account: {
+      provider: session.sub.startsWith("apple:") ? "apple" : "google",
+      linked: profile?.linked ?? [],
+    },
   });
 }
 
