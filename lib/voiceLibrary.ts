@@ -150,7 +150,16 @@ export async function loadLibraryState(force = false): Promise<void> {
       } = await res.json();
       flags = { ...data, statusReached: true };
       for (const [k, url] of Object.entries(data.rendered)) {
-        if (!urls.has(k)) urls.set(k, url);
+        if (urls.has(k)) continue;
+        // Version the URL with its render moment. Audio blobs overwrite in
+        // place at a stable pathname with a year of CDN cache, so a
+        // re-render is otherwise invisible to BOTH the shell's on-disk
+        // voice cache (keyed by URL hash) and any CDN copy — the old
+        // recording would play forever. A changed ?v= makes it a new URL
+        // everywhere at once.
+        const at = data.renderedAt?.[k];
+        const stamp = at ? Date.parse(at) : NaN;
+        urls.set(k, isFinite(stamp) ? `${url}?v=${Math.floor(stamp / 1000)}` : url);
       }
       for (const [k, at] of Object.entries(data.renderedAt ?? {})) {
         renderedAt.set(k, at);
@@ -296,7 +305,9 @@ export async function renderMissingPhrases(
         throw new Error(data.error ?? `HTTP ${res.status}`);
       }
       const data: { url: string } = await res.json();
-      urls.set(key(persona, id), data.url);
+      // Same ?v= versioning as the manifest load — a re-render must become a
+      // new URL for the shell's disk cache and the CDN alike.
+      urls.set(key(persona, id), `${data.url}?v=${Math.floor(Date.now() / 1000)}`);
       renderedAt.set(key(persona, id), new Date().toISOString());
       consecutiveFailures = 0;
       report("generating");
