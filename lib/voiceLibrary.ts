@@ -55,6 +55,20 @@ export function getPhraseUrl(persona: PersonaId, id: string): string | undefined
   return urls.get(key(persona, id));
 }
 
+/**
+ * Every rendered audio URL this persona could play — what the shell's
+ * offline cache warms at run start, so a dead zone only silences the
+ * improvised lines while the whole pre-rendered library keeps talking.
+ */
+export function renderedUrlsFor(persona: PersonaId): string[] {
+  const prefix = `${persona}/`;
+  const out: string[] = [];
+  for (const [k, url] of urls) {
+    if (k.startsWith(prefix)) out.push(url);
+  }
+  return out;
+}
+
 /** When this phrase's audio was recorded, if we know. */
 export function getPhraseRenderedAt(persona: PersonaId, id: string): Date | null {
   const iso = renderedAt.get(key(persona, id));

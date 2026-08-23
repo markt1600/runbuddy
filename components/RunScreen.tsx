@@ -8,7 +8,8 @@ import { CoachEngine, type RunnerInfo } from "@/lib/coach";
 import type { RunHistoryDigest } from "@/lib/history";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
 import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
-import { isNativeApp } from "@/lib/native";
+import { isNativeApp, runBuddyNative } from "@/lib/native";
+import { renderedUrlsFor } from "@/lib/voiceLibrary";
 import type { MusicSource, Persona, RunStats } from "@/lib/types";
 import SpotifyTransport from "./SpotifyTransport";
 
@@ -198,6 +199,15 @@ export default function RunScreen({
     coach.setHistory(history ?? null);
     coachRef.current = coach;
 
+    // Offline armour (shell only): warm this persona's whole rendered
+    // library into the native disk cache while there's still signal, so a
+    // dead zone mid-run only silences the improvised lines.
+    const nativeShell = runBuddyNative();
+    if (nativeShell) {
+      const urls = renderedUrlsFor(persona.id);
+      if (urls.length > 0) void nativeShell.prefetchAudio({ urls });
+    }
+
     // Now-playing awareness lives in the SpotifyTransport component below —
     // it stays mounted (just unrendered) while locked, so its polling keeps
     // feeding the coach's improvise context all run.
@@ -251,6 +261,9 @@ export default function RunScreen({
           const elapsed = statsRef.current.elapsedMs;
           splitsRef.current = [...splitsRef.current, elapsed - lastSplitAtRef.current];
           lastSplitAtRef.current = elapsed;
+          // A wrist-less tap on every completed kilometre — only real in the
+          // shell (iPhone Safari has no vibration), a no-op elsewhere.
+          vibrate(60);
         }
       });
     }

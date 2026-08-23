@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "./HomeScreen";
 import {
   isNativeApp,
+  nativeAppleLogin,
   nativeDiagnostics,
   openNativeLogin,
   openNativeSpotifyConnect,
@@ -14,11 +15,8 @@ import { loadCardBg, saveCardBg } from "@/lib/prefs";
 import { drawRunCard } from "@/lib/runCard";
 import { loadSpeedUnit } from "@/lib/units";
 import type { RunStats } from "@/lib/types";
+import { WEB_BUILD } from "@/lib/version";
 
-// Bumped manually when it matters that a device is seen running THIS web
-// build — the shell loads the site remotely, so "which code is my phone
-// actually executing" is a real question during native bring-up.
-const WEB_BUILD = "2026-08-23h";
 
 // Account: who you are, your body stats (the trainer weaves these into its
 // improvised lines), and the one destructive-ish action — signing out — kept
@@ -666,6 +664,15 @@ export default function AccountScreen({
             >
               Continue with Google
             </a>
+          )}
+          {isNativeApp() && (
+            <button
+              className="cta apple-signin"
+              style={{ marginTop: 10 }}
+              onClick={() => void nativeAppleLogin()}
+            >
+               Sign in with Apple
+            </button>
           )}
         </>
       )}

@@ -67,6 +67,12 @@ interface RunBuddyNativePlugin {
   stopLocation(): Promise<void>;
   /** Add one base64 PNG to the photo library (add-only permission). */
   saveToPhotos(options: { data: string }): Promise<void>;
+  /** One buzz. iOS has no web Vibration API, so the shell taps for real. */
+  haptic(options: { kind: "tap" | "medium" | "heavy" | "success" | "warning" }): Promise<void>;
+  /** Warm the on-disk voice cache with any of these URLs not yet stored. */
+  prefetchAudio(options: { urls: string[] }): Promise<{ queued: number }>;
+  /** Apple's native sign-in sheet. Rejects when the runner cancels. */
+  appleSignIn(): Promise<{ identityToken: string; name?: string; email?: string }>;
   /** Show the Health read-permission sheet (first time only; no-op after). */
   healthAuthorize(): Promise<{ available: boolean }>;
   /** Read-only: what Health recorded during [sinceMs, untilMs]. */
@@ -117,6 +123,10 @@ export function runBuddyNative(): RunBuddyNativePlugin | null {
     startLocation: () => call("startLocation"),
     stopLocation: () => call("stopLocation"),
     saveToPhotos: (options) => call("saveToPhotos", options),
+    haptic: (options) => call("haptic", options),
+    prefetchAudio: (options) => call<{ queued: number }>("prefetchAudio", options),
+    appleSignIn: () =>
+      call<{ identityToken: string; name?: string; email?: string }>("appleSignIn"),
     healthAuthorize: () => call<{ available: boolean }>("healthAuthorize"),
     healthRunSummary: (options) => call<HealthRunSummary>("healthRunSummary", options),
     addListener: (name, cb) => {
@@ -161,6 +171,30 @@ export function nativeDiagnostics(): string {
 export async function openNativeLogin(): Promise<void> {
   const { Browser } = await import("@capacitor/browser");
   await Browser.open({ url: `${window.location.origin}/api/auth/login?native=1` });
+}
+
+/**
+ * Sign in with Apple, fully native: Face ID sheet → identity token →
+ * /api/auth/apple verifies it and sets the session cookie on this very
+ * fetch — then a reload arrives signed in. Resolves false when the runner
+ * cancels the sheet or anything fails (the landing page just stays put).
+ */
+export async function nativeAppleLogin(): Promise<boolean> {
+  const native = runBuddyNative();
+  if (!native) return false;
+  try {
+    const cred = await native.appleSignIn();
+    const res = await fetch("/api/auth/apple", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cred),
+    });
+    if (!res.ok) return false;
+    window.location.href = "/";
+    return true;
+  } catch {
+    return false; // cancelled — not an error worth surfacing
+  }
 }
 
 /**

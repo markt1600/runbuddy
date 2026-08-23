@@ -2221,6 +2221,17 @@ input[type="range"]::-moz-range-thumb {
   appearance: textfield;
 }
 
+/* Sign in with Apple — Apple's HIG wants the black button, and it only
+   renders in the shell where the native sheet exists. */
+.apple-signin {
+  display: block;
+  width: 100%;
+  background: #000;
+  color: #fff;
+  border: 1px solid #000;
+  text-align: center;
+}
+
 /* Home-city autocomplete (account) */
 .profile-row-city {
   position: relative;

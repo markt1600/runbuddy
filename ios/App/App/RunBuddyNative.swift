@@ -1,6 +1,8 @@
 import Capacitor
+import AuthenticationServices
 import AVFoundation
 import CoreLocation
+import CryptoKit
 import HealthKit
 import Photos
 import UIKit
@@ -26,7 +28,9 @@ import UIKit
 // same GeoTracker consumes them.
 
 @objc(RunBuddyNativePlugin)
-public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate, AVAudioPlayerDelegate {
+public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate,
+    AVAudioPlayerDelegate, ASAuthorizationControllerDelegate,
+    ASAuthorizationControllerPresentationContextProviding {
     public let identifier = "RunBuddyNativePlugin"
     public let jsName = "RunBuddyNative"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -42,6 +46,9 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
         CAPPluginMethod(name: "healthAuthorize", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthRunSummary", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "saveToPhotos", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "haptic", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "prefetchAudio", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "appleSignIn", returnType: CAPPluginReturnPromise),
     ]
 
     private var locationManager: CLLocationManager?
@@ -135,6 +142,21 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
 
     // ---- Voice playback ----
 
+    // Downloaded phrase files live in Caches keyed by the URL's SHA-256 —
+    // the pre-rendered library keeps talking through dead zones, and the OS
+    // may purge the folder under pressure, which is exactly right for
+    // re-downloadable audio.
+    private func cachePath(for url: String) -> URL? {
+        guard let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        else { return nil }
+        let dir = base.appendingPathComponent("voice-cache", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let digest = SHA256.hash(data: Data(url.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+        return dir.appendingPathComponent(digest + ".mp3")
+    }
+
     @objc func play(_ call: CAPPluginCall) {
         let volume = Float(call.getDouble("volume") ?? 1.0)
         if let b64 = call.getString("data") {
@@ -144,8 +166,15 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
             }
             startPlayback(data: data, volume: volume, call: call)
         } else if let urlStr = call.getString("url"), let url = URL(string: urlStr) {
+            if let cached = cachePath(for: urlStr), let data = try? Data(contentsOf: cached) {
+                startPlayback(data: data, volume: volume, call: call)
+                return
+            }
             URLSession.shared.dataTask(with: url) { data, _, err in
                 if let data = data, err == nil {
+                    if let cached = self.cachePath(for: urlStr) {
+                        try? data.write(to: cached) // offline next time
+                    }
                     self.startPlayback(data: data, volume: volume, call: call)
                 } else {
                     call.reject("fetch failed: \(err?.localizedDescription ?? "no data")")
@@ -153,6 +182,38 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
             }.resume()
         } else {
             call.reject("play needs url or data")
+        }
+    }
+
+    /**
+     * Warm the cache with every URL not already on disk. Resolves with the
+     * count immediately; downloads run sequentially on a utility queue so
+     * pre-run warming never competes with the run itself for bandwidth.
+     */
+    private static let prefetchQueue = DispatchQueue(label: "runbuddy.voicecache", qos: .utility)
+
+    @objc func prefetchAudio(_ call: CAPPluginCall) {
+        let urls = call.getArray("urls", String.self) ?? []
+        var missing: [(String, URL)] = []
+        for raw in urls.prefix(500) {
+            guard let parsed = URL(string: raw), let path = cachePath(for: raw) else { continue }
+            if !FileManager.default.fileExists(atPath: path.path) {
+                missing.append((raw, parsed))
+            }
+        }
+        call.resolve(["queued": missing.count])
+        guard !missing.isEmpty else { return }
+        Self.prefetchQueue.async {
+            let gate = DispatchSemaphore(value: 0)
+            for (raw, url) in missing {
+                URLSession.shared.dataTask(with: url) { data, _, _ in
+                    if let data = data, !data.isEmpty, let path = self.cachePath(for: raw) {
+                        try? data.write(to: path)
+                    }
+                    gate.signal()
+                }.resume()
+                gate.wait()
+            }
         }
     }
 
@@ -238,6 +299,85 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
         DispatchQueue.main.async {
             self.keepAlivePlayer?.stop()
             self.keepAlivePlayer = nil
+            call.resolve()
+        }
+    }
+
+    // ---- Sign in with Apple ----
+    //
+    // The native sheet (Face ID, no browser) — the flow Apple requires of an
+    // app that offers Google sign-in, and the nicest one anyway. The web
+    // layer sends the identity token to /api/auth/apple, which verifies it
+    // against Apple's published keys and mints the same session cookie the
+    // Google flow does. Name and email only arrive on the very first
+    // authorization; the server keeps them from then on.
+
+    private var appleCall: CAPPluginCall?
+
+    @objc func appleSignIn(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let request = ASAuthorizationAppleIDProvider().createRequest()
+            request.requestedScopes = [.fullName, .email]
+            let controller = ASAuthorizationController(authorizationRequests: [request])
+            controller.delegate = self
+            controller.presentationContextProvider = self
+            self.appleCall = call
+            controller.performRequests()
+        }
+    }
+
+    public func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithAuthorization authorization: ASAuthorization
+    ) {
+        defer { appleCall = nil }
+        guard let cred = authorization.credential as? ASAuthorizationAppleIDCredential,
+              let tokenData = cred.identityToken,
+              let token = String(data: tokenData, encoding: .utf8) else {
+            appleCall?.reject("no identity token")
+            return
+        }
+        var result: [String: Any] = ["identityToken": token]
+        let name = [cred.fullName?.givenName, cred.fullName?.familyName]
+            .compactMap { $0 }
+            .joined(separator: " ")
+        if !name.isEmpty { result["name"] = name }
+        if let email = cred.email { result["email"] = email }
+        appleCall?.resolve(result)
+    }
+
+    public func authorizationController(
+        controller: ASAuthorizationController,
+        didCompleteWithError error: Error
+    ) {
+        appleCall?.reject("cancelled")
+        appleCall = nil
+    }
+
+    public func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        return bridge?.webView?.window ?? ASPresentationAnchor()
+    }
+
+    // ---- Haptics ----
+    //
+    // The web Vibration API doesn't exist on iOS at all, so in the shell the
+    // phone can finally buzz: pause/resume edges, km splits, record moments.
+
+    @objc func haptic(_ call: CAPPluginCall) {
+        let kind = call.getString("kind") ?? "medium"
+        DispatchQueue.main.async {
+            switch kind {
+            case "tap":
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            case "heavy":
+                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            case "success":
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            case "warning":
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            default:
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            }
             call.resolve()
         }
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { isNativeApp, openNativeLogin } from "@/lib/native";
+import { isNativeApp, nativeAppleLogin, openNativeLogin } from "@/lib/native";
 
 // First-open choice when Google sign-in is configured: an account keeps your
 // run history; guest goes straight to the setup screen, exactly as the app
@@ -34,6 +34,11 @@ export default function LandingScreen({ onGuest }: Props) {
         >
           Continue with Google
         </a>
+        {isNativeApp() && (
+          <button className="cta apple-signin" onClick={() => void nativeAppleLogin()}>
+             Sign in with Apple
+          </button>
+        )}
         <button className="cta secondary" onClick={onGuest}>
           Run as guest
         </button>

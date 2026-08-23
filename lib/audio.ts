@@ -88,11 +88,22 @@ let pauseCueUrl: string | null = null;
 let resumeCueUrl: string | null = null;
 
 /**
- * Buzz the phone. iOS Safari does not implement the Vibration API at all, so on
- * an iPhone this is a no-op and the audible cue is what the runner actually
- * feels the absence of — hence both, together, everywhere.
+ * Buzz the phone. iOS Safari does not implement the Vibration API at all —
+ * but the SHELL has the real haptic engine, so there the web-style pattern
+ * maps onto iOS's semantic haptics: multi-pulse patterns (pause/resume,
+ * record moments) become notification-style buzzes, single short pulses a
+ * firm tap. Web keeps navigator.vibrate where it exists (Android).
  */
 export function vibrate(pattern: number | number[]) {
+  const native = runBuddyNative();
+  if (native) {
+    const pulses = Array.isArray(pattern) ? pattern.length : 1;
+    const totalMs = Array.isArray(pattern)
+      ? pattern.reduce((a, b) => a + b, 0)
+      : pattern;
+    void native.haptic({ kind: pulses >= 3 || totalMs >= 200 ? "success" : "medium" });
+    return;
+  }
   try {
     if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
       navigator.vibrate(pattern);
@@ -102,8 +113,9 @@ export function vibrate(pattern: number | number[]) {
   }
 }
 
-/** Does this device have vibration at all? False on every iPhone. */
+/** Does this device have vibration at all? False on iPhone Safari, true in the shell. */
 export function vibrationSupported(): boolean {
+  if (runBuddyNative()) return true;
   return typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
 }
 

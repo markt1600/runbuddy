@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { WEB_BUILD } from "@/lib/version";
 import SetupScreen from "./SetupScreen";
 import LandingScreen from "./LandingScreen";
 import HomeScreen, { type AuthUser, type RunSummary } from "./HomeScreen";
@@ -223,6 +224,46 @@ export default function RunBuddyApp() {
   // every browser — the Capacitor modules aren't even loaded there.
   useEffect(() => {
     if (isNativeApp()) void initNativeAuthListener();
+  }, []);
+
+  // Shell auto-refresh: the WebView only refetches the site on a cold
+  // launch, so a phone can show last week's build indefinitely. On each
+  // return to foreground (throttled), ask the server which build it's on
+  // and reload when it's newer — never mid-run or on the summary, where a
+  // reload would eat live state.
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    let lastCheck = 0;
+    let removed = false;
+    let remove: (() => void) | null = null;
+    const check = async () => {
+      if (Date.now() - lastCheck < 5 * 60_000) return;
+      lastCheck = Date.now();
+      try {
+        const res = await fetch("/api/version", { cache: "no-store" });
+        if (!res.ok) return;
+        const data: { build?: string } = await res.json();
+        if (!data.build || data.build === WEB_BUILD) return;
+        if (screenRef.current === "run" || screenRef.current === "summary") return;
+        window.location.reload();
+      } catch {
+        /* offline — next foreground tries again */
+      }
+    };
+    void import("@capacitor/app").then(({ App }) =>
+      App.addListener("appStateChange", ({ isActive }) => {
+        if (isActive) void check();
+      }).then((h) => {
+        if (removed) h.remove();
+        else remove = () => h.remove();
+      })
+    );
+    return () => {
+      removed = true;
+      remove?.();
+    };
   }, []);
 
   const persona = PERSONAS[personaId];

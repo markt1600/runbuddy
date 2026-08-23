@@ -1,6 +1,6 @@
 import { allPhrasesFor, getPhraseUrl, getVoiceVolume, renderedCount } from "./voiceLibrary";
 import type { Persona, Phrase, PhraseCategory, PhraseCondition, RunStats } from "./types";
-import type { VoiceEngine } from "./audio";
+import { vibrate, type VoiceEngine } from "./audio";
 import type { RunEnvironment } from "./enviro";
 import type { RunHistoryDigest } from "./history";
 import { hsFinishMs, wrFinishMs } from "./records";
@@ -615,6 +615,9 @@ export class CoachEngine {
           kind === "hs" ? "hs_finish" : "wr_finish"
         ).find((p) => p.target === this.targetKm && p.wr === g);
         if (phrase) {
+          // A record moment is the run's fireworks — announce it to the wrist
+          // too (real haptics in the shell, silent elsewhere).
+          vibrate([60, 80, 60, 80, 120]);
           this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
           return;
         }
