@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readSession } from "@/lib/server/auth";
+import { readSession, uidHash } from "@/lib/server/auth";
 import { listRuns, runsConfigured, saveRun } from "@/lib/server/runs";
+import { setProfileHomeCityIfUnset } from "@/lib/server/users";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId, RunStats } from "@/lib/types";
 
@@ -54,6 +55,13 @@ export async function POST(req: NextRequest) {
     // Not an error: sub-minimum runs are dropped on purpose ("clearly
     // accidents"), and the client shouldn't retry or complain.
     return NextResponse.json({ skipped: result.rejected });
+  }
+  // Travel mode's baseline: an unset home city fills itself from the first
+  // saved run with a GPS city. Best-effort, and never overwrites a value.
+  if (typeof stats.city === "string" && stats.city.trim()) {
+    await setProfileHomeCityIfUnset(uidHash(user.sub), stats.city.trim().slice(0, 60)).catch(
+      () => {}
+    );
   }
   return NextResponse.json({ id: result.id });
 }

@@ -2190,6 +2190,14 @@ input[type="range"]::-moz-range-thumb {
   appearance: textfield;
 }
 
+/* Text variant (home city): wider, left-aligned, proportional face. */
+.profile-input-text {
+  width: 170px;
+  text-align: left;
+  font-family: inherit;
+  font-variant-numeric: normal;
+}
+
 .profile-input::-webkit-outer-spin-button,
 .profile-input::-webkit-inner-spin-button {
   -webkit-appearance: none;

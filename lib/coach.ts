@@ -55,6 +55,8 @@ export interface RunnerInfo {
   heightCm?: number;
   weightKg?: number;
   gender?: "female" | "male";
+  /** Travel mode compares this against the GPS city mid-run. */
+  homeCity?: string;
 }
 
 /** Highest kilometre with a pre-rendered marker phrase. Beyond it we improvise. */
@@ -263,6 +265,18 @@ export class CoachEngine {
       : {};
     const past = this.history ? { runnerHistory: this.history } : {};
     const tune = this.nowPlaying ? { nowPlaying: this.nowPlaying } : {};
+    // Travel mode: the GPS says a different city from the account's home
+    // city — the live-generation prompt leans into running-as-a-visitor.
+    const away =
+      this.env?.city &&
+      this.runner?.homeCity &&
+      this.env.city.trim().toLowerCase() !== this.runner.homeCity.trim().toLowerCase()
+        ? {
+            travelCity: this.env.city,
+            travelCountry: this.env.country ?? undefined,
+            homeCity: this.runner.homeCity,
+          }
+        : {};
     // Treadmill runs have no GPS — omit distance, pace, speed and place so the
     // model never invents them.
     if (this.targetMin > 0) {
@@ -295,6 +309,7 @@ export class CoachEngine {
             ? Number((3600 / pace).toFixed(1))
             : undefined,
       locality: this.env?.locality ?? undefined,
+      ...away,
       weather: this.env?.tempC
         ? `${this.env.weatherDesc ?? "unknown"}, ${this.env.tempC}°C` +
           (this.env.feelsLikeC && this.env.feelsLikeC !== this.env.tempC

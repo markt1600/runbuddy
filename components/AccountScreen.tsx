@@ -13,7 +13,7 @@ import {
 // Bumped manually when it matters that a device is seen running THIS web
 // build — the shell loads the site remotely, so "which code is my phone
 // actually executing" is a real question during native bring-up.
-const WEB_BUILD = "2026-08-23b";
+const WEB_BUILD = "2026-08-23c";
 
 // Account: who you are, your body stats (the trainer weaves these into its
 // improvised lines), and the one destructive-ish action — signing out — kept
@@ -76,6 +76,7 @@ export default function AccountScreen({
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [gender, setGender] = useState<Gender>(null);
+  const [homeCity, setHomeCity] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [storage, setStorage] = useState(true);
   const [spotify, setSpotify] = useState<{ configured: boolean; connected: boolean } | null>(null);
@@ -96,6 +97,7 @@ export default function AccountScreen({
             weightKg: number | null;
             gender: Gender;
             units: Units;
+            homeCity: string | null;
           };
           storage: boolean;
           spotify?: { configured: boolean; connected: boolean };
@@ -106,6 +108,7 @@ export default function AccountScreen({
           const u = p.units === "imperial" ? "imperial" : "metric";
           setUnits(u);
           setGender(p.gender === "female" || p.gender === "male" ? p.gender : null);
+          setHomeCity(p.homeCity ?? "");
           setAge(p.age !== null ? String(p.age) : "");
           setHeight(
             p.heightCm !== null ? show(u === "imperial" ? p.heightCm / CM_PER_IN : p.heightCm) : ""
@@ -174,6 +177,7 @@ export default function AccountScreen({
       weightKg: w !== null ? (units === "imperial" ? w * KG_PER_LB : w) : null,
       gender,
       units,
+      homeCity: homeCity.trim() || null,
     };
     setStatus("saving");
     try {
@@ -279,6 +283,21 @@ export default function AccountScreen({
               </div>
             </div>
             <label className="profile-row">
+              <span className="profile-label">Home city</span>
+              <input
+                className="profile-input profile-input-text"
+                type="text"
+                placeholder="From your next run"
+                maxLength={60}
+                value={homeCity}
+                onChange={(e) => {
+                  setHomeCity(e.target.value);
+                  markDirty();
+                }}
+              />
+              <span className="profile-unit">✈️</span>
+            </label>
+            <label className="profile-row">
               <span className="profile-label">Height</span>
               <input
                 className="profile-input"
@@ -342,6 +361,8 @@ export default function AccountScreen({
             </button>
             <p className="profile-hint">
               Your trainer sees these and may work them into what they say mid-run.
+              Home city powers travel mode — run anywhere else and the commentary
+              goes local. Leave it blank and it sets itself from your next run.
             </p>
           </div>
 

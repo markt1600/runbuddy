@@ -261,10 +261,12 @@ async function stubAuth(page, me) {
 
   // Saved values arrive in metric.
   const inputs = page.locator(".profile-input");
-  assert.strictEqual(await inputs.count(), 3, "profile inputs missing");
+  // Age, home city (travel mode), height, weight — in DOM order.
+  assert.strictEqual(await inputs.count(), 4, "profile inputs missing");
   assert.strictEqual(await inputs.nth(0).inputValue(), "47", "age not loaded");
-  assert.strictEqual(await inputs.nth(1).inputValue(), "175", "height not loaded");
-  assert.strictEqual(await inputs.nth(2).inputValue(), "72", "weight not loaded");
+  assert.strictEqual(await inputs.nth(1).inputValue(), "", "home city should start empty");
+  assert.strictEqual(await inputs.nth(2).inputValue(), "175", "height not loaded");
+  assert.strictEqual(await inputs.nth(3).inputValue(), "72", "weight not loaded");
   assert.match(
     (await page.locator(".profile-gender button.active").innerText()).trim(),
     /^male$/i,
@@ -294,16 +296,16 @@ async function stubAuth(page, me) {
   // Flip to imperial: on-screen numbers convert in place — and BMI, being a
   // ratio, must not move with the units.
   await page.locator(".profile-units button", { hasText: "lb · in" }).click();
-  assert.strictEqual(await inputs.nth(1).inputValue(), "68.9", "height not converted to inches");
-  assert.strictEqual(await inputs.nth(2).inputValue(), "158.7", "weight not converted to pounds");
+  assert.strictEqual(await inputs.nth(2).inputValue(), "68.9", "height not converted to inches");
+  assert.strictEqual(await inputs.nth(3).inputValue(), "158.7", "weight not converted to pounds");
   assert.strictEqual(await page.locator(".profile-value").innerText(), "23.5", "BMI moved with units");
 
   // A lighter weight crosses a band boundary live: 130 lb → 19.3 → Normal.
-  await inputs.nth(2).fill("130");
+  await inputs.nth(3).fill("130");
   assert.match(await page.locator(".profile-bmi-band").innerText(), /normal/i, "band not live");
 
   // Edit the weight in pounds and save — the wire format stays metric.
-  await inputs.nth(2).fill("160");
+  await inputs.nth(3).fill("160");
   assert.strictEqual(await page.locator(".profile-value").innerText(), "23.7", "BMI not live");
   assert.match(await page.locator(".profile-bmi-band").innerText(), /overweight/i, "band lagged");
   await page.locator(".profile-save").click();

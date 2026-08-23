@@ -48,6 +48,27 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
   const [failed, setFailed] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Conforming to the Watch re-saves the run under a NEW id (the basename
+  // encodes distance) — every later call must use the current one.
+  const [runId, setRunId] = useState(run.id);
+
+  /** Same adopt-the-Watch-distance flow as the summary, days later. */
+  const conformDistance = async (w: { distanceKm: number; source: string }) => {
+    try {
+      const res = await fetch(`/api/runs/${encodeURIComponent(runId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ distanceKm: w.distanceKm, source: w.source }),
+      });
+      if (!res.ok) return false;
+      const data: { id: string; stats: RunStats } = await res.json();
+      setRunId(data.id);
+      setStats(data.stats);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -99,7 +120,7 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
   const doDelete = async () => {
     setDeleting(true);
     try {
-      const res = await fetch(`/api/runs/${encodeURIComponent(run.id)}`, { method: "DELETE" });
+      const res = await fetch(`/api/runs/${encodeURIComponent(runId)}`, { method: "DELETE" });
       if (!res.ok) throw new Error(String(res.status));
       onDeleted();
     } catch {
@@ -110,8 +131,9 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
 
   const persona = PERSONAS[run.personaId as PersonaId];
   const treadmill = run.distanceKm === 0;
-  const avgPaceSec =
-    !treadmill && run.distanceKm > 0 ? run.movingSec / run.distanceKm : null;
+  // Prefer the loaded (possibly just-conformed) stats over the listing row.
+  const distanceKm = stats?.distanceKm ?? run.distanceKm;
+  const avgPaceSec = !treadmill && distanceKm > 0 ? run.movingSec / distanceKm : null;
   const splits = stats?.splits ?? [];
   const fastestSplit = splits.length > 0 ? Math.min(...splits) : null;
 
@@ -138,7 +160,7 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
         {!treadmill && (
           <div className="stat-cell">
             <div className="stat-value">
-              {run.distanceKm.toFixed(2)} <span className="stat-unit">km</span>
+              {distanceKm.toFixed(2)} <span className="stat-unit">km</span>
             </div>
             <div className="stat-label">Distance</div>
           </div>
@@ -202,8 +224,9 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
       <HealthPanel
         sinceMs={run.startedAt}
         untilMs={run.startedAt + run.wallSec * 1000}
-        appDistanceKm={treadmill ? null : run.distanceKm}
+        appDistanceKm={treadmill ? null : distanceKm}
         confirmed={stats?.confirmed ?? null}
+        onConfirm={treadmill ? undefined : conformDistance}
       />
 
       {payload !== null && (

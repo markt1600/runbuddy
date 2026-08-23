@@ -138,6 +138,7 @@ export default function RunBuddyApp() {
             heightCm: number | null;
             weightKg: number | null;
             gender: "female" | "male" | null;
+            homeCity: string | null;
           };
         } | null) => {
           if (cancelled || !data) return;
@@ -146,6 +147,7 @@ export default function RunBuddyApp() {
             heightCm: data.profile.heightCm ?? undefined,
             weightKg: data.profile.weightKg ?? undefined,
             gender: data.profile.gender ?? undefined,
+            homeCity: data.profile.homeCity ?? undefined,
           });
         }
       )

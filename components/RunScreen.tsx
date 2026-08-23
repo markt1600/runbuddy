@@ -84,6 +84,7 @@ export default function RunScreen({
   });
   const envFetchStateRef = useRef<{ fetching: boolean; at: number }>({ fetching: false, at: 0 });
   const localityRef = useRef<string | null>(null);
+  const cityRef = useRef<string | null>(null);
 
   const voiceRef = useRef<VoiceEngine | null>(null);
   const coachRef = useRef<CoachEngine | null>(null);
@@ -140,6 +141,7 @@ export default function RunScreen({
       startedAt: wallStartRef.current || undefined,
       wallElapsedMs: wallStartRef.current ? Date.now() - wallStartRef.current : undefined,
       locality: localityRef.current ?? undefined,
+      city: cityRef.current ?? undefined,
     };
     statsRef.current = stats;
     return stats;
@@ -311,8 +313,16 @@ export default function RunScreen({
           .then((env) => {
             envState.at = Date.now();
             if (env.locality) localityRef.current = env.locality;
+            if (env.city) cityRef.current = env.city;
             coach.setEnvironment(env);
-            setEnvLine(describeEnvironment(env));
+            // Away from the home city: say so on the env line — it's also
+            // the tell that the coach's travel commentary is armed.
+            const away =
+              env.city &&
+              runner?.homeCity &&
+              env.city.trim().toLowerCase() !== runner.homeCity.trim().toLowerCase();
+            const base = describeEnvironment(env);
+            setEnvLine(away ? `✈️ ${env.city} · ${base ?? ""}`.replace(/ · $/, "") : base);
           })
           .finally(() => {
             envState.fetching = false;

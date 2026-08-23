@@ -29,6 +29,10 @@ export interface PhraseContext {
   remainingMinutes?: number;
   /** The runner's current Spotify track, e.g. "Running Up That Hill — Kate Bush" */
   nowPlaying?: string;
+  // Travel mode: GPS puts the run in a different city from the account's home
+  travelCity?: string; // e.g. "Tokyo"
+  travelCountry?: string; // e.g. "Japan"
+  homeCity?: string; // e.g. "Singapore"
   // Signed-in runner's account profile — self-reported on the account screen
   runnerName?: string;
   runnerAge?: number;
@@ -102,6 +106,25 @@ function historyLines(context: PhraseContext): string {
   );
 }
 
+/**
+ * Travel mode: the run is happening away from the account's home city. The
+ * coach gets to be a tour guide in character — but only some of the time,
+ * so a week's holiday doesn't turn every line into a landmark tour.
+ */
+function travelLines(context: PhraseContext): string {
+  if (!context.travelCity) return "";
+  const place = context.travelCountry
+    ? `${context.travelCity}, ${context.travelCountry}`
+    : context.travelCity;
+  return (
+    `\n\nTRAVEL MODE: they are away from home (${context.homeCity ?? "their usual city"}) — ` +
+    `this run is in ${place}. Lean into it for SOME lines: name-drop ${context.travelCity} ` +
+    "itself, its famous streets, landmarks, food, climate or running culture, the way a " +
+    "local coach showing a visitor around would — all filtered through your persona. " +
+    "Never invent specifics you aren't sure of; the city's famous basics are plenty."
+  );
+}
+
 function contextLines(context: PhraseContext): string {
   if (context.treadmill) {
     const lines = [
@@ -152,7 +175,7 @@ function contextLines(context: PhraseContext): string {
       : null,
   ].filter(Boolean);
   const stats = lines.length ? `\n\nLive run stats:\n${lines.join("\n")}` : "";
-  return `${stats}${runnerLines(context)}${historyLines(context)}`;
+  return `${stats}${runnerLines(context)}${historyLines(context)}${travelLines(context)}`;
 }
 
 export async function generateLine(

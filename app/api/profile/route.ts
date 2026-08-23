@@ -11,7 +11,14 @@ import { spotifyConfigured } from "@/lib/server/spotify";
 export const runtime = "nodejs";
 
 const pick = (
-  p: { age?: number; heightCm?: number; weightKg?: number; gender?: string; units?: string } | null
+  p: {
+    age?: number;
+    heightCm?: number;
+    weightKg?: number;
+    gender?: string;
+    units?: string;
+    homeCity?: string;
+  } | null
 ) =>
   p
     ? {
@@ -20,8 +27,16 @@ const pick = (
         weightKg: p.weightKg ?? null,
         gender: p.gender ?? null,
         units: p.units ?? "metric",
+        homeCity: p.homeCity ?? null,
       }
-    : { age: null, heightCm: null, weightKg: null, gender: null, units: "metric" };
+    : {
+        age: null,
+        heightCm: null,
+        weightKg: null,
+        gender: null,
+        units: "metric",
+        homeCity: null,
+      };
 
 export async function GET(req: NextRequest) {
   const session = readSession(req);
@@ -92,6 +107,15 @@ export async function PUT(req: NextRequest) {
     }
   }
   if (body.units === "metric" || body.units === "imperial") edits.units = body.units;
+  if ("homeCity" in body) {
+    if (body.homeCity === null) edits.homeCity = null;
+    else if (typeof body.homeCity === "string") {
+      const city = body.homeCity.trim().slice(0, 60);
+      edits.homeCity = city || null; // an emptied box clears it
+    } else if (body.homeCity !== undefined) {
+      return NextResponse.json({ error: "homeCity must be a string or null" }, { status: 400 });
+    }
+  }
 
   const profile = await updateProfile(uidHash(session.sub), edits).catch(() => null);
   if (!profile) {

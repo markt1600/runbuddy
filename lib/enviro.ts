@@ -4,6 +4,9 @@
 
 export interface RunEnvironment {
   locality: string | null; // e.g. "Bishan", "Marina Bay"
+  /** City level — what travel mode compares against the home city. */
+  city: string | null; // e.g. "Singapore", "Tokyo"
+  country: string | null; // e.g. "Japan"
   weatherDesc: string | null; // e.g. "partly cloudy"
   tempC: number | null;
   feelsLikeC: number | null;
@@ -42,6 +45,8 @@ const WMO_CODES: Record<number, string> = {
 export async function fetchRunEnvironment(lat: number, lon: number): Promise<RunEnvironment> {
   const env: RunEnvironment = {
     locality: null,
+    city: null,
+    country: null,
     weatherDesc: null,
     tempC: null,
     feelsLikeC: null,
@@ -71,6 +76,10 @@ export async function fetchRunEnvironment(lat: number, lon: number): Promise<Run
     .then((r) => (r.ok ? r.json() : null))
     .then((data) => {
       env.locality = data?.locality || data?.city || data?.principalSubdivision || null;
+      // City-level for travel detection: neighbourhoods change every few km,
+      // cities only when you actually went somewhere.
+      env.city = data?.city || data?.principalSubdivision || data?.locality || null;
+      env.country = data?.countryName || null;
     })
     .catch(() => {});
 

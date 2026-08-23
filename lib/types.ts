@@ -104,6 +104,8 @@ export interface RunStats {
   wallElapsedMs?: number;
   /** Where the run happened (e.g. "Bishan"), from the in-run weather fetch. */
   locality?: string;
+  /** City level (e.g. "Singapore") — what seeds/compares against home city. */
+  city?: string;
   /**
    * How well iOS fed the tracker: sparse fix delivery (a locked phone in a
    * sleeve) is what makes a run read short, so the summary shows it rather

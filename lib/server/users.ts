@@ -23,6 +23,12 @@ export interface UserProfile {
   weightKg?: number;
   gender?: "female" | "male";
   units?: "metric" | "imperial";
+  /**
+   * Where "home" is, city level — travel mode fires when a run's GPS says
+   * somewhere else. Manually set on the account screen, or auto-filled from
+   * the first saved run's city when empty (and never auto-overwritten after).
+   */
+  homeCity?: string;
   /** Spotify OAuth tokens, AES-sealed (lib/server/spotify.ts) — never plaintext. */
   spotify?: string;
 }
@@ -34,6 +40,7 @@ export interface ProfileEdits {
   weightKg?: number | null;
   gender?: "female" | "male" | null;
   units?: "metric" | "imperial";
+  homeCity?: string | null;
 }
 
 const profilePath = (uid: string) => `users/${uid}.json`;
@@ -112,8 +119,22 @@ export async function updateProfile(
   if (edits.gender === null) delete next.gender;
   else if (edits.gender) next.gender = edits.gender;
   if (edits.units) next.units = edits.units;
+  if (edits.homeCity === null) delete next.homeCity;
+  else if (typeof edits.homeCity === "string") next.homeCity = edits.homeCity;
   await writeProfile(next);
   return next;
+}
+
+/**
+ * Auto-fill from a saved run's city, only while the field is empty — a manual
+ * value (or an earlier auto-fill) is never overwritten, so travel mode still
+ * fires on every later run away from home.
+ */
+export async function setProfileHomeCityIfUnset(uid: string, city: string): Promise<void> {
+  if (!blobConfigured()) return;
+  const existing = await readProfile(uid);
+  if (!existing || existing.homeCity) return;
+  await writeProfile({ ...existing, homeCity: city });
 }
 
 /** Store (or clear) the sealed Spotify tokens on a profile. */
