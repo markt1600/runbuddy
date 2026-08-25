@@ -12,6 +12,7 @@ import {
   openNativeSpotifyConnect,
   runBuddyNative,
 } from "@/lib/native";
+import { clearEffortCache, loadPrTable } from "@/lib/efforts";
 import { PERSONAS } from "@/lib/personas";
 import { loadCardBg, saveCardBg } from "@/lib/prefs";
 import { drawRunCard } from "@/lib/runCard";
@@ -208,6 +209,30 @@ export default function AccountScreen({
     setCardBg(null);
     setCardPreview(null);
     setCardNote(null);
+  };
+
+  // Personal records: efforts are cached per run id, and conformed runs
+  // re-mine themselves (the id changes) — but a full re-mine is the honest
+  // answer to "is this board right?", so it's one button here.
+  const [prRecalc, setPrRecalc] = useState<"idle" | "busy" | string>("idle");
+  const recalcPrs = async () => {
+    setPrRecalc("busy");
+    try {
+      clearEffortCache();
+      const data = (await fetch("/api/runs").then((r) => (r.ok ? r.json() : null))) as {
+        runs?: { id: string; startedAt: number; distanceKm: number }[];
+      } | null;
+      const runs = data?.runs ?? [];
+      const table = await loadPrTable(runs);
+      const found = Object.keys(table).length;
+      setPrRecalc(
+        `✓ Re-mined ${runs.length} run${runs.length === 1 ? "" : "s"} — ${found} record${
+          found === 1 ? "" : "s"
+        } on the board`
+      );
+    } catch {
+      setPrRecalc("Couldn't recalculate — check the connection and try again.");
+    }
   };
 
   // Home-city autocomplete: Open-Meteo's keyless geocoder (same provider as
@@ -676,6 +701,29 @@ export default function AccountScreen({
                   and puts play/skip buttons on the run screen. It only touches
                   playback when you tap those. Connected before the buttons
                   existed? Disconnect and reconnect once to enable them.
+                </p>
+              </div>
+            </>
+          )}
+
+          {historyAvailable && (
+            <>
+              <div className="section-header">Personal Records</div>
+              <div className="card profile-card">
+                <button
+                  className="cta secondary card-bg-pick"
+                  disabled={prRecalc === "busy"}
+                  onClick={() => void recalcPrs()}
+                >
+                  {prRecalc === "busy" ? "Re-mining every run…" : "↻ Recalculate personal records"}
+                </button>
+                {prRecalc !== "idle" && prRecalc !== "busy" && (
+                  <div className="save-note">{prRecalc}</div>
+                )}
+                <p className="profile-hint">
+                  Re-mines your fastest 1 / 5 / 10 km efforts from every saved run&apos;s
+                  GPS trace — for after conforming distances, deleting runs, or whenever
+                  the board on Home looks off.
                 </p>
               </div>
             </>

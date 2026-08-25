@@ -60,6 +60,15 @@ export function computeRunEfforts(stats: RunStats): Record<EffortKey, number | n
 
 const CACHE_KEY = "runbuddy-efforts-v1";
 
+/** Forget every mined effort — the next loadPrTable re-mines from scratch. */
+export function clearEffortCache(): void {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+  } catch {
+    /* nothing cached anyway */
+  }
+}
+
 interface RunListEntry {
   id: string;
   startedAt: number;
