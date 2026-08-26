@@ -499,10 +499,9 @@ export class VoiceEngine {
           settle(() => reject(new Error("interrupted")));
         }
       };
-      // Per-persona level, set in admin. Everyone is at full by default; this
-      // only exists to pull a voice down if one ever renders hot, since an
-      // element cannot go above 1 and so cannot lift one.
-      p.volume = volumeOverride ?? getVoiceVolume(this.persona.id);
+      // Per-persona level, set in admin. Levels above 1 are a native-side
+      // amplify; an element tops out at 1 (and throws past it), so clamp.
+      p.volume = Math.min(1, volumeOverride ?? getVoiceVolume(this.persona.id));
       p.src = url;
       p.play().catch((err) => settle(() => reject(err)));
     });
@@ -536,7 +535,7 @@ export class VoiceEngine {
       u.rate = this.persona.tts.rate;
       u.pitch = this.persona.tts.pitch;
       u.lang = this.persona.tts.lang;
-      u.volume = getVoiceVolume(this.persona.id); // same level as the recordings
+      u.volume = Math.min(1, getVoiceVolume(this.persona.id)); // levels >1 are native-only
       const voices = window.speechSynthesis.getVoices();
       const match =
         voices.find((v) => v.lang === this.persona.tts.lang) ??

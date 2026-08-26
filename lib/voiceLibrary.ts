@@ -330,7 +330,7 @@ export function getVoiceSpeed(persona: PersonaId): number {
   return voiceSpeeds[persona];
 }
 
-/** Playback level for this persona, 0–1. Applied to the element at play time. */
+/** Playback level for this persona, 0.4–2. Above 1 the native player amplifies. */
 export function getVoiceVolume(persona: PersonaId): number {
   return voiceVolumes[persona];
 }
@@ -523,7 +523,7 @@ export function playPhrase(persona: Persona, phrase: Phrase) {
   const url = getPhraseUrl(persona.id, phrase.id);
   if (url) {
     if (!previewAudio) previewAudio = new Audio();
-    previewAudio.volume = voiceVolumes[persona.id];
+    previewAudio.volume = Math.min(1, voiceVolumes[persona.id]); // levels >1 are native-only
     previewAudio.src = url;
     void previewAudio.play().catch(() => speakFallback(persona, phrase.text));
   } else {

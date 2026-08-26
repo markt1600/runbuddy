@@ -231,16 +231,70 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
         }
     }
 
+    /**
+     * Real gain for quiet voices: AVAudioPlayer.volume tops out at 1.0, so a
+     * level above 1 is applied to the decoded samples instead (hard-clamped to
+     * full scale). Some ElevenLabs voices render much quieter than others, and
+     * this is the only way to lift one at play time. Returns CAF data ready
+     * for AVAudioPlayer, or nil to fall back to unamplified playback.
+     */
+    private func amplified(_ data: Data, gain: Float) -> Data? {
+        let tmp = FileManager.default.temporaryDirectory
+        let inUrl = tmp.appendingPathComponent(UUID().uuidString + ".mp3")
+        let outUrl = tmp.appendingPathComponent(UUID().uuidString + ".caf")
+        defer {
+            try? FileManager.default.removeItem(at: inUrl)
+            try? FileManager.default.removeItem(at: outUrl)
+        }
+        do {
+            try data.write(to: inUrl)
+            let file = try AVAudioFile(forReading: inUrl)
+            let format = file.processingFormat
+            guard file.length > 0,
+                  let buf = AVAudioPCMBuffer(
+                      pcmFormat: format,
+                      frameCapacity: AVAudioFrameCount(file.length)
+                  )
+            else { return nil }
+            try file.read(into: buf)
+            guard let channels = buf.floatChannelData else { return nil }
+            for ch in 0..<Int(format.channelCount) {
+                let samples = channels[ch]
+                for i in 0..<Int(buf.frameLength) {
+                    samples[i] = max(-1, min(1, samples[i] * gain))
+                }
+            }
+            // Scoped so the writer deinits (flushing the file) before read-back.
+            do {
+                let out = try AVAudioFile(forWriting: outUrl, settings: format.settings)
+                try out.write(from: buf)
+            }
+            return try Data(contentsOf: outUrl)
+        } catch {
+            return nil
+        }
+    }
+
     private func startPlayback(data: Data, volume: Float, call: CAPPluginCall) {
+        // Amplification decodes and rewrites the clip — keep that off the main
+        // thread. Lines are a few seconds long, so this is milliseconds.
+        var playData = data
+        var playVolume = volume
+        var hint: String? = nil
+        if volume > 1.01, let boosted = amplified(data, gain: volume) {
+            playData = boosted
+            playVolume = 1.0
+            hint = AVFileType.caf.rawValue
+        }
         DispatchQueue.main.async {
             // The web queue plays strictly one line at a time, but never leave
             // a superseded call's promise hanging if it ever doubles up.
             self.voicePlayer?.stop()
             self.voiceCall?.resolve()
             do {
-                let p = try AVAudioPlayer(data: data)
+                let p = try AVAudioPlayer(data: playData, fileTypeHint: hint)
                 p.delegate = self
-                p.volume = volume
+                p.volume = min(playVolume, 1.0)
                 self.voicePlayer = p
                 self.voiceCall = call
                 if !p.play() {

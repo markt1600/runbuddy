@@ -177,7 +177,7 @@ export default function SummaryScreen({
         }
         if (cancelled) return;
         const closing = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
-        closing.volume = getVoiceVolume(persona.id); // same level as the run
+        closing.volume = Math.min(1, getVoiceVolume(persona.id)); // element caps at 1
         void closing.play().catch(() => {});
       })
       .catch(() => {});

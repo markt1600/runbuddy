@@ -631,7 +631,7 @@ export default function AdminScreen({ onBack }: Props) {
             <input
               type="range"
               min={0.4}
-              max={1}
+              max={2}
               step={0.05}
               value={volumes[p.id]}
               onChange={(e) =>
@@ -649,9 +649,9 @@ export default function AdminScreen({ onBack }: Props) {
           </div>
         ))}
         <div className="gen-hint" style={{ padding: "2px 0 10px" }}>
-          Every voice ships at 100%. An audio element can&apos;t play above that, so this can
-          only pull a voice down — useful if one ever renders hot. Applies on your next run,
-          no re-render needed.
+          Every voice ships at 100%. Above 100% the native app amplifies the audio itself —
+          use it to lift a voice that renders quiet (Cassie). Browser playback still caps at
+          100%. Applies on your next run, no re-render needed.
         </div>
       </div>
 

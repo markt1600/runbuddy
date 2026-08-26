@@ -314,7 +314,7 @@ export async function renderVoiceBuffer(
   const voiceId = voiceIdFor(persona);
   const settings = await readVoiceSettings();
   const res = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_64`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
     {
       method: "POST",
       headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
