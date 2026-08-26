@@ -301,6 +301,15 @@ export class VoiceEngine {
   }
 
   /**
+   * Drop everything waiting its turn, without cutting the line already being
+   * spoken — ending a run mid-backlog shouldn't replay stale mid-run chatter
+   * before the sign-off gets to talk.
+   */
+  clearPending() {
+    this.queue = [];
+  }
+
+  /**
    * A short two-tone cue for a pause or a resume, queued ahead of whatever the
    * trainer is about to say about it. This is the part of "buzz on pause" that
    * an iPhone can actually deliver — Safari has no Vibration API — and it is

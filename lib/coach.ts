@@ -605,11 +605,20 @@ export class CoachEngine {
   }
 
   onFinish() {
+    // The run is over: whatever mid-run chatter is still waiting its turn
+    // (an anecdote, a pace nudge, a km line) is stale the moment the button
+    // is pressed — drop it, let the line already speaking finish, and make
+    // the sign-off the only thing left in the queue. Disposing right after
+    // slams the door on every in-flight async (a cameo script landing late,
+    // a milestone colour line resolving) so nothing new can slip in behind
+    // it; the summary screen's closing comment plays through its own player.
+    this.voice.clearPending();
     // Library only. The numeric recap that used to follow had no pre-rendered
     // audio by definition, so it always came out in the robotic fallback voice
     // — as the last thing you heard. The summary screen says the same numbers
     // straight after, in-persona and properly voiced, and the card shows them.
     this.sayFromLibrary("finish");
+    this.dispose();
   }
 
   tick(stats: RunStats) {
