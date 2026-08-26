@@ -151,6 +151,11 @@ export class VoiceEngine {
     this.persona = persona;
   }
 
+  /** Mid-run trainer swap: later lines use the new voice's volume and TTS. */
+  setPersona(persona: Persona) {
+    this.persona = persona;
+  }
+
 
   /**
    * Coming back from the camera roll or the lock button. iOS has torn the

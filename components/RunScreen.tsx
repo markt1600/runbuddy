@@ -10,7 +10,8 @@ import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
 import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
 import { isNativeApp, runBuddyNative } from "@/lib/native";
 import { renderedUrlsFor } from "@/lib/voiceLibrary";
-import type { MusicSource, Persona, RunStats } from "@/lib/types";
+import { PERSONA_LIST } from "@/lib/personas";
+import type { MusicSource, Persona, PersonaId, RunStats } from "@/lib/types";
 import SpotifyTransport from "./SpotifyTransport";
 
 /** Long enough to get the phone back into an arm sleeve and set yourself. */
@@ -34,6 +35,8 @@ interface Props {
   history?: RunHistoryDigest | null;
   /** Best 1/5/10km efforts from history — live PR announcements compare here. */
   personalRecords?: { targetKm: number; sec: number; startedAt: number }[] | null;
+  /** Mid-run trainer swap: tapping the persona chip cycles and reports here. */
+  onPersonaChange?: (id: PersonaId) => void;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -52,6 +55,7 @@ export default function RunScreen({
   runner,
   history,
   personalRecords,
+  onPersonaChange,
   onFinish,
 }: Props) {
   const treadmill = targetMin > 0;
@@ -508,6 +512,27 @@ export default function RunScreen({
     }
   };
 
+  /**
+   * Mid-run trainer swap: cycle to the next persona. The coach keeps every
+   * bit of run state (records told, checkpoints crossed) — only the voice
+   * and material change, and the newcomer says hello. The parent's persona
+   * state updates too, so the accent colour, summary and saved run follow.
+   */
+  const switchPersona = () => {
+    if (!onPersonaChange) return;
+    const idx = PERSONA_LIST.findIndex((p) => p.id === persona.id);
+    const next = PERSONA_LIST[(idx + 1) % PERSONA_LIST.length];
+    coachRef.current?.setPersona(next);
+    onPersonaChange(next.id);
+    vibrate(40);
+    // Warm the new voice's pack in the background (no-op when cached).
+    const native = runBuddyNative();
+    if (native) {
+      const urls = renderedUrlsFor(next.id);
+      if (urls.length > 0) void native.prefetchAudio({ urls });
+    }
+  };
+
   const musicLabel =
     music === "spotify"
       ? "Spotify"
@@ -535,10 +560,15 @@ export default function RunScreen({
   return (
     <div className="run-screen fade-in">
       <div className="run-topbar">
-        <div className="run-persona-chip">
+        <button
+          className={`run-persona-chip${speaking ? " speaking" : ""}`}
+          aria-label="Switch trainer"
+          onClick={switchPersona}
+        >
           <span className="chip-emoji">{persona.emoji}</span>
           {persona.name}
-        </div>
+          {onPersonaChange && <span className="chip-swap">⇄</span>}
+        </button>
         {treadmill ? (
           <div className="gps-pill treadmill">🏃 Treadmill</div>
         ) : (
@@ -701,11 +731,14 @@ export default function RunScreen({
       </div>
       )}
 
+      {/* The quote bubble is gone (the screen was crowding the End button off
+          the bottom); the line being spoken shows here transiently instead —
+          it clears itself the moment the voice stops. */}
       {treadmill ? (
         <div className="env-line">
-          {musicLabel ? canDuck
+          {coachText ?? (musicLabel ? canDuck
             ? `Softening ${musicLabel} when the coach speaks · ringer on 🔔`
-            : `${musicLabel} stays at full volume on this iOS · ringer on 🔔` : "Location tracking off"}
+            : `${musicLabel} stays at full volume on this iOS · ringer on 🔔` : "Location tracking off")}
         </div>
       ) : gpsSignal === "lost" || gpsNote ? (
         <div className="gps-note">
@@ -715,20 +748,11 @@ export default function RunScreen({
         </div>
       ) : (
         <div className="env-line">
-          {envLine ?? (musicLabel ? canDuck
+          {coachText ?? envLine ?? (musicLabel ? canDuck
             ? `Softening ${musicLabel} when the coach speaks · ringer on 🔔`
             : `${musicLabel} stays at full volume on this iOS · ringer on 🔔` : "")}
         </div>
       )}
-
-      <div className="coach-bubble">
-        <div className={`eq${speaking ? " speaking" : ""}`}>
-          <span /><span /><span /><span />
-        </div>
-        <div className={`text${coachText ? "" : " idle-text"}`}>
-          {coachText ?? `${persona.name} is watching your pace…`}
-        </div>
-      </div>
 
       {music === "spotify" && (
         <SpotifyTransport

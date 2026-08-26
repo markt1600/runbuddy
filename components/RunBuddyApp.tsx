@@ -393,6 +393,7 @@ export default function RunBuddyApp() {
           }
           history={runHistory}
           personalRecords={personalRecords}
+          onPersonaChange={setPersonaId}
           onFinish={(stats) => {
             setFinalStats(stats);
             setSavedRunId(null);

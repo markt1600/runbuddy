@@ -670,6 +670,7 @@ input[type="range"]::-moz-range-thumb {
   font-family: var(--ff-mono);
   font-size: 10px;
   font-weight: 600;
+  cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
@@ -2234,6 +2235,25 @@ input[type="range"]::-moz-range-thumb {
   display: block;
   width: 100%;
   margin-top: 10px;
+}
+
+/* Mid-run trainer swap: the chip is a button, and it pulses while talking. */
+.chip-swap {
+  color: var(--label-3);
+  font-size: 11px;
+}
+
+.run-persona-chip:active {
+  transform: scale(0.96);
+}
+
+.run-persona-chip.speaking .chip-emoji {
+  animation: chip-talk 0.6s ease-in-out infinite;
+}
+
+@keyframes chip-talk {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
 }
 
 /* Offline voice-pack progress (setup, shell only) */

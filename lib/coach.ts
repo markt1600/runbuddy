@@ -242,6 +242,20 @@ export class CoachEngine {
     this.env = env;
   }
 
+  /**
+   * Mid-run trainer swap. Run state (records told, PRs beaten, checkpoints
+   * crossed) survives — it belongs to the run, not the voice. The newcomer
+   * announces themselves with one of their start lines; whatever the old
+   * trainer had queued is dropped so the handover is clean.
+   */
+  setPersona(persona: Persona) {
+    if (persona.id === this.persona.id || this.disposed) return;
+    this.persona = persona;
+    this.voice.setPersona(persona);
+    this.voice.clearPending();
+    this.sayFromLibrary("start");
+  }
+
   /** The account's best 1/5/10km efforts, mined from history (lib/efforts). */
   setPersonalRecords(prs: { targetKm: number; sec: number; startedAt: number }[] | null) {
     this.prs = prs;
