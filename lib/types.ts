@@ -1,4 +1,4 @@
-export type PersonaId = "ahbeng" | "ahlian" | "coach" | "flirty" | "loanshark";
+export type PersonaId = "ahbeng" | "posbeng" | "ahlian" | "coach" | "flirty" | "loanshark";
 
 export type PhraseCategory =
   | "intro" // ~10s opening monologue at the start line
