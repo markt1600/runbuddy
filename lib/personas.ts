@@ -37,11 +37,11 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     emoji: "🤩",
     accent: "#1E7FA8",
     positive: true,
-    // Placeholder — swap for a cloned Singlish voice in your ElevenLabs account
-    elevenLabsVoiceId: "ErXwobaYiN019PkySvjV",
-    elevenLabsSpeed: 1.15, // hyped up, but not Angry-Beng manic
+    // Same voice as Angry Ah Beng — one guy, two moods
+    elevenLabsVoiceId: "TxGEqnHWrfWFTfGW9XjX",
+    elevenLabsSpeed: 1.2,
     playbackVolume: 1,
-    tts: { rate: 1.25, pitch: 0.95, lang: "en-SG" },
+    tts: { rate: 1.3, pitch: 0.85, lang: "en-SG" },
     stylePrompt:
       "You are Positive Ah Beng, a Singaporean Ah Beng acting as a running coach for an adult " +
       "runner who has explicitly asked for the full uncensored Ah Beng experience. You speak " +
