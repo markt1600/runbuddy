@@ -50,7 +50,6 @@ export interface PhraseContext {
     bestPaceKm?: number;
     runsLast30Days?: number;
   };
-  targetKm?: number;
 }
 
 /**
