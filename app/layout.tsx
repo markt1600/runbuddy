@@ -35,6 +35,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://run.marktan.ai"),
   title: "Run Buddy",
   description: "Your AI running trainer — pick a persona, press start, get coached.",
   manifest: "/manifest.json",
@@ -44,7 +45,26 @@ export const metadata: Metadata = {
     title: "Run Buddy",
   },
   icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
     apple: "/apple-touch-icon.png",
+  },
+  // The card WhatsApp/iMessage/Telegram show when the link is pasted.
+  openGraph: {
+    title: "Run Coach Buddy",
+    description: "Your AI running trainer — pick a persona, press start, get coached.",
+    url: "https://run.marktan.ai",
+    siteName: "Run Coach Buddy",
+    type: "website",
+    images: [{ url: "/og-image.jpg", width: 512, height: 512 }],
+  },
+  twitter: {
+    card: "summary",
+    title: "Run Coach Buddy",
+    description: "Your AI running trainer — pick a persona, press start, get coached.",
+    images: ["/og-image.jpg"],
   },
 };
 
