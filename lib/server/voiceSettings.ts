@@ -36,49 +36,67 @@ function defaults(): Record<PersonaId, VoiceSettings> {
   return out;
 }
 
-export async function readVoiceSettings(): Promise<Record<PersonaId, VoiceSettings>> {
-  const base = defaults();
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return base;
+type StoredSettings = Partial<Record<PersonaId, { speed?: unknown; volume?: unknown }>>;
+
+async function readStored(): Promise<StoredSettings | null> {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
   try {
     const page = await list({ prefix: PATH, limit: 1 });
     const hit = page.blobs.find((b) => b.pathname === PATH);
-    if (!hit) return base;
+    if (!hit) return null;
     const res = await fetch(hit.url, { cache: "no-store" });
-    if (!res.ok) return base;
-    const stored = await res.json();
-    for (const persona of Object.keys(base) as PersonaId[]) {
-      const speed = Number(stored?.[persona]?.speed);
-      if (isFinite(speed)) {
-        base[persona].speed = Math.min(SPEED_MAX, Math.max(SPEED_MIN, speed));
-      }
-      const volume = Number(stored?.[persona]?.volume);
-      if (isFinite(volume)) {
-        base[persona].volume = Math.min(VOLUME_MAX, Math.max(VOLUME_MIN, volume));
-      }
-    }
-    return base;
+    if (!res.ok) return null;
+    return await res.json();
   } catch {
-    return base;
+    return null;
   }
+}
+
+function resolve(stored: StoredSettings | null): Record<PersonaId, VoiceSettings> {
+  const base = defaults();
+  if (!stored) return base;
+  for (const persona of Object.keys(base) as PersonaId[]) {
+    const speed = Number(stored[persona]?.speed);
+    if (isFinite(speed)) {
+      base[persona].speed = Math.min(SPEED_MAX, Math.max(SPEED_MIN, speed));
+    }
+    const volume = Number(stored[persona]?.volume);
+    if (isFinite(volume)) {
+      base[persona].volume = Math.min(VOLUME_MAX, Math.max(VOLUME_MIN, volume));
+    }
+  }
+  // Positive Ah Beng is the same guy as Angry Ah Beng, so until he has his
+  // own saved tuning he follows whatever Angry Ah Beng has been tuned to.
+  if (!stored.posbeng) base.posbeng = { ...base.ahbeng };
+  return base;
+}
+
+export async function readVoiceSettings(): Promise<Record<PersonaId, VoiceSettings>> {
+  return resolve(await readStored());
 }
 
 export async function writeVoiceSettings(
   persona: PersonaId,
   patch: { speed?: number; volume?: number }
 ): Promise<Record<PersonaId, VoiceSettings>> {
-  const settings = await readVoiceSettings();
+  const stored = await readStored();
+  const settings = resolve(stored);
   if (patch.speed !== undefined) {
     settings[persona].speed = Math.min(SPEED_MAX, Math.max(SPEED_MIN, patch.speed));
   }
   if (patch.volume !== undefined) {
     settings[persona].volume = Math.min(VOLUME_MAX, Math.max(VOLUME_MIN, patch.volume));
   }
-  await put(PATH, JSON.stringify(settings, null, 2), {
+  // Keep Positive Ah Beng mirroring Angry Ah Beng until he is tuned directly:
+  // persisting his mirrored copy on an unrelated save would freeze it.
+  const out: Partial<Record<PersonaId, VoiceSettings>> = { ...settings };
+  if (persona !== "posbeng" && !stored?.posbeng) delete out.posbeng;
+  await put(PATH, JSON.stringify(out, null, 2), {
     access: "public",
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
     cacheControlMaxAge: 0,
   });
-  return settings;
+  return resolve(out as StoredSettings);
 }
