@@ -358,6 +358,7 @@ export class CoachEngine {
       localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       paceMinPerKm: formatPaceShort(pace),
       avgPaceMinPerKm: formatPaceShort(stats.avgPaceSecPerKm),
+      targetKm: this.targetKm > 0 ? this.targetKm : undefined,
       targetPaceMinPerKm:
         this.targetPaceSec > 0 ? formatPaceShort(this.targetPaceSec) : undefined,
       speedKmh:

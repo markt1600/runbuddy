@@ -47,8 +47,10 @@ export interface PhraseContext {
     lastRunPace?: string;
     longestKm?: number;
     bestPace?: string;
+    bestPaceKm?: number;
     runsLast30Days?: number;
   };
+  targetKm?: number;
 }
 
 /**
@@ -95,14 +97,30 @@ function historyLines(context: PhraseContext): string {
       ? `last run: ${h.lastRunKm} km${h.lastRunPace ? ` at ${h.lastRunPace} min/km` : ""}`
       : null,
     h.longestKm !== undefined ? `longest ever: ${h.longestKm} km` : null,
-    h.bestPace ? `best average pace (3 km+): ${h.bestPace} min/km` : null,
+    h.bestPace
+      ? `best average pace: ${h.bestPace} min/km` +
+        (h.bestPaceKm !== undefined ? `, set on a ${h.bestPaceKm} km run` : "")
+      : null,
     h.runsLast30Days !== undefined ? `${h.runsLast30Days} runs in the last 30 days` : null,
   ].filter(Boolean);
+  // A short-run pace held up against a long run reads as nagging with an
+  // unfair yardstick — the model needs telling, or it does exactly that.
+  const fairPace =
+    h.bestPace && h.bestPaceKm !== undefined && context.targetKm !== undefined &&
+    context.targetKm > h.bestPaceKm * 1.5
+      ? " Their best pace was set on a much shorter run than today's — it is NOT a fair " +
+        "benchmark for today's distance. You may nod to it at most once as motivation, " +
+        "but never measure today's pace against it; judge today's effort on its own " +
+        "terms for this distance."
+      : "";
   return (
     `\n\nTheir running history with you: ${bits.join("; ")}. You remember this — ` +
     "bring it up when it's genuinely relevant (a long gap since the last run, beating " +
     "their usual distance, pace near their best), at most one observation per line, " +
-    "in your persona's voice. Never recite the history as a list."
+    "in your persona's voice. Never recite the history as a list. When you compare " +
+    "pace to a past run, only compare against runs of similar distance — a pace from " +
+    "a much shorter run is not a fair yardstick for a longer one." +
+    fairPace
   );
 }
 
@@ -153,6 +171,7 @@ function contextLines(context: PhraseContext): string {
     context.locality ? `Location: running through ${context.locality}` : null,
     context.weather ? `Weather right now: ${context.weather}` : null,
     context.distanceKm !== undefined ? `Distance covered: ${context.distanceKm} km` : null,
+    context.targetKm !== undefined ? `Today's goal distance: ${context.targetKm} km` : null,
     context.kmMarker ? `Just completed kilometre number ${context.kmMarker}` : null,
     context.elapsedMin !== undefined ? `Elapsed: ${context.elapsedMin} minutes` : null,
     context.paceMinPerKm ? `Current pace: ${context.paceMinPerKm} min/km` : null,

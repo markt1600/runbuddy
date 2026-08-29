@@ -17,6 +17,7 @@ export interface RunHistoryDigest {
   lastRunPace?: string; // "6:12" min/km
   longestKm?: number;
   bestPace?: string; // fastest average pace over runs of 3km+
+  bestPaceKm?: number; // the distance of the run that set bestPace
   runsLast30Days: number;
 }
 
@@ -53,7 +54,13 @@ export function buildHistoryDigest(
     // Pace PB only over real distances — a 400m dash isn't a pace record.
     const paced = outdoor.filter((r) => r.distanceKm >= 3 && r.movingSec > 0);
     if (paced.length > 0) {
-      digest.bestPace = paceStr(Math.min(...paced.map((r) => r.movingSec / r.distanceKm)));
+      // Keep the distance it was set on: a 5km pace is not a fair benchmark
+      // for a 14km run, and the prompt needs the distance to know that.
+      const best = paced.reduce((a, b) =>
+        a.movingSec / a.distanceKm <= b.movingSec / b.distanceKm ? a : b
+      );
+      digest.bestPace = paceStr(best.movingSec / best.distanceKm);
+      digest.bestPaceKm = Number(best.distanceKm.toFixed(1));
     }
   }
   return digest;
