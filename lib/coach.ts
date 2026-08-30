@@ -122,7 +122,10 @@ export class CoachEngine {
   /** Duo mode: a second trainer coaches the whole run alongside the first. */
   private duo: Persona | null = null;
   private duoTurn = Math.random() < 0.5;
-  private duoPieces: { at: number; kind: "duet" | "argument" }[] = [];
+  /** Duo set pieces: fired at a clock time (free runs) OR a fraction of the
+   *  target (distance/time targets), so short runs still get the argument
+   *  mid-run instead of never. */
+  private duoPieces: { at?: number; frac?: number; kind: "duet" | "argument" }[] = [];
 
   constructor(
     persona: Persona,
@@ -443,13 +446,23 @@ export class CoachEngine {
     this.nextAnecdoteAt = now + this.gap(ANECDOTE_GAP_MS);
     if (this.duo) {
       // Duo runs get their own set pieces: two duets bracketing one full
-      // argument (the third piece only fires on longer runs). The classic
+      // argument. With a target set, they land at fractions of the run —
+      // ~20%, ~50%, ~80% — so a 3K and a half marathon both get the full
+      // show, paced to the run. Free runs (no way to know the length) fall
+      // back to clock times, where late pieces just don't fire. The classic
       // third-trainer cameo still happens sometimes, late, as extra chaos.
-      this.duoPieces = [
-        { at: now + (3.5 + Math.random() * 2) * 60_000, kind: "duet" },
-        { at: now + (9 + Math.random() * 4) * 60_000, kind: "argument" },
-        { at: now + (18 + Math.random() * 5) * 60_000, kind: "duet" },
-      ];
+      this.duoPieces =
+        this.targetKm > 0 || this.targetMin > 0
+          ? [
+              { frac: 0.17 + Math.random() * 0.08, kind: "duet" },
+              { frac: 0.45 + Math.random() * 0.1, kind: "argument" },
+              { frac: 0.76 + Math.random() * 0.08, kind: "duet" },
+            ]
+          : [
+              { at: now + (3.5 + Math.random() * 2) * 60_000, kind: "duet" },
+              { at: now + (9 + Math.random() * 4) * 60_000, kind: "argument" },
+              { at: now + (18 + Math.random() * 5) * 60_000, kind: "duet" },
+            ];
       this.cameoAt =
         Math.random() < 0.35 ? now + (26 + Math.random() * 6) * 60_000 : 0;
     } else {
@@ -720,10 +733,22 @@ export class CoachEngine {
 
     // 0a¾. Duo set pieces — duets and the argument — fire the same way:
     // background round-trip, spoken only when the finished script lands.
-    const due = this.duoPieces.findIndex((p) => now >= p.at);
-    if (due >= 0) {
-      const [piece] = this.duoPieces.splice(due, 1);
-      void this.playDuoPiece(piece.kind, stats);
+    if (this.duoPieces.length > 0) {
+      const runFrac =
+        this.targetKm > 0
+          ? stats.distanceKm / this.targetKm
+          : this.targetMin > 0
+            ? stats.elapsedMs / (this.targetMin * 60_000)
+            : null;
+      const due = this.duoPieces.findIndex(
+        (p) =>
+          (p.at !== undefined && now >= p.at) ||
+          (p.frac !== undefined && runFrac !== null && runFrac >= p.frac)
+      );
+      if (due >= 0) {
+        const [piece] = this.duoPieces.splice(due, 1);
+        void this.playDuoPiece(piece.kind, stats);
+      }
     }
 
     // 0b. Target progress takes priority over everything else.
