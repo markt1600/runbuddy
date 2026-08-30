@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatElapsed, formatPace } from "@/lib/geo";
 import { PERSONAS } from "@/lib/personas";
+import { loadCardBg } from "@/lib/prefs";
+import { drawRunCard, shareOrDownloadCard } from "@/lib/runCard";
+import { loadSpeedUnit } from "@/lib/units";
 import HealthPanel from "./HealthPanel";
 import RouteTileMap from "./RouteTileMap";
 import type { PersonaId, RunStats } from "@/lib/types";
@@ -51,6 +54,9 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
   // Conforming to the Watch re-saves the run under a NEW id (the basename
   // encodes distance) — every later call must use the current one.
   const [runId, setRunId] = useState(run.id);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cardUrl, setCardUrl] = useState<string | null>(null);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
 
   /** Same adopt-the-Watch-distance flow as the summary, days later. */
   const conformDistance = async (w: { distanceKm: number; source: string }) => {
@@ -131,6 +137,64 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
 
   const persona = PERSONAS[run.personaId as PersonaId];
   const treadmill = run.distanceKm === 0;
+
+  // The same shareable card the summary shows, rebuilt from the saved stats.
+  // Keyed on stats, so conforming to the Watch redraws it with the adopted
+  // distance and pace. Past runs don't store the coach's closing line, so the
+  // card carries the persona's stock sign-off.
+  useEffect(() => {
+    if (!stats || !persona) return;
+    let cancelled = false;
+    let bgImg: HTMLImageElement | null = null;
+    const comment = persona.positive
+      ? "Every step of that was yours. Be proud!"
+      : "Don't get cocky ah, kanina. Same time tomorrow.";
+    const draw = () => {
+      const canvas = canvasRef.current;
+      if (!canvas || cancelled) return;
+      drawRunCard(canvas, {
+        persona,
+        stats,
+        unit: loadSpeedUnit(),
+        comment,
+        background: bgImg,
+        date: new Date(run.startedAt), // the run's day, not the day it's saved
+      });
+      setCardUrl(canvas.toDataURL("image/png"));
+    };
+    const bgUrl = loadCardBg();
+    if (bgUrl) {
+      const img = new Image();
+      img.onload = () => {
+        bgImg = img;
+        draw();
+      };
+      img.src = bgUrl;
+    }
+    draw();
+    if (typeof document !== "undefined" && document.fonts?.status !== "loaded") {
+      void document.fonts.ready.then(draw).catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [stats, persona]);
+
+  const saveCard = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const stamp = new Date(run.startedAt).toISOString().slice(0, 10);
+    const result = await shareOrDownloadCard(canvas, `run-buddy-${stamp}.png`);
+    setSaveNote(
+      result === "shared"
+        ? null
+        : result === "photos"
+          ? "✓ Saved to your Photos"
+          : result === "downloaded"
+            ? "Saved to your downloads"
+            : "Couldn't save — long-press the image to save it instead"
+    );
+  }, [run.startedAt]);
   // Prefer the loaded (possibly just-conformed) stats over the listing row.
   const distanceKm = stats?.distanceKm ?? run.distanceKm;
   const avgPaceSec = !treadmill && distanceKm > 0 ? run.movingSec / distanceKm : null;
@@ -216,6 +280,21 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
           {(stats.gps.startKm ?? 0) >= 0.005 &&
             ` · start credit ${Math.round((stats.gps.startKm ?? 0) * 1000)}m`}
         </div>
+      )}
+
+      {/* The shareable card, re-buildable long after the run — and rebuilt
+          live if the distance below is conformed to the Watch. */}
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+      {cardUrl && (
+        <>
+          <div className="section-header">Run Card</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="run-card-img" src={cardUrl} alt="Shareable run card" />
+          <button className="cta secondary save-card-btn" onClick={() => void saveCard()}>
+            ⬇︎ Save run card
+          </button>
+          {saveNote && <div className="save-note">{saveNote}</div>}
+        </>
       )}
 
       {/* Health syncs the Watch's workout minutes after a run ends, so the
