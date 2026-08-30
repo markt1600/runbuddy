@@ -253,7 +253,8 @@ export interface CameoLine {
 export function parseCameoScript(
   raw: string,
   primary: PersonaId,
-  cameo: PersonaId
+  cameo: PersonaId,
+  max = 4
 ): CameoLine[] {
   const lines: CameoLine[] = [];
   for (const line of raw.split("\n")) {
@@ -262,7 +263,7 @@ export function parseCameoScript(
       lines.push({ persona: m[1] === "A" ? primary : cameo, text: m[2].trim() });
     }
   }
-  return lines.slice(0, 4);
+  return lines.slice(0, max);
 }
 
 /**
@@ -314,6 +315,93 @@ export async function generateCameo(
     .join("\n");
   const lines = parseCameoScript(raw, primary, cameo);
   if (lines.length < 2) throw new Error("cameo script unparseable");
+  return lines;
+}
+
+/**
+ * How the duo-mode pair relate to each other — the comedy engine. Keyed by
+ * "a+b" in the order the client sends them; one pair today, data-driven so
+ * the next pair is a prompt away.
+ */
+const DUO_DYNAMICS: Record<string, string> = {
+  "ahbeng+ahlian":
+    "Ah Beng and Ah Lian are co-trainers and lifelong sparring partners — equals from the " +
+    "same kopitiam universe, zero patience with each other, bickering like siblings who " +
+    "would never admit they respect each other. He thinks her ex-boyfriend comparisons " +
+    "baby the runner; she thinks his scolding is all volume and no technique. Permanent " +
+    "sore points: her useless ex, his kopitiam bragging, whose army 2.4km time was better, " +
+    "and who the aunties at the market actually listen to.",
+};
+
+export type DuoKind = "duet" | "argument";
+
+/**
+ * Duo mode's live set pieces. A duet: the two trainers talk to each other
+ * ABOUT the runner for a few lines while the runner eavesdrops. An argument:
+ * a proper 10–12 line blow-up that starts on the runner's numbers, derails
+ * into their own feud, and snaps back together behind the runner at the end.
+ */
+export async function generateDuo(
+  a: PersonaId,
+  b: PersonaId,
+  kind: DuoKind,
+  context: PhraseContext
+): Promise<CameoLine[]> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY not configured");
+  }
+  const client = new Anthropic();
+  const pA = PERSONAS[a];
+  const pB = PERSONAS[b];
+  const dynamic =
+    DUO_DYNAMICS[`${a}+${b}`] ?? DUO_DYNAMICS[`${b}+${a}`] ?? "";
+
+  const task =
+    kind === "duet"
+      ? "Write EXACTLY 3 spoken lines, alternating A, B, A. The two trainers talk to EACH " +
+        "OTHER about the runner — the runner is eavesdropping through their earphones and " +
+        "is never addressed until the final line, which turns to the runner and pushes them " +
+        "on. Ground at least two lines in the live stats below. " +
+        "At most 18 words per line. No stage directions, no quotes, no emoji.\n" +
+        "Format strictly, nothing before or after:\n" +
+        "A: <line>\nB: <line>\nA: <line>"
+      : "Write EXACTLY 12 spoken lines, alternating strictly A, B, A, B and so on. The two " +
+        "trainers get into a proper ARGUMENT: it starts about the runner's live stats below, " +
+        "derails into ONE of their personal sore points, escalates comically through the " +
+        "middle — each line topping the last — and in the FINAL TWO lines they abruptly " +
+        "re-unite behind the runner and push them on together. Ground at least three lines " +
+        "in the actual stats. Comic, never genuinely nasty; both fully in character. " +
+        "At most 18 words per line. No stage directions, no quotes, no emoji.\n" +
+        "Format strictly, nothing before or after, one line per row:\n" +
+        "A: <line>\nB: <line>\n(continue alternating for all 12 lines)";
+
+  const response = await client.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: kind === "duet" ? 400 : 1200,
+    output_config: { effort: "low" },
+    system:
+      "You write live comic dialogue for a two-trainer running-coach app set in Singapore. " +
+      "The runner is mid-run, listening through earphones. BOTH trainers are coaching this " +
+      "run together.\n\n" +
+      `CHARACTER A (${pA.name}): ${pA.stylePrompt}\n\n` +
+      `CHARACTER B (${pB.name}): ${pB.stylePrompt}\n\n` +
+      (dynamic ? `THEIR RELATIONSHIP: ${dynamic}\n\n` : "") +
+      task,
+    messages: [
+      {
+        role: "user",
+        content: `The runner, mid-run, right now:${contextLines(context)}`,
+      },
+    ],
+  });
+
+  if (response.stop_reason === "refusal") throw new Error("generation declined");
+  const raw = response.content
+    .filter((bl) => bl.type === "text")
+    .map((bl) => bl.text)
+    .join("\n");
+  const lines = parseCameoScript(raw, a, b, kind === "duet" ? 3 : 12);
+  if (lines.length < (kind === "duet" ? 2 : 8)) throw new Error("duo script unparseable");
   return lines;
 }
 

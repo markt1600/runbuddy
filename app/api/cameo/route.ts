@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateCameo, renderVoice } from "@/lib/server/generate";
+import { generateCameo, generateDuo, renderVoice, type DuoKind } from "@/lib/server/generate";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/types";
 
@@ -12,7 +12,12 @@ import type { PersonaId } from "@/lib/types";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  let body: { persona?: string; cameo?: string; context?: Record<string, unknown> };
+  let body: {
+    persona?: string;
+    cameo?: string;
+    mode?: string;
+    context?: Record<string, unknown>;
+  };
   try {
     body = await req.json();
   } catch {
@@ -24,9 +29,16 @@ export async function POST(req: NextRequest) {
   if (!(persona in PERSONAS) || !(cameo in PERSONAS) || persona === cameo) {
     return NextResponse.json({ error: "bad persona pair" }, { status: 400 });
   }
+  // Duo mode's set pieces ride the same route and rendering: a "duet" (the
+  // pair discuss the runner) or an "argument" (a 10–12 line blow-up).
+  const mode: DuoKind | "cameo" =
+    body.mode === "duet" || body.mode === "argument" ? body.mode : "cameo";
 
   try {
-    const script = await generateCameo(persona, cameo, body.context ?? {});
+    const script =
+      mode === "cameo"
+        ? await generateCameo(persona, cameo, body.context ?? {})
+        : await generateDuo(persona, cameo, mode, body.context ?? {});
     // Two different voices is the entire joke — all lines render or none play.
     const audio = await Promise.all(script.map((l) => renderVoice(l.persona, l.text)));
     if (audio.some((a) => a === null)) {

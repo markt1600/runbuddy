@@ -136,7 +136,14 @@ export function audioSessionSupported(): boolean {
 export class VoiceEngine {
   private keepAlive: HTMLAudioElement | null = null;
   private player: HTMLAudioElement | null = null;
-  private queue: { text: string; audioUrl?: string; cue?: boolean; volume?: number }[] = [];
+  private queue: {
+    text: string;
+    audioUrl?: string;
+    cue?: boolean;
+    volume?: number;
+    /** Whose line this is, when not the run persona — sets the synth fallback voice. */
+    speaker?: Persona;
+  }[] = [];
   private playing = false;
   private persona: Persona;
   private intentionalPause = false;
@@ -296,12 +303,34 @@ export class VoiceEngine {
    * cameo lines pass their own speaker's admin level, so a guest voice isn't
    * played at the host's setting.
    */
-  say(text: string, audioUrl?: string, volume?: number) {
+  say(text: string, audioUrl?: string, volume?: number, speaker?: Persona) {
     // Lines never overlap: drain() plays them strictly one at a time. The cap
     // only stops a backlog building up so far that the coach ends up narrating
     // a part of the run you've already left behind.
     if (this.queue.length >= 4) this.queue.shift();
-    this.queue.push({ text, audioUrl, volume });
+    this.queue.push({
+      text,
+      audioUrl,
+      volume: volume ?? (speaker ? getVoiceVolume(speaker.id) : undefined),
+      speaker,
+    });
+    void this.drain();
+  }
+
+  /**
+   * Queue a whole set piece (a duo argument runs 10–12 lines) past the
+   * backlog cap. Only for scripted exchanges queued at a quiet moment —
+   * everything still plays strictly one line at a time.
+   */
+  sayBatch(items: { text: string; audioUrl?: string; speaker?: Persona }[]) {
+    for (const it of items) {
+      this.queue.push({
+        text: it.text,
+        audioUrl: it.audioUrl,
+        volume: it.speaker ? getVoiceVolume(it.speaker.id) : undefined,
+        speaker: it.speaker,
+      });
+    }
     void this.drain();
   }
 
@@ -379,7 +408,7 @@ export class VoiceEngine {
               await this.playFile(item.audioUrl, item.volume);
             }
           } else {
-            await this.speakSynth(item.text);
+            await this.speakSynth(item.text, item.speaker);
           }
         } catch {
           // If the rendered file 404s or fails, fall back to synthesis once.
@@ -387,7 +416,7 @@ export class VoiceEngine {
           if (item.audioUrl && !item.cue) {
             served = "synth";
             try {
-              await this.speakSynth(item.text);
+              await this.speakSynth(item.text, item.speaker);
             } catch {
               /* give up on this phrase */
             }
@@ -507,11 +536,12 @@ export class VoiceEngine {
     });
   }
 
-  private speakSynth(text: string): Promise<void> {
+  private speakSynth(text: string, speaker?: Persona): Promise<void> {
     // Shell: the native synthesizer sits on the app's audio session, so the
     // fallback voice keeps working with the screen locked — the page's
     // speechSynthesis is suspended there and every fallback came out as
     // silence. Watchdogged like everything else; failure just moves on.
+    const who = speaker ?? this.persona;
     const native = runBuddyNative();
     if (native) {
       let watchdog: ReturnType<typeof setTimeout>;
@@ -519,9 +549,9 @@ export class VoiceEngine {
         native
           .speak({
             text,
-            rate: this.persona.tts.rate,
-            pitch: this.persona.tts.pitch,
-            lang: this.persona.tts.lang,
+            rate: who.tts.rate,
+            pitch: who.tts.pitch,
+            lang: who.tts.lang,
           })
           .catch(() => {}),
         new Promise<void>((resolve) => {
@@ -532,13 +562,13 @@ export class VoiceEngine {
     return new Promise((resolve) => {
       if (!("speechSynthesis" in window)) return resolve();
       const u = new SpeechSynthesisUtterance(text);
-      u.rate = this.persona.tts.rate;
-      u.pitch = this.persona.tts.pitch;
-      u.lang = this.persona.tts.lang;
-      u.volume = Math.min(1, getVoiceVolume(this.persona.id)); // levels >1 are native-only
+      u.rate = who.tts.rate;
+      u.pitch = who.tts.pitch;
+      u.lang = who.tts.lang;
+      u.volume = Math.min(1, getVoiceVolume(who.id)); // levels >1 are native-only
       const voices = window.speechSynthesis.getVoices();
       const match =
-        voices.find((v) => v.lang === this.persona.tts.lang) ??
+        voices.find((v) => v.lang === who.tts.lang) ??
         voices.find((v) => v.lang.startsWith("en"));
       if (match) u.voice = match;
       let settled = false;

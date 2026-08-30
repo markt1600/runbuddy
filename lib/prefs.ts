@@ -192,3 +192,23 @@ export function saveStartDelay(on: boolean) {
 }
 
 
+
+// Duo mode: Ah Beng and Ah Lian coach the run together — solo lines
+// alternate voices, and the pair break into live duets and arguments.
+const DUO_KEY = "runbuddy-duo";
+
+export function loadDuoMode(): boolean {
+  try {
+    return localStorage.getItem(DUO_KEY) === "1";
+  } catch {
+    return false; // private mode
+  }
+}
+
+export function saveDuoMode(on: boolean) {
+  try {
+    localStorage.setItem(DUO_KEY, on ? "1" : "0");
+  } catch {
+    /* private mode */
+  }
+}

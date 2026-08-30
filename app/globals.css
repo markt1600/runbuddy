@@ -771,7 +771,7 @@ input[type="range"]::-moz-range-thumb {
 
 .big-timer {
   font-family: var(--ff-display);
-  font-size: 82px;
+  font-size: 66px;
   font-weight: 600;
   font-optical-sizing: auto;
   letter-spacing: -0.03em;
@@ -951,6 +951,13 @@ input[type="range"]::-moz-range-thumb {
   color: var(--label-3);
   min-height: 16px;
   margin-top: 10px;
+  /* Long coach quotes land here transiently — clamp them so the End button
+     never gets pushed below the fold. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding: 0 18px;
 }
 
 /* ---------- Coach bubble ---------- */

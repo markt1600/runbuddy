@@ -119,6 +119,10 @@ export class CoachEngine {
   private cameoAt = 0; // when the second trainer barges in (0 = not scheduled)
   private cameoStarted = false;
   private nowPlaying: string | null = null;
+  /** Duo mode: a second trainer coaches the whole run alongside the first. */
+  private duo: Persona | null = null;
+  private duoTurn = Math.random() < 0.5;
+  private duoPieces: { at: number; kind: "duet" | "argument" }[] = [];
 
   constructor(
     persona: Persona,
@@ -256,6 +260,26 @@ export class CoachEngine {
     this.sayFromLibrary("start");
   }
 
+  /**
+   * Duo mode: a second trainer joins for the whole run. Library lines
+   * alternate between the two voices, and the pair break into live duets
+   * (talking to each other about the runner) and one full-blown argument.
+   * Call before onRunStart.
+   */
+  setDuo(partner: Persona | null) {
+    this.duo = partner && partner.id !== this.persona.id ? partner : null;
+  }
+
+  /**
+   * Whose turn to speak: strict alternation in duo mode, so neither trainer
+   * hogs the mic. Every call flips the turn — call once per spoken line.
+   */
+  private speaker(): Persona {
+    if (!this.duo) return this.persona;
+    this.duoTurn = !this.duoTurn;
+    return this.duoTurn ? this.duo : this.persona;
+  }
+
   /** The account's best 1/5/10km efforts, mined from history (lib/efforts). */
   setPersonalRecords(prs: { targetKm: number; sec: number; startedAt: number }[] | null) {
     this.prs = prs;
@@ -275,13 +299,19 @@ export class CoachEngine {
       if (!pr || e.sec >= pr.sec - 1) continue;
       this.prTold.add(e.targetKm);
       vibrate([60, 80, 60, 80, 120]);
-      void this.fetchFresh("pr", stats, {
-        prDistanceKm: e.targetKm,
-        prNewTime: formatEffort(e.sec),
-        prOldTime: formatEffort(pr.sec),
-        prDaysAgo: Math.max(0, Math.round((Date.now() - pr.startedAt) / 86_400_000)),
-      }).then((line) => {
-        if (line && !this.disposed) this.voice.say(line.text, line.url);
+      const s = this.speaker();
+      void this.fetchFresh(
+        "pr",
+        stats,
+        {
+          prDistanceKm: e.targetKm,
+          prNewTime: formatEffort(e.sec),
+          prOldTime: formatEffort(pr.sec),
+          prDaysAgo: Math.max(0, Math.round((Date.now() - pr.startedAt) / 86_400_000)),
+        },
+        s.id
+      ).then((line) => {
+        if (line && !this.disposed) this.voice.say(line.text, line.url, undefined, s);
       });
     }
   }
@@ -389,8 +419,8 @@ export class CoachEngine {
       : now.includes(p.condition);
   }
 
-  private pick(category: PhraseCategory): Phrase | null {
-    const pool = allPhrasesFor(this.persona.id, category).filter((p) => this.conditionOk(p));
+  private pick(category: PhraseCategory, personaId: PersonaId = this.persona.id): Phrase | null {
+    const pool = allPhrasesFor(personaId, category).filter((p) => this.conditionOk(p));
     if (pool.length === 0) return null;
     const fresh = pool.filter((p) => !this.used.has(p.id));
     const source = fresh.length > 0 ? fresh : pool;
@@ -401,18 +431,32 @@ export class CoachEngine {
   }
 
   private sayFromLibrary(category: PhraseCategory) {
-    const phrase = this.pick(category);
+    const s = this.speaker();
+    const phrase = this.pick(category, s.id);
     if (!phrase) return;
-    this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
+    this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s);
   }
 
   onRunStart() {
     const now = Date.now();
     this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS);
     this.nextAnecdoteAt = now + this.gap(ANECDOTE_GAP_MS);
-    // Once per run, somewhere in minutes 5–12, a second trainer barges in.
-    // Not scaled by chattiness — it's the run's one set-piece.
-    this.cameoAt = now + (5 + Math.random() * 7) * 60_000;
+    if (this.duo) {
+      // Duo runs get their own set pieces: two duets bracketing one full
+      // argument (the third piece only fires on longer runs). The classic
+      // third-trainer cameo still happens sometimes, late, as extra chaos.
+      this.duoPieces = [
+        { at: now + (3.5 + Math.random() * 2) * 60_000, kind: "duet" },
+        { at: now + (9 + Math.random() * 4) * 60_000, kind: "argument" },
+        { at: now + (18 + Math.random() * 5) * 60_000, kind: "duet" },
+      ];
+      this.cameoAt =
+        Math.random() < 0.35 ? now + (26 + Math.random() * 6) * 60_000 : 0;
+    } else {
+      // Once per run, somewhere in minutes 5–12, a second trainer barges in.
+      // Not scaled by chattiness — it's the run's one set-piece.
+      this.cameoAt = now + (5 + Math.random() * 7) * 60_000;
+    }
 
     // ~10s intro at the start line. Prefer a freshly generated one (never the
     // same twice), but don't leave the runner in silence: if the API hasn't
@@ -435,6 +479,12 @@ export class CoachEngine {
       if (this.disposed) return;
       if (winner) this.voice.say(winner.text, winner.url);
       else this.sayIntroFromLibrary();
+      // Duo mode announces itself from the first minute: the partner throws
+      // in one of their own start lines right behind the intro.
+      if (this.duo) {
+        const p = this.pick("start", this.duo.id);
+        if (p) this.voice.say(p.text, getPhraseUrl(this.duo.id, p.id), undefined, this.duo);
+      }
     });
   }
 
@@ -453,11 +503,12 @@ export class CoachEngine {
     // Marks are stored as whole percents: 1/3 and 2/3 would never survive a
     // float comparison.
     const mark = Math.round(fraction * 100);
-    const phrase = allPhrasesFor(this.persona.id, category).find(
+    const s = this.speaker();
+    const phrase = allPhrasesFor(s.id, category).find(
       (p) => p.target === target && p.mark === mark
     );
     if (!phrase) return false;
-    this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
+    this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s);
     return true;
   }
 
@@ -468,9 +519,10 @@ export class CoachEngine {
    * plus the bare number.
    */
   private sayKmMarker(km: number) {
-    const marker = allPhrasesFor(this.persona.id, "km_marker").find((p) => p.km === km);
+    const s = this.speaker();
+    const marker = allPhrasesFor(s.id, "km_marker").find((p) => p.km === km);
     if (marker) {
-      this.voice.say(marker.text, getPhraseUrl(this.persona.id, marker.id));
+      this.voice.say(marker.text, getPhraseUrl(s.id, marker.id), undefined, s);
       return;
     }
     this.sayFromLibrary("milestone");
@@ -516,14 +568,15 @@ export class CoachEngine {
    */
   private sayConditionalOpener() {
     const conditions = this.currentConditions();
-    const pool = allPhrasesFor(this.persona.id, "conditional").filter((p) =>
+    const s = this.speaker();
+    const pool = allPhrasesFor(s.id, "conditional").filter((p) =>
       Array.isArray(p.condition)
         ? p.condition.some((c) => conditions.includes(c))
         : p.condition !== undefined && conditions.includes(p.condition)
     );
     if (pool.length === 0) return;
     const phrase = pool[Math.floor(Math.random() * pool.length)];
-    this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
+    this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s);
   }
 
   /**
@@ -610,10 +663,12 @@ export class CoachEngine {
 
     // The library lines are written mildest-first, so walking the index is the
     // escalation. Once past the end of the bank, ask for something fresh.
-    const pool = allPhrasesFor(this.persona.id, "loitering");
+    // In duo mode the two take turns nagging, each at the shared level.
+    const s = this.speaker();
+    const pool = allPhrasesFor(s.id, "loitering");
     if (level < pool.length) {
       const phrase = pool[level];
-      this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
+      this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s);
       return;
     }
     void this.sayFresh("loitering", stats, { pausedSeconds: stoppedSec });
@@ -663,6 +718,14 @@ export class CoachEngine {
       void this.playCameo(stats);
     }
 
+    // 0a¾. Duo set pieces — duets and the argument — fire the same way:
+    // background round-trip, spoken only when the finished script lands.
+    const due = this.duoPieces.findIndex((p) => now >= p.at);
+    if (due >= 0) {
+      const [piece] = this.duoPieces.splice(due, 1);
+      void this.playDuoPiece(piece.kind, stats);
+    }
+
     // 0b. Target progress takes priority over everything else.
     if (this.targetMin > 0) {
       // Treadmill: no GPS, so distance and pace cues below don't apply —
@@ -689,15 +752,16 @@ export class CoachEngine {
       for (const [kind, atMs] of moments) {
         if (atMs === null || this.recordTold.has(kind) || stats.elapsedMs < atMs) continue;
         this.recordTold.add(kind); // never re-check, even when no line exists
+        const s = this.speaker();
         const phrase = allPhrasesFor(
-          this.persona.id,
+          s.id,
           kind === "hs" ? "hs_finish" : "wr_finish"
         ).find((p) => p.target === this.targetKm && p.wr === g);
         if (phrase) {
           // A record moment is the run's fireworks — announce it to the wrist
           // too (real haptics in the shell, silent elsewhere).
           vibrate([60, 80, 60, 80, 120]);
-          this.voice.say(phrase.text, getPhraseUrl(this.persona.id, phrase.id));
+          this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s);
           return;
         }
       }
@@ -720,11 +784,17 @@ export class CoachEngine {
         this.sayFromLibrary("pace_lead");
         this.voice.say(spokenDuration(lastKmSec));
       }
-      void this.fetchFresh("milestone", stats, {
-        kmMarker: km,
-        lastKmPaceMinPerKm: lastKmSec !== null ? formatPaceShort(lastKmSec) : undefined,
-      }).then((color) => {
-        if (color && !this.disposed) this.voice.say(color.text, color.url);
+      const colorSpeaker = this.duo ? this.speaker() : this.persona;
+      void this.fetchFresh(
+        "milestone",
+        stats,
+        {
+          kmMarker: km,
+          lastKmPaceMinPerKm: lastKmSec !== null ? formatPaceShort(lastKmSec) : undefined,
+        },
+        colorSpeaker.id
+      ).then((color) => {
+        if (color && !this.disposed) this.voice.say(color.text, color.url, undefined, colorSpeaker);
       });
       this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS);
       return;
@@ -811,8 +881,9 @@ export class CoachEngine {
    * failure — a cameo that half-happens is worse than none.
    */
   private async playCameo(stats: RunStats) {
+    // In duo mode the barger-in must be a genuine third voice.
     const others = (Object.keys(PERSONAS) as PersonaId[]).filter(
-      (id) => id !== this.persona.id
+      (id) => id !== this.persona.id && id !== this.duo?.id
     );
     const cameoId = others[Math.floor(Math.random() * others.length)];
     try {
@@ -844,7 +915,8 @@ export class CoachEngine {
         this.voice.say(
           `${name}: ${line.text}`,
           `data:audio/mpeg;base64,${line.audioBase64}`,
-          getVoiceVolume(line.persona)
+          getVoiceVolume(line.persona),
+          PERSONAS[line.persona]
         );
       }
     } catch {
@@ -852,18 +924,62 @@ export class CoachEngine {
     }
   }
 
+  /**
+   * Duo mode's live set pieces. A duet is three lines of the pair talking
+   * about the runner; the argument is the run's centrepiece — 10 to 12 lines
+   * that start on the runner's numbers, derail into the pair's own feud, and
+   * snap back together behind the runner. Same wait-for-quiet discipline as
+   * the cameo, and the same rule: it plays whole or not at all.
+   */
+  private async playDuoPiece(kind: "duet" | "argument", stats: RunStats) {
+    if (!this.duo) return;
+    try {
+      const res = await fetch("/api/cameo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          persona: this.persona.id,
+          cameo: this.duo.id,
+          mode: kind,
+          context: this.buildContext(stats),
+        }),
+      });
+      if (!res.ok) return;
+      const data: { lines: { persona: PersonaId; text: string; audioBase64: string }[] } =
+        await res.json();
+      if (this.disposed || !data.lines?.length) return;
+      const waitStart = Date.now();
+      while (this.voice.busy && Date.now() - waitStart < 45_000) {
+        await new Promise((r) => setTimeout(r, 300));
+        if (this.disposed) return;
+      }
+      if (this.disposed) return;
+      // Batched past the queue cap: the argument is 10–12 lines by design.
+      this.voice.sayBatch(
+        data.lines.slice(0, 12).map((line) => ({
+          text: `${PERSONAS[line.persona]?.shortName ?? ""}: ${line.text}`,
+          audioUrl: `data:audio/mpeg;base64,${line.audioBase64}`,
+          speaker: PERSONAS[line.persona],
+        }))
+      );
+    } catch {
+      /* no keys, offline, model hiccup — the run proceeds without the piece */
+    }
+  }
+
   /** Fetch a freshly generated phrase (Claude + ElevenLabs). Null on any failure. */
   private async fetchFresh(
     category: PhraseCategory,
     stats: RunStats,
-    extra: Record<string, unknown> = {}
+    extra: Record<string, unknown> = {},
+    asPersona: PersonaId = this.persona.id
   ): Promise<{ text: string; url?: string } | null> {
     try {
       const res = await fetch("/api/phrase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          persona: this.persona.id,
+          persona: asPersona,
           category,
           context: this.buildContext(stats, extra),
         }),
@@ -885,9 +1001,10 @@ export class CoachEngine {
     stats: RunStats,
     extra: Record<string, unknown> = {}
   ) {
-    const fresh = await this.fetchFresh(category, stats, extra);
+    const s = this.duo ? this.speaker() : this.persona;
+    const fresh = await this.fetchFresh(category, stats, extra, s.id);
     if (this.disposed) return;
-    if (fresh) this.voice.say(fresh.text, fresh.url);
+    if (fresh) this.voice.say(fresh.text, fresh.url, undefined, s);
     else this.sayFromLibrary(category); // library always has our back
   }
 

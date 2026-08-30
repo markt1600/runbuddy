@@ -23,6 +23,8 @@ import {
   loadTargetMin,
   loadTargetPace,
   loadStartDelay,
+  loadDuoMode,
+  saveDuoMode,
   saveAutoPause,
   saveChattiness,
   saveStartDelay,
@@ -83,6 +85,14 @@ export default function RunBuddyApp() {
   const [targetPaceSec, setTargetPaceSecState] = useState(0);
   const [autoPause, setAutoPauseState] = useState(true);
   const [startDelay, setStartDelayState] = useState(false);
+  // Duo mode: Ah Beng + Ah Lian coach together. Forces the primary persona
+  // to Ah Beng so the summary, card and saved run have a stable owner.
+  const [duoMode, setDuoModeState] = useState(false);
+  const setDuoMode = (on: boolean) => {
+    setDuoModeState(on);
+    saveDuoMode(on);
+    if (on) setPersonaId("ahbeng");
+  };
 
   // Boot: who are we, and does sign-in even exist here? Unconfigured or
   // unreachable resolves to the app exactly as it was before accounts —
@@ -188,6 +198,10 @@ export default function RunBuddyApp() {
     setTargetPaceSecState(loadTargetPace());
     setAutoPauseState(loadAutoPause());
     setStartDelayState(loadStartDelay());
+    if (loadDuoMode()) {
+      setDuoModeState(true);
+      setPersonaId("ahbeng");
+    }
   }, []);
 
   const setTargetKm = (v: number) => {
@@ -350,6 +364,8 @@ export default function RunBuddyApp() {
         <SetupScreen
           personaId={personaId}
           onPersonaChange={setPersonaId}
+          duoMode={duoMode}
+          onDuoChange={setDuoMode}
           music={music}
           onMusicChange={setMusic}
           speedUnit={speedUnit}
@@ -394,6 +410,7 @@ export default function RunBuddyApp() {
           history={runHistory}
           personalRecords={personalRecords}
           onPersonaChange={setPersonaId}
+          duoWith={duoMode ? "ahlian" : null}
           onFinish={(stats) => {
             setFinalStats(stats);
             setSavedRunId(null);

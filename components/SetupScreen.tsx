@@ -55,6 +55,9 @@ const MUSIC_META: Record<
 interface Props {
   personaId: PersonaId;
   onPersonaChange: (id: PersonaId) => void;
+  /** Duo mode: Ah Beng + Ah Lian coach together. Overrides the single pick. */
+  duoMode: boolean;
+  onDuoChange: (on: boolean) => void;
   music: MusicSource;
   onMusicChange: (m: MusicSource) => void;
   speedUnit: SpeedUnit;
@@ -76,6 +79,8 @@ interface Props {
 export default function SetupScreen({
   personaId,
   onPersonaChange,
+  duoMode,
+  onDuoChange,
   music,
   onMusicChange,
 
@@ -120,7 +125,10 @@ export default function SetupScreen({
       return;
     }
     let cancelled = false;
-    const urls = renderedUrlsFor(personaId);
+    // Duo mode needs both trainers' packs on the phone.
+    const urls = duoMode
+      ? [...renderedUrlsFor("ahbeng"), ...renderedUrlsFor("ahlian")]
+      : renderedUrlsFor(personaId);
     if (urls.length === 0) {
       setVoicePack(null);
       return;
@@ -145,7 +153,7 @@ export default function SetupScreen({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [personaId, libraryReady]);
+  }, [personaId, duoMode, libraryReady]);
 
   const previewVoice = (id: PersonaId, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -164,9 +172,12 @@ export default function SetupScreen({
       {PERSONA_LIST.map((p) => (
         <button
           key={p.id}
-          className={`persona-card${p.id === personaId ? " selected" : ""}`}
+          className={`persona-card${!duoMode && p.id === personaId ? " selected" : ""}`}
           style={{ "--accent": p.accent } as React.CSSProperties}
-          onClick={() => onPersonaChange(p.id)}
+          onClick={() => {
+            onDuoChange(false);
+            onPersonaChange(p.id);
+          }}
         >
           <span className="persona-avatar">{p.emoji}</span>
           <span>
@@ -191,17 +202,33 @@ export default function SetupScreen({
           >
             ▶
           </span>
-          <span className="persona-check">{p.id === personaId ? "✓" : ""}</span>
+          <span className="persona-check">{!duoMode && p.id === personaId ? "✓" : ""}</span>
         </button>
       ))}
+
+      {/* Duo mode: both Bengs' sparring partners coach the run together. */}
+      <button
+        className={`persona-card${duoMode ? " selected" : ""}`}
+        style={{ "--accent": "#8A4A1E" } as React.CSSProperties}
+        onClick={() => onDuoChange(true)}
+      >
+        <span className="persona-avatar">😤💅</span>
+        <span>
+          <div className="persona-name">Ah Beng + Ah Lian</div>
+          <div className="persona-tagline">
+            Duo mode. They coach you, they argue, you run 🔞
+          </div>
+        </span>
+        <span className="persona-check">{duoMode ? "✓" : ""}</span>
+      </button>
 
       {/* Offline voice-pack progress (shell): every phrase downloaded here
           plays from disk mid-run — dead zones only cost the improvised lines. */}
       {voicePack && (
         <div className="voicepack-line">
           {voicePack.cached >= voicePack.total
-            ? `✓ ${PERSONAS[personaId].shortName}'s voice pack is on this phone · ${voicePack.total} phrases`
-            : `⬇︎ Downloading ${PERSONAS[personaId].shortName}'s voice pack… ${voicePack.cached}/${voicePack.total}`}
+            ? `✓ ${duoMode ? "Both trainers' voice packs are" : `${PERSONAS[personaId].shortName}'s voice pack is`} on this phone · ${voicePack.total} phrases`
+            : `⬇︎ Downloading ${duoMode ? "both trainers' voice packs" : `${PERSONAS[personaId].shortName}'s voice pack`}… ${voicePack.cached}/${voicePack.total}`}
         </div>
       )}
 

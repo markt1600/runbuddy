@@ -10,7 +10,7 @@ import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
 import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
 import { isNativeApp, runBuddyNative } from "@/lib/native";
 import { renderedUrlsFor } from "@/lib/voiceLibrary";
-import { PERSONA_LIST } from "@/lib/personas";
+import { PERSONAS, PERSONA_LIST } from "@/lib/personas";
 import type { MusicSource, Persona, PersonaId, RunStats } from "@/lib/types";
 import SpotifyTransport from "./SpotifyTransport";
 
@@ -37,6 +37,8 @@ interface Props {
   personalRecords?: { targetKm: number; sec: number; startedAt: number }[] | null;
   /** Mid-run trainer swap: tapping the persona chip cycles and reports here. */
   onPersonaChange?: (id: PersonaId) => void;
+  /** Duo mode: this persona co-coaches the run alongside `persona`. */
+  duoWith?: PersonaId | null;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -56,6 +58,7 @@ export default function RunScreen({
   history,
   personalRecords,
   onPersonaChange,
+  duoWith,
   onFinish,
 }: Props) {
   const treadmill = targetMin > 0;
@@ -205,14 +208,19 @@ export default function RunScreen({
     coach.setRunner(runner ?? null);
     coach.setHistory(history ?? null);
     coach.setPersonalRecords(personalRecords ?? null);
+    if (duoWith && PERSONAS[duoWith]) coach.setDuo(PERSONAS[duoWith]);
     coachRef.current = coach;
 
     // Offline armour (shell only): warm this persona's whole rendered
     // library into the native disk cache while there's still signal, so a
-    // dead zone mid-run only silences the improvised lines.
+    // dead zone mid-run only silences the improvised lines. Duo mode warms
+    // both trainers' packs.
     const nativeShell = runBuddyNative();
     if (nativeShell) {
-      const urls = renderedUrlsFor(persona.id);
+      const urls = [
+        ...renderedUrlsFor(persona.id),
+        ...(duoWith ? renderedUrlsFor(duoWith) : []),
+      ];
       if (urls.length > 0) void nativeShell.prefetchAudio({ urls });
     }
 
@@ -519,7 +527,7 @@ export default function RunScreen({
    * state updates too, so the accent colour, summary and saved run follow.
    */
   const switchPersona = () => {
-    if (!onPersonaChange) return;
+    if (!onPersonaChange || duoWith) return; // the duo pair doesn't cycle
     const idx = PERSONA_LIST.findIndex((p) => p.id === persona.id);
     const next = PERSONA_LIST[(idx + 1) % PERSONA_LIST.length];
     coachRef.current?.setPersona(next);
@@ -562,12 +570,17 @@ export default function RunScreen({
       <div className="run-topbar">
         <button
           className={`run-persona-chip${speaking ? " speaking" : ""}`}
-          aria-label="Switch trainer"
+          aria-label={duoWith ? "Duo trainers" : "Switch trainer"}
           onClick={switchPersona}
         >
-          <span className="chip-emoji">{persona.emoji}</span>
-          {persona.name}
-          {onPersonaChange && <span className="chip-swap">⇄</span>}
+          <span className="chip-emoji">
+            {persona.emoji}
+            {duoWith ? PERSONAS[duoWith]?.emoji : ""}
+          </span>
+          {duoWith
+            ? `${persona.shortName} + ${PERSONAS[duoWith]?.shortName ?? ""}`
+            : persona.name}
+          {onPersonaChange && !duoWith && <span className="chip-swap">⇄</span>}
         </button>
         {treadmill ? (
           <div className="gps-pill treadmill">🏃 Treadmill</div>
