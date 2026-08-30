@@ -275,23 +275,10 @@ async function stubAuth(page, me) {
   // Change it — the new choice rides the same save.
   await page.locator(".profile-gender button", { hasText: "Female" }).click();
 
-  // BMI is derived and read-only: 72 / 1.75² = 23.5 — which lands in the
-  // SG chart's Overweight band (23.0–27.4), labelled as such.
+  // BMI is derived and read-only: 72 / 1.75² = 23.5. Just the figure — the
+  // SG band commentary was removed by request.
   assert.strictEqual(await page.locator(".profile-value").innerText(), "23.5", "BMI wrong");
-  assert.match(await page.locator(".profile-bmi-band").innerText(), /overweight/i, "SG band wrong");
-  assert.match(
-    await page.locator(".profile-bmi-source").innerText(),
-    /SG/i,
-    "classification not marked as SG"
-  );
-  // The classification must sit fully below the BMI row — it once rode a
-  // negative margin up into the row's separator line on real iPhones.
-  const bmiRowBox = await page.locator(".profile-row-bmi").boundingBox();
-  const classBox = await page.locator(".profile-bmi-class").boundingBox();
-  assert.ok(
-    classBox.y >= bmiRowBox.y + bmiRowBox.height - 1,
-    `classification overlaps the BMI row: row ends ${bmiRowBox.y + bmiRowBox.height}, text starts ${classBox.y}`
-  );
+  assert.strictEqual(await page.locator(".profile-bmi-band").count(), 0, "band commentary back?");
 
   // Flip to imperial: on-screen numbers convert in place — and BMI, being a
   // ratio, must not move with the units.
@@ -300,14 +287,9 @@ async function stubAuth(page, me) {
   assert.strictEqual(await inputs.nth(3).inputValue(), "158.7", "weight not converted to pounds");
   assert.strictEqual(await page.locator(".profile-value").innerText(), "23.5", "BMI moved with units");
 
-  // A lighter weight crosses a band boundary live: 130 lb → 19.3 → Normal.
-  await inputs.nth(3).fill("130");
-  assert.match(await page.locator(".profile-bmi-band").innerText(), /normal/i, "band not live");
-
   // Edit the weight in pounds and save — the wire format stays metric.
   await inputs.nth(3).fill("160");
   assert.strictEqual(await page.locator(".profile-value").innerText(), "23.7", "BMI not live");
-  assert.match(await page.locator(".profile-bmi-band").innerText(), /overweight/i, "band lagged");
   await page.locator(".profile-save").click();
   await page.waitForTimeout(600);
   assert.ok(putBody, "no PUT sent");
