@@ -137,8 +137,17 @@ export async function saveRun(
 }
 
 export async function getRun(sub: string, basename: string): Promise<SavedRun | null> {
+  return getRunAtPrefix(userPrefix(sub), basename);
+}
+
+/** Admin: read one run addressed by the user's uid hash, not a session sub. */
+export async function getRunByHash(uid: string, basename: string): Promise<SavedRun | null> {
+  return getRunAtPrefix(hashPrefix(uid), basename);
+}
+
+async function getRunAtPrefix(prefix: string, basename: string): Promise<SavedRun | null> {
   if (!BASENAME_RE.test(basename)) return null;
-  const pathname = userPrefix(sub) + basename;
+  const pathname = prefix + basename;
   const page = await list({ prefix: pathname, limit: 1 });
   const hit = page.blobs.find((b) => b.pathname === pathname);
   if (!hit) return null;

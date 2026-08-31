@@ -2614,6 +2614,22 @@ input[type="range"]::-moz-range-thumb {
   padding: 10px 0;
 }
 
+/* The rows are buttons now — full run detail behind each. Neutralise button
+   chrome and hint at the tap. */
+.admin-run-open {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.admin-run-open:active {
+  opacity: 0.6;
+}
+
 .admin-run-row + .admin-run-row { border-top: 0.5px solid var(--separator); }
 
 .admin-run-line {

@@ -28,6 +28,7 @@ import {
 } from "@/lib/voiceLibrary";
 import { EXPANDABLE_CATEGORIES, FIXED_CATEGORY_REASON } from "@/lib/phraseCategories";
 import { formatElapsed, formatPace } from "@/lib/geo";
+import RunDetailScreen from "./RunDetailScreen";
 import type { PersonaId, PhraseCategory } from "@/lib/types";
 
 const CATEGORY_LABELS: Record<PhraseCategory, string> = {
@@ -132,6 +133,8 @@ export default function AdminScreen({ onBack }: Props) {
   const [usersNote, setUsersNote] = useState<string | null>(null);
   const [openUser, setOpenUser] = useState<AdminUser | null>(null);
   const [userRuns, setUserRuns] = useState<AdminRun[] | null>(null);
+  // A run opened from the admin list — the runner's own detail view, read-only.
+  const [openRun, setOpenRun] = useState<AdminRun | null>(null);
   const [, bump] = useState(0); // re-render as the registry mutates
   const refresh = () => bump((n) => n + 1);
 
@@ -391,7 +394,17 @@ export default function AdminScreen({ onBack }: Props) {
       <div className="section-header">
         Users{users !== null && <span className="cat-count">{users.length}</span>}
       </div>
-      {openUser ? (
+      {openUser && openRun ? (
+        // The user's run exactly as they see it — map, splits, card, GPS
+        // diagnostics — minus owner actions (conform, delete, Health).
+        <RunDetailScreen
+          run={openRun}
+          readOnly
+          apiBase={`/api/admin/users/${openUser.uid}/runs`}
+          onBack={() => setOpenRun(null)}
+          onDeleted={() => setOpenRun(null)}
+        />
+      ) : openUser ? (
         <div className="card" style={{ padding: "12px 14px" }}>
           <button className="back-link" onClick={() => { setOpenUser(null); setUserRuns(null); }}>
             ‹ All users
@@ -410,7 +423,11 @@ export default function AdminScreen({ onBack }: Props) {
               const pace =
                 !run.treadmill && run.distanceKm > 0 ? run.movingSec / run.distanceKm : null;
               return (
-                <div className="admin-run-row" key={run.id}>
+                <button
+                  className="admin-run-row admin-run-open"
+                  key={run.id}
+                  onClick={() => setOpenRun(run)}
+                >
                   <div className="admin-run-line">
                     <span className="admin-run-date">
                       {new Date(run.startedAt).toLocaleDateString(undefined, {
@@ -435,7 +452,7 @@ export default function AdminScreen({ onBack }: Props) {
                     </span>
                     <span className="admin-run-target">{targetLabel(run)}</span>
                   </div>
-                </div>
+                </button>
               );
             })
           )}

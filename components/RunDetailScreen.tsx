@@ -15,6 +15,15 @@ interface Props {
   run: RunSummary;
   onBack: () => void;
   onDeleted: () => void;
+  /** Where this run's payload lives. Admin passes its per-user route. */
+  apiBase?: string;
+  /**
+   * Admin view of someone else's run: everything the runner sees, minus the
+   * actions that belong to the owner (conform, delete) and the Health panel,
+   * which reads the VIEWER's HealthKit and would show the admin's own data
+   * against another runner's window.
+   */
+  readOnly?: boolean;
 }
 
 /** Split bars, one per kilometre. Longer bar = faster split (the way a runner
@@ -45,7 +54,13 @@ function SplitChart({ splits }: { splits: number[] }) {
   );
 }
 
-export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
+export default function RunDetailScreen({
+  run,
+  onBack,
+  onDeleted,
+  apiBase = "/api/runs",
+  readOnly = false,
+}: Props) {
   const [stats, setStats] = useState<RunStats | null>(null);
   const [payload, setPayload] = useState<unknown>(null);
   const [failed, setFailed] = useState(false);
@@ -61,7 +76,7 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
   /** Same adopt-the-Watch-distance flow as the summary, days later. */
   const conformDistance = async (w: { distanceKm: number; source: string }) => {
     try {
-      const res = await fetch(`/api/runs/${encodeURIComponent(runId)}`, {
+      const res = await fetch(`${apiBase}/${encodeURIComponent(runId)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ distanceKm: w.distanceKm, source: w.source }),
@@ -78,7 +93,7 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    void fetch(`/api/runs/${encodeURIComponent(run.id)}`)
+    void fetch(`${apiBase}/${encodeURIComponent(run.id)}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
       .then((data: { stats: RunStats }) => {
         if (cancelled) return;
@@ -126,7 +141,7 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
   const doDelete = async () => {
     setDeleting(true);
     try {
-      const res = await fetch(`/api/runs/${encodeURIComponent(runId)}`, { method: "DELETE" });
+      const res = await fetch(`${apiBase}/${encodeURIComponent(runId)}`, { method: "DELETE" });
       if (!res.ok) throw new Error(String(res.status));
       onDeleted();
     } catch {
@@ -300,13 +315,15 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
       {/* Health syncs the Watch's workout minutes after a run ends, so the
           detail page re-asks over the run's saved wall-clock window — refresh
           here works days later, not just on the post-run summary. */}
-      <HealthPanel
-        sinceMs={run.startedAt}
-        untilMs={run.startedAt + run.wallSec * 1000}
-        appDistanceKm={treadmill ? null : distanceKm}
-        confirmed={stats?.confirmed ?? null}
-        onConfirm={treadmill ? undefined : conformDistance}
-      />
+      {!readOnly && (
+        <HealthPanel
+          sinceMs={run.startedAt}
+          untilMs={run.startedAt + run.wallSec * 1000}
+          appDistanceKm={treadmill ? null : distanceKm}
+          confirmed={stats?.confirmed ?? null}
+          onConfirm={treadmill ? undefined : conformDistance}
+        />
+      )}
 
       {payload !== null && (
         <button className="run-export-link" onClick={() => void exportData()}>
@@ -317,6 +334,7 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
       {failed && <div className="home-empty">Couldn&apos;t load the full stats for this run.</div>}
       {!failed && stats === null && <div className="home-empty">Loading…</div>}
 
+      {readOnly ? null : (
       <div className="run-detail-danger">
         {confirmingDelete ? (
           <div className="run-delete-confirm">
@@ -338,6 +356,7 @@ export default function RunDetailScreen({ run, onBack, onDeleted }: Props) {
           </button>
         )}
       </div>
+      )}
     </div>
   );
 }
