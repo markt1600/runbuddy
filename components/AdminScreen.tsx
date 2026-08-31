@@ -403,6 +403,7 @@ export default function AdminScreen({ onBack }: Props) {
           apiBase={`/api/admin/users/${openUser.uid}/runs`}
           onBack={() => setOpenRun(null)}
           onDeleted={() => setOpenRun(null)}
+          cardBgSrc={null}
         />
       ) : openUser ? (
         <div className="card" style={{ padding: "12px 14px" }}>

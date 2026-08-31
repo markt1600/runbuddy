@@ -142,12 +142,26 @@ export default function AccountScreen({
     setCardPreview(canvas.toDataURL("image/png"));
   };
 
-  // A previously chosen photo: show it (with the preview) on arrival.
+  // A previously chosen photo: show it (with the preview) on arrival — and
+  // sync it up to the server if it was picked before friends' feeds could
+  // draw it (server-side backgrounds arrived with the Friends feature).
   useEffect(() => {
     const bg = loadCardBg();
     if (bg) {
       setCardBg(bg);
       void renderCardPreview(bg);
+      void fetch("/api/profile/card-bg")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { exists: boolean } | null) => {
+          if (data && !data.exists) {
+            void fetch("/api/profile/card-bg", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ dataUrl: bg }),
+            }).catch(() => {});
+          }
+        })
+        .catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -183,6 +197,13 @@ export default function AccountScreen({
       }
       setCardBg(jpeg);
       void renderCardPreview(jpeg);
+      // Publish it so friends' feeds draw your cards with your background.
+      // Best-effort: a failed upload only costs friends the photo.
+      void fetch("/api/profile/card-bg", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: jpeg }),
+      }).catch(() => {});
     } catch {
       setCardNote("Couldn't read that image — try a different photo.");
     }
@@ -193,6 +214,7 @@ export default function AccountScreen({
     setCardBg(null);
     setCardPreview(null);
     setCardNote(null);
+    void fetch("/api/profile/card-bg", { method: "DELETE" }).catch(() => {});
   };
 
   // Personal records: efforts are cached per run id, and conformed runs

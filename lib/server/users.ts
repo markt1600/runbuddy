@@ -107,6 +107,39 @@ export async function getProfile(uid: string): Promise<UserProfile | null> {
   return readProfile(uid);
 }
 
+// ---- run-card background photo ----
+// Stored as its own blob, not in the profile JSON — the profile is read on
+// every friends/feed request and must stay tiny. The photo rides to friends
+// through a mutuality-gated proxy route.
+
+const cardBgPath = (uid: string) => `cardbg/${uid}.jpg`;
+
+export async function saveCardBgImage(uid: string, bytes: Buffer): Promise<void> {
+  await put(cardBgPath(uid), bytes, {
+    access: "public",
+    contentType: "image/jpeg",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+  });
+}
+
+export async function deleteCardBgImage(uid: string): Promise<void> {
+  const pathname = cardBgPath(uid);
+  const page = await list({ prefix: pathname, limit: 1 });
+  const hit = page.blobs.find((b) => b.pathname === pathname);
+  if (hit) await del(hit.url);
+}
+
+export async function readCardBgImage(uid: string): Promise<ArrayBuffer | null> {
+  const pathname = cardBgPath(uid);
+  const page = await list({ prefix: pathname, limit: 1 });
+  const hit = page.blobs.find((b) => b.pathname === pathname);
+  if (!hit) return null;
+  const res = await fetch(hit.url, { cache: "no-store" });
+  return res.ok ? res.arrayBuffer() : null;
+}
+
 /** Replace this user's friends list (deduped, capped, self excluded). */
 export async function setFriends(uid: string, friends: string[]): Promise<boolean> {
   if (!blobConfigured()) return false;

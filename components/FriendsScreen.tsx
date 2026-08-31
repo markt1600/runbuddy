@@ -57,6 +57,10 @@ function FeedCard({ run, onOpen }: { run: FeedRun; onOpen: () => void }) {
       .then((data: { stats: RunStats } | null) => {
         if (cancelled || !data?.stats) return;
         const persona = PERSONAS[run.personaId as PersonaId] ?? PERSONAS.ahbeng;
+        // The friend's own card background, when they've set one — proxied
+        // same-origin (mutuality-gated) so the canvas isn't tainted. Drawn
+        // without it first so the card is never blank waiting on the photo.
+        let bgImg: HTMLImageElement | null = null;
         const draw = () => {
           const canvas = canvasRef.current;
           if (!canvas || cancelled) return;
@@ -67,11 +71,17 @@ function FeedCard({ run, onOpen }: { run: FeedRun; onOpen: () => void }) {
             comment: persona.positive
               ? "Every step of that was theirs. Respect!"
               : "Not bad lah. Your turn.",
-            background: null,
+            background: bgImg,
             date: new Date(run.startedAt),
           });
           setCardUrl(canvas.toDataURL("image/png"));
         };
+        const bg = new Image();
+        bg.onload = () => {
+          bgImg = bg;
+          draw();
+        };
+        bg.src = `/api/friends/card-bg/${run.friendUid}`;
         draw();
         if (typeof document !== "undefined" && document.fonts?.status !== "loaded") {
           void document.fonts.ready.then(draw).catch(() => {});

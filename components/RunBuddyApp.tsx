@@ -383,6 +383,7 @@ export default function RunBuddyApp() {
           commentsUrlFor={(id) =>
             `/api/friends/runs/${openFriendRun.friendUid}/${encodeURIComponent(id)}/comments`
           }
+          cardBgSrc={`/api/friends/card-bg/${openFriendRun.friendUid}`}
         />
       )}
       {screen === "setup" && (

@@ -27,6 +27,10 @@ interface Props {
   /** Friends comments: given the run's CURRENT id, the comments endpoint.
    *  Omitted (admin view, guests) = no comments section. */
   commentsUrlFor?: (id: string) => string;
+  /** Card background source: undefined = the viewer's own device-local photo
+   *  (owner view), null = none (admin view), a URL = that image (a friend's
+   *  published background, via the gated proxy). */
+  cardBgSrc?: string | null;
 }
 
 /** Split bars, one per kilometre. Longer bar = faster split (the way a runner
@@ -64,6 +68,7 @@ export default function RunDetailScreen({
   apiBase = "/api/runs",
   readOnly = false,
   commentsUrlFor,
+  cardBgSrc,
 }: Props) {
   const [comments, setComments] = useState<
     { uid: string; name: string; text: string; at: number }[] | null
@@ -227,7 +232,9 @@ export default function RunDetailScreen({
       });
       setCardUrl(canvas.toDataURL("image/png"));
     };
-    const bgUrl = loadCardBg();
+    // Whose background: the owner's device-local photo by default, a friend's
+    // published one when a URL is passed, none when explicitly null (admin).
+    const bgUrl = cardBgSrc === undefined ? loadCardBg() : cardBgSrc;
     if (bgUrl) {
       const img = new Image();
       img.onload = () => {
