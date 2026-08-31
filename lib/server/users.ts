@@ -32,6 +32,12 @@ export interface UserProfile {
   homeCity?: string;
   /** Providers linked ONTO this canonical account (e.g. ["apple"]). */
   linked?: string[];
+  /**
+   * uid hashes this user has added as friends. Friendship is only ACTIVE
+   * when mutual — both lists contain each other — so nobody's runs (with
+   * their GPS routes) are visible to someone they never added back.
+   */
+  friends?: string[];
   /** Spotify OAuth tokens, AES-sealed (lib/server/spotify.ts) — never plaintext. */
   spotify?: string;
 }
@@ -99,6 +105,18 @@ export async function recordUserLogin(user: SessionUser): Promise<void> {
 export async function getProfile(uid: string): Promise<UserProfile | null> {
   if (!blobConfigured()) return null;
   return readProfile(uid);
+}
+
+/** Replace this user's friends list (deduped, capped, self excluded). */
+export async function setFriends(uid: string, friends: string[]): Promise<boolean> {
+  if (!blobConfigured()) return false;
+  const existing = await readProfile(uid);
+  if (!existing) return false;
+  const clean = [...new Set(friends)]
+    .filter((f) => UID_RE.test(f) && f !== uid)
+    .slice(0, 200);
+  await writeProfile({ ...existing, friends: clean });
+  return true;
 }
 
 /**

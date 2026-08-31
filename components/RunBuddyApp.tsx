@@ -8,6 +8,7 @@ import HomeScreen, { type AuthUser, type RunSummary } from "./HomeScreen";
 import RunDetailScreen from "./RunDetailScreen";
 import AccountScreen from "./AccountScreen";
 import TabBar from "./TabBar";
+import FriendsScreen, { type FeedRun } from "./FriendsScreen";
 import RunScreen from "./RunScreen";
 import SummaryScreen from "./SummaryScreen";
 import AdminScreen from "./AdminScreen";
@@ -42,6 +43,8 @@ type Screen =
   | "boot"
   | "landing"
   | "home"
+  | "friends"
+  | "friendRun"
   | "setup"
   | "account"
   | "run"
@@ -67,6 +70,7 @@ export default function RunBuddyApp() {
     isAdmin: true, // ungated until the server says otherwise
   });
   const [openRun, setOpenRun] = useState<RunSummary | null>(null);
+  const [openFriendRun, setOpenFriendRun] = useState<FeedRun | null>(null);
   const [runnerStats, setRunnerStats] = useState<Omit<RunnerInfo, "name"> | null>(null);
   const [runHistory, setRunHistory] = useState<RunHistoryDigest | null>(null);
   const [personalRecords, setPersonalRecords] = useState<
@@ -358,6 +362,27 @@ export default function RunBuddyApp() {
             setOpenRun(null);
             setScreen("home");
           }}
+          commentsUrlFor={(id) => `/api/runs/${encodeURIComponent(id)}/comments`}
+        />
+      )}
+      {screen === "friends" && auth.user && (
+        <FriendsScreen
+          onOpenRun={(run) => {
+            setOpenFriendRun(run);
+            setScreen("friendRun");
+          }}
+        />
+      )}
+      {screen === "friendRun" && openFriendRun && (
+        <RunDetailScreen
+          run={openFriendRun}
+          readOnly
+          apiBase={`/api/friends/runs/${openFriendRun.friendUid}`}
+          onBack={() => setScreen("friends")}
+          onDeleted={() => setScreen("friends")}
+          commentsUrlFor={(id) =>
+            `/api/friends/runs/${openFriendRun.friendUid}/${encodeURIComponent(id)}/comments`
+          }
         />
       )}
       {screen === "setup" && (
@@ -454,14 +479,18 @@ export default function RunBuddyApp() {
               ? "setup"
               : screen === "account"
                 ? "account"
-                : screen === "home" || screen === "runDetail"
-                  ? "home"
-                  : undefined
+                : screen === "friends" || screen === "friendRun"
+                  ? "friends"
+                  : screen === "home" || screen === "runDetail"
+                    ? "home"
+                    : undefined
           }
           showHome={auth.configured || !!auth.user}
+          showFriends={!!auth.user}
           showAdmin={auth.isAdmin !== false}
           runLabel={screen === "setup" ? "START RUN" : "GET READY"}
           onHome={() => setScreen(auth.user ? "home" : "landing")}
+          onFriends={() => setScreen("friends")}
           onRun={() => setScreen(screen === "setup" ? "run" : "setup")}
           onAccount={() => setScreen("account")}
           onAdmin={() => setScreen("admin")}

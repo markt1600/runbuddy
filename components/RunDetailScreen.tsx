@@ -24,6 +24,9 @@ interface Props {
    * against another runner's window.
    */
   readOnly?: boolean;
+  /** Friends comments: given the run's CURRENT id, the comments endpoint.
+   *  Omitted (admin view, guests) = no comments section. */
+  commentsUrlFor?: (id: string) => string;
 }
 
 /** Split bars, one per kilometre. Longer bar = faster split (the way a runner
@@ -60,7 +63,13 @@ export default function RunDetailScreen({
   onDeleted,
   apiBase = "/api/runs",
   readOnly = false,
+  commentsUrlFor,
 }: Props) {
+  const [comments, setComments] = useState<
+    { uid: string; name: string; text: string; at: number }[] | null
+  >(null);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [posting, setPosting] = useState(false);
   const [stats, setStats] = useState<RunStats | null>(null);
   const [payload, setPayload] = useState<unknown>(null);
   const [failed, setFailed] = useState(false);
@@ -88,6 +97,47 @@ export default function RunDetailScreen({
       return true;
     } catch {
       return false;
+    }
+  };
+
+  // Friends' comments on this run — loaded once; posting refreshes the list.
+  useEffect(() => {
+    if (!commentsUrlFor) return;
+    let cancelled = false;
+    void fetch(commentsUrlFor(runId))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { comments: typeof comments } | null) => {
+        if (!cancelled) setComments(data?.comments ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setComments([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runId]);
+
+  const postComment = async () => {
+    if (!commentsUrlFor) return;
+    const text = commentDraft.trim();
+    if (!text || posting) return;
+    setPosting(true);
+    try {
+      const res = await fetch(commentsUrlFor(runId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (res.ok) {
+        const data: { comments: typeof comments } = await res.json();
+        setComments(data.comments ?? []);
+        setCommentDraft("");
+      }
+    } catch {
+      /* offline — draft stays */
+    } finally {
+      setPosting(false);
     }
   };
 
@@ -323,6 +373,45 @@ export default function RunDetailScreen({
           confirmed={stats?.confirmed ?? null}
           onConfirm={treadmill ? undefined : conformDistance}
         />
+      )}
+
+      {commentsUrlFor && comments !== null && (
+        <>
+          <div className="section-header">
+            Comments{comments.length > 0 && <span className="cat-count">{comments.length}</span>}
+          </div>
+          <div className="card" style={{ padding: "10px 14px" }}>
+            {comments.length === 0 && (
+              <div className="feed-comment" style={{ opacity: 0.6 }}>
+                No comments yet.
+              </div>
+            )}
+            {comments.map((c, i) => (
+              <div className="feed-comment" key={`${c.at}-${i}`}>
+                <span className="feed-comment-name">{c.name}</span> {c.text}
+              </div>
+            ))}
+            <div className="feed-comment-row">
+              <input
+                className="feed-comment-input"
+                placeholder="Say something…"
+                value={commentDraft}
+                maxLength={400}
+                onChange={(e) => setCommentDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void postComment();
+                }}
+              />
+              <button
+                className="feed-comment-send"
+                disabled={posting || commentDraft.trim() === ""}
+                onClick={() => void postComment()}
+              >
+                ➤
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {payload !== null && (
