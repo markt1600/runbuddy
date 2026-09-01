@@ -25,6 +25,9 @@ export interface StudioSession {
   /** Hard completion deadline (ms epoch, end of a Singapore day) — also in
    *  the licence, and shown on every actor visit. */
   deadlineAt?: number;
+  /** Pipeline dry-run: a tiny built-in item list, and promotion disabled so
+   *  no real persona's library can be touched. */
+  test?: boolean;
   license?: {
     typedName: string;
     email: string;
@@ -67,7 +70,8 @@ export async function createStudioSession(
   label: string,
   persona: PersonaId,
   feeSgd = 0,
-  deadlineAt = 0
+  deadlineAt = 0,
+  test = false
 ): Promise<StudioSession> {
   const session: StudioSession = {
     id: randomBytes(12).toString("hex"),
@@ -75,6 +79,7 @@ export async function createStudioSession(
     persona,
     feeSgd: Math.max(0, Math.min(100_000, feeSgd)),
     deadlineAt: deadlineAt > 0 ? deadlineAt : undefined,
+    test: test || undefined,
     createdAt: Date.now(),
   };
   await writeSession(session);

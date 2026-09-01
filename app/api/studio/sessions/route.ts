@@ -4,7 +4,7 @@ import { checkPinHeader } from "@/lib/server/adminAuth";
 import { blobConfigured } from "@/lib/server/library";
 import { createStudioSession, listSessions, listTakes } from "@/lib/server/studio";
 import { readExtras } from "@/lib/server/library";
-import { readsFor } from "@/lib/studioReads";
+import { readsFor, TEST_PHRASES, TEST_READS } from "@/lib/studioReads";
 import { PHRASE_LIBRARY } from "@/lib/phrases";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/types";
@@ -33,8 +33,9 @@ export async function GET(req: NextRequest) {
       return {
         ...s,
         takeCount: takes.length,
-        itemTotal:
-          PHRASE_LIBRARY[s.persona].length + extras.length + readsFor(s.persona).length,
+        itemTotal: s.test
+          ? TEST_PHRASES.length + TEST_READS.length
+          : PHRASE_LIBRARY[s.persona].length + extras.length + readsFor(s.persona).length,
       };
     })
   );
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
     persona?: string;
     feeSgd?: number;
     deadlineAt?: number;
+    test?: boolean;
   } | null;
   const persona = body?.persona as PersonaId;
   const label = (body?.label ?? "").trim();
@@ -63,6 +65,12 @@ export async function POST(req: NextRequest) {
   if (!isFinite(deadlineAt) || deadlineAt <= Date.now()) {
     return NextResponse.json({ error: "need a future deadline" }, { status: 400 });
   }
-  const session = await createStudioSession(label, persona, feeSgd, deadlineAt);
+  const session = await createStudioSession(
+    label,
+    persona,
+    feeSgd,
+    deadlineAt,
+    body?.test === true
+  );
   return NextResponse.json({ session });
 }

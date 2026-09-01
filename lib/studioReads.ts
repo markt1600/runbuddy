@@ -53,3 +53,24 @@ const GENERIC_READS: StudioRead[] = [
 export function readsFor(persona: PersonaId): StudioRead[] {
   return persona === "ahbeng" ? AHBENG_READS : GENERIC_READS;
 }
+
+// ---- test sessions: a <5 minute dry run of the whole pipeline ----
+
+export const TEST_PHRASES: { id: string; text: string }[] = [
+  { id: "test-1", text: "Welcome to the test session — this is phrase number one." },
+  { id: "test-2", text: "The quick brown fox jumps over the lazy dog." },
+  { id: "test-3", text: "Three kilometres down, and the weather is looking great today." },
+  { id: "test-4", text: "Pick up the pace — you have far more in the tank than you think!" },
+  { id: "test-5", text: "Halfway there. Breathe easy, relax the shoulders, and cruise." },
+  { id: "test-6", text: "That was your fastest split of the morning. Outstanding work." },
+  { id: "test-7", text: "Water break at the next corner, then we go again." },
+  { id: "test-8", text: "One hundred metres to go — empty everything you have left!" },
+  { id: "test-9", text: "And that's the finish line. What a run that was." },
+  { id: "test-10", text: "Session complete. Same time tomorrow — rest well tonight." },
+];
+
+export const TEST_READS: StudioRead[] = [
+  { id: "read-1", title: "Test paragraph one", text: "This is the first test paragraph, read at a natural, relaxed pace. The purpose of this recording is to check the full pipeline from the browser to storage and onward to the voice platform. Numbers help too: one, two, three, four, five, sixty-seven, and nineteen ninety-nine. A question sounds different from a statement, doesn't it? And an exclamation carries real energy! That should be plenty for this one." },
+  { id: "read-2", title: "Test paragraph two", text: "Here is a second, slightly different passage. Morning runs along the water are quieter than evening ones; the air is cooler, the paths are emptier, and the city hasn't started shouting yet. Speak this one with a little more warmth and energy than the first, as if encouraging a friend through the final kilometre of a long, hard run they almost skipped." },
+  { id: "read-3", title: "Test paragraph three", text: "The third and final passage checks pace changes. Start slowly, deliberately, one word at a time. Then lift the tempo through the middle of the paragraph until it moves briskly, confidently, with momentum. And finally, ease back down for the ending — slow, calm, and settled, like a runner crossing the line and catching their breath at last." },
+];

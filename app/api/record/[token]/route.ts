@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { blobConfigured, readExtras } from "@/lib/server/library";
 import { getSession, listTakes, writeSession } from "@/lib/server/studio";
-import { readsFor } from "@/lib/studioReads";
+import { readsFor, TEST_PHRASES, TEST_READS } from "@/lib/studioReads";
 import { licenseTextFor, LICENSE_VERSION } from "@/lib/studioLicense";
 import { PHRASE_LIBRARY } from "@/lib/phrases";
 import { PERSONAS } from "@/lib/personas";
@@ -31,19 +31,29 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
     .filter((f) => (takeAt.get(f.itemId) ?? 0) < f.at)
     .map((f) => ({ itemId: f.itemId, note: f.note ?? null }));
 
-  const items = [
-    ...[...PHRASE_LIBRARY[session.persona], ...extras].map((p) => ({
-      id: p.id,
-      kind: "phrase" as const,
-      text: p.text,
-    })),
-    ...readsFor(session.persona).map((r) => ({
-      id: r.id,
-      kind: "read" as const,
-      title: r.title,
-      text: r.text,
-    })),
-  ];
+  const items = session.test
+    ? [
+        ...TEST_PHRASES.map((p) => ({ id: p.id, kind: "phrase" as const, text: p.text })),
+        ...TEST_READS.map((r) => ({
+          id: r.id,
+          kind: "read" as const,
+          title: r.title,
+          text: r.text,
+        })),
+      ]
+    : [
+        ...[...PHRASE_LIBRARY[session.persona], ...extras].map((p) => ({
+          id: p.id,
+          kind: "phrase" as const,
+          text: p.text,
+        })),
+        ...readsFor(session.persona).map((r) => ({
+          id: r.id,
+          kind: "read" as const,
+          title: r.title,
+          text: r.text,
+        })),
+      ];
 
   return NextResponse.json({
     persona: session.persona,

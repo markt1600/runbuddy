@@ -24,6 +24,12 @@ export async function POST(req: NextRequest) {
   } | null;
   const session = body?.sessionId ? await getSession(body.sessionId) : null;
   if (!session) return NextResponse.json({ error: "no session" }, { status: 404 });
+  if (session.test) {
+    return NextResponse.json(
+      { error: "test session — nothing promotes into a real library" },
+      { status: 400 }
+    );
+  }
   const items = (body?.items ?? []).slice(0, 25);
 
   const done: string[] = [];

@@ -20,6 +20,7 @@ interface SessionRow {
   itemTotal?: number;
   feeSgd?: number;
   deadlineAt?: number;
+  test?: boolean;
   license?: {
     typedName: string;
     email: string;
@@ -54,6 +55,7 @@ export default function StudioPage() {
   const [newPersona, setNewPersona] = useState<PersonaId>("ahbeng");
   const [newFee, setNewFee] = useState("");
   const [newDeadline, setNewDeadline] = useState("");
+  const [newTest, setNewTest] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
@@ -156,6 +158,7 @@ export default function StudioPage() {
           feeSgd: Number(newFee),
           // End of the chosen day, Singapore time.
           deadlineAt: Date.parse(`${newDeadline}T23:59:59+08:00`),
+          test: newTest,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "failed");
@@ -336,6 +339,14 @@ export default function StudioPage() {
               onChange={(e) => setNewDeadline(e.target.value)}
               title="Completion deadline (end of day, Singapore time)"
             />
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={newTest}
+                onChange={(e) => setNewTest(e.target.checked)}
+              />
+              🧪 Test (13 items, no promotion)
+            </label>
             <button
               onClick={() => void createSession()}
               disabled={
@@ -354,7 +365,11 @@ export default function StudioPage() {
             <tbody>
               {(sessions ?? []).map((s) => (
                 <tr key={s.id}>
-                  <td><button className="studio-link" onClick={() => void openSession(s.id)}>{s.label}</button></td>
+                  <td>
+                    <button className="studio-link" onClick={() => void openSession(s.id)}>
+                      {s.test ? "🧪 " : ""}{s.label}
+                    </button>
+                  </td>
                   <td>{s.persona}</td>
                   <td>${(s.feeSgd ?? 0).toFixed(0)}</td>
                   <td>
@@ -468,7 +483,11 @@ export default function StudioPage() {
             </p>
           )}
           <div className="studio-actions">
-            <button onClick={() => void promote()} disabled={!!busy}>
+            <button
+              onClick={() => void promote()}
+              disabled={!!busy || open.session.test}
+              title={open.session.test ? "Test sessions never touch a real library" : undefined}
+            >
               ⬆ Promote {approved.size} approved takes
             </button>
             <button onClick={() => void pvcAction("create")} disabled={!!busy || !!open.session.pvc?.voiceId}>
