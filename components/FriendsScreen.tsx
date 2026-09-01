@@ -399,6 +399,7 @@ function FeedCard({ run, onOpen }: { run: FeedRun; onOpen: () => void }) {
 
 export default function FriendsScreen({ onOpenRun, notifications, onOpenNotification }: Props) {
   const [friends, setFriends] = useState<FriendEntry[] | null>(null);
+  const [requests, setRequests] = useState<{ uid: string; name: string; city?: string }[]>([]);
   const [feed, setFeed] = useState<FeedRun[] | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ uid: string; name: string; city?: string }[]>([]);
@@ -410,7 +411,15 @@ export default function FriendsScreen({ onOpenRun, notifications, onOpenNotifica
   const refresh = useCallback(() => {
     void fetch("/api/friends")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { friends: FriendEntry[] } | null) => setFriends(data?.friends ?? []))
+      .then(
+        (data: {
+          friends: FriendEntry[];
+          requests?: { uid: string; name: string; city?: string }[];
+        } | null) => {
+          setFriends(data?.friends ?? []);
+          setRequests(data?.requests ?? []);
+        }
+      )
       .catch(() => setFriends([]));
     void fetch("/api/friends/feed")
       .then((res) => (res.ok ? res.json() : null))
@@ -451,7 +460,7 @@ export default function FriendsScreen({ onOpenRun, notifications, onOpenNotifica
     return () => clearTimeout(timer);
   }, [query]);
 
-  const add = async (uid: string, name: string) => {
+  const add = async (uid: string, name: string, confirming = false) => {
     setNote(null);
     try {
       const res = await fetch("/api/friends", {
@@ -462,7 +471,11 @@ export default function FriendsScreen({ onOpenRun, notifications, onOpenNotifica
       if (!res.ok) throw new Error();
       setQuery("");
       setResults([]);
-      setNote(`✓ Added ${name} — you'll see their runs once they add you back`);
+      setNote(
+        confirming
+          ? `✓ You and ${name} are now friends — their runs are in your feed`
+          : `✓ Added ${name} — you'll see their runs once they add you back`
+      );
       refresh();
     } catch {
       setNote("⚠ Couldn't add — try again");
@@ -498,6 +511,25 @@ export default function FriendsScreen({ onOpenRun, notifications, onOpenNotifica
                 <span className="notif-text">{n.text}</span>
                 <span className="notif-when">{ago(n.at)}</span>
               </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {requests.length > 0 && (
+        <>
+          <div className="section-header">
+            Friend requests<span className="cat-count">{requests.length}</span>
+          </div>
+          <div className="card" style={{ padding: "4px 14px" }}>
+            {requests.map((r) => (
+              <div className="friend-result" key={r.uid}>
+                <span className="friend-result-name">{r.name}</span>
+                <span className="friend-result-city">{r.city ?? ""}</span>
+                <button className="open-pill" onClick={() => void add(r.uid, r.name, true)}>
+                  ✓ Confirm
+                </button>
+              </div>
             ))}
           </div>
         </>

@@ -55,6 +55,24 @@ export async function listFriends(uid: string): Promise<FriendEntry[]> {
   return out.sort((a, b) => Number(b.mutual) - Number(a.mutual) || a.name.localeCompare(b.name));
 }
 
+/**
+ * Incoming friend requests: everyone who has added THIS user without being
+ * added back. Lives nowhere in the recipient's own profile — their request
+ * sits in the SENDER's friends list — so it takes a registry scan, which is
+ * cheap at this scale and is what makes requests visible without relying on
+ * the one-time notification toast.
+ */
+export async function listFriendRequests(
+  uid: string
+): Promise<{ uid: string; name: string; city?: string }[]> {
+  const me = await getProfile(uid);
+  const mine = new Set(me?.friends ?? []);
+  const users = await listUsers();
+  return users
+    .filter((u) => u.uid !== uid && (u.friends ?? []).includes(uid) && !mine.has(u.uid))
+    .map((u) => ({ uid: u.uid, name: u.name, city: u.homeCity }));
+}
+
 export async function addFriend(uid: string, friendUid: string): Promise<boolean> {
   if (!UID_RE.test(friendUid) || friendUid === uid) return false;
   const [me, them] = await Promise.all([getProfile(uid), getProfile(friendUid)]);
