@@ -145,6 +145,31 @@ async function findPhrase(persona: PersonaId, phraseId: string): Promise<Phrase 
 }
 
 /**
+ * Studio promotion: a professional actor's recorded take (already encoded to
+ * MP3 client-side) replaces the generated audio for one phrase. Rides the
+ * exact same pathname and marker mechanics as a render, so the ?v= cache
+ * versioning and the admin's staleness indicators keep working untouched.
+ */
+export async function promoteAudio(
+  persona: PersonaId,
+  phraseId: string,
+  mp3: Buffer
+): Promise<string> {
+  const phrase = await findPhrase(persona, phraseId);
+  if (!phrase) throw new Error(`unknown phrase ${persona}/${phraseId}`);
+  const pathname = `${PREFIX}/${persona}/${phraseId}.mp3`;
+  const blob = await put(pathname, mp3, {
+    access: "public",
+    contentType: "audio/mpeg",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 31536000,
+  });
+  await recordRenderHash(persona, phraseId, phraseHash(phrase.text));
+  return blob.url;
+}
+
+/**
  * Render one library phrase into Blob. Idempotent unless `force`, which
  * re-renders and overwrites — used after a persona's voice ID changes.
  */

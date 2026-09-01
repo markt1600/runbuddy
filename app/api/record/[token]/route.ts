@@ -1,0 +1,100 @@
+import { NextRequest, NextResponse } from "next/server";
+import { blobConfigured, readExtras } from "@/lib/server/library";
+import { getSession, listTakes, writeSession } from "@/lib/server/studio";
+import { readsFor } from "@/lib/studioReads";
+import { LICENSE_TEXT, LICENSE_VERSION } from "@/lib/studioLicense";
+import { PHRASE_LIBRARY } from "@/lib/phrases";
+import { PERSONAS } from "@/lib/personas";
+
+// The actor's session, seen through their token. The token IS the auth —
+// unguessable, single-purpose, and everything it can touch is namespaced
+// under its own session.
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+export async function GET(req: NextRequest, ctx: { params: Promise<{ token: string }> }) {
+  if (!blobConfigured()) return NextResponse.json({ error: "no blob store" }, { status: 503 });
+  const { token } = await ctx.params;
+  const session = await getSession(token);
+  if (!session) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+  const [takes, extras] = await Promise.all([
+    listTakes(token),
+    readExtras(session.persona),
+  ]);
+  const recorded = new Set(takes.map((t) => t.itemId));
+  const takeUrls = Object.fromEntries(takes.map((t) => [t.itemId, t.url]));
+  const takeAt = new Map(takes.map((t) => [t.itemId, new Date(t.at).getTime()]));
+  // A flag is open until a take LANDS after it — re-recording clears it.
+  const openFlags = (session.flags ?? [])
+    .filter((f) => (takeAt.get(f.itemId) ?? 0) < f.at)
+    .map((f) => ({ itemId: f.itemId, note: f.note ?? null }));
+
+  const items = [
+    ...[...PHRASE_LIBRARY[session.persona], ...extras].map((p) => ({
+      id: p.id,
+      kind: "phrase" as const,
+      text: p.text,
+    })),
+    ...readsFor(session.persona).map((r) => ({
+      id: r.id,
+      kind: "read" as const,
+      title: r.title,
+      text: r.text,
+    })),
+  ];
+
+  return NextResponse.json({
+    persona: session.persona,
+    personaName: PERSONAS[session.persona].name,
+    label: session.label,
+    licensed: !!session.license,
+    licenseText: LICENSE_TEXT,
+    licenseVersion: LICENSE_VERSION,
+    items,
+    recorded: [...recorded],
+    takeUrls,
+    openFlags,
+    pvcState: session.pvc?.state ?? "none",
+    pvcAttempts: session.pvc?.attempts ?? 0,
+  });
+}
+
+/** Sign the license: typed full name + the exact text version they saw. */
+export async function POST(req: NextRequest, ctx: { params: Promise<{ token: string }> }) {
+  if (!blobConfigured()) return NextResponse.json({ error: "no blob store" }, { status: 503 });
+  const { token } = await ctx.params;
+  const session = await getSession(token);
+  if (!session) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const body = (await req.json().catch(() => null)) as {
+    typedName?: string;
+    email?: string;
+    paynowId?: string;
+  } | null;
+  const typedName = (body?.typedName ?? "").trim();
+  const email = (body?.email ?? "").trim();
+  const paynowId = (body?.paynowId ?? "").trim();
+  if (typedName.length < 3 || typedName.length > 120) {
+    return NextResponse.json({ error: "type your full legal name" }, { status: 400 });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
+    return NextResponse.json({ error: "valid email required" }, { status: 400 });
+  }
+  if (paynowId.length < 4 || paynowId.length > 60) {
+    return NextResponse.json({ error: "PayNow ID required" }, { status: 400 });
+  }
+  if (!session.license) {
+    session.license = {
+      typedName,
+      email,
+      paynowId,
+      at: Date.now(),
+      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
+      ua: req.headers.get("user-agent") ?? undefined,
+      version: LICENSE_VERSION,
+    };
+    await writeSession(session);
+  }
+  return NextResponse.json({ ok: true });
+}
