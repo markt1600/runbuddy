@@ -118,12 +118,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     }
     session.submittedAt = Date.now();
     await writeSession(session);
-    // Submission is also the clone trigger: build the Instant Voice Clone
-    // from the long-read takes right now, so the admin opens the studio to a
-    // voice that already exists. A clone failure never fails the submission —
-    // the studio shows the error and has a retry button.
+    // First submission is also the clone trigger: build the Instant Voice
+    // Clone from the long-read takes right now, so the admin opens the studio
+    // to a voice that already exists. Re-submits (after flag redos) do NOT
+    // auto-rebuild — the existing voice_id may already be live in an env var,
+    // and rebuilding replaces it; the admin's ⚡ button is the deliberate path.
+    // A clone failure never fails the submission — the studio shows the error.
     let clone: "ready" | "failed" | "skipped" = "skipped";
-    if (elevenLabsConfigured()) {
+    if (elevenLabsConfigured() && !session.pvc?.voiceId) {
       try {
         await instantCloneFromSession(session);
         clone = "ready";

@@ -102,6 +102,12 @@ export async function writeSession(s: StudioSession): Promise<void> {
   });
 }
 
+// Overwritten blobs can serve the PREVIOUS content from the edge for a short
+// window even with cacheControlMaxAge 0 — a fresh query string forces a cache
+// miss so reads-after-writes (flag, then reload) see the newest session.
+const bust = (url: string) =>
+  `${url}${url.includes("?") ? "&" : "?"}nocache=${Date.now()}`;
+
 export async function getSession(id: string): Promise<StudioSession | null> {
   if (!SESSION_TOKEN_RE.test(id)) return null;
   const pathname = sessionPath(id);
@@ -109,7 +115,7 @@ export async function getSession(id: string): Promise<StudioSession | null> {
   const hit = page.blobs.find((b) => b.pathname === pathname);
   if (!hit) return null;
   try {
-    const res = await fetch(hit.url, { cache: "no-store" });
+    const res = await fetch(bust(hit.url), { cache: "no-store" });
     return res.ok ? ((await res.json()) as StudioSession) : null;
   } catch {
     return null;
@@ -127,7 +133,7 @@ export async function listSessions(): Promise<StudioSession[]> {
   const bodies = await Promise.all(
     urls.map(async (url) => {
       try {
-        const res = await fetch(url, { cache: "no-store" });
+        const res = await fetch(bust(url), { cache: "no-store" });
         return res.ok ? ((await res.json()) as StudioSession) : null;
       } catch {
         return null;

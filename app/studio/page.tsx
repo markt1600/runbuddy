@@ -8,8 +8,9 @@ import type { PersonaId } from "@/lib/types";
 // The voice studio — a desktop admin console kept OUT of the app: create
 // actor sessions, review takes against the current library audio, flag items
 // for re-record, promote approved takes into the live library, and drive the
-// ElevenLabs professional clone (upload, verification, training). Same
-// Google-account gate as the app admin plus the same PIN.
+// ElevenLabs instant clone (built automatically at submission, rebuildable
+// and ear-checkable here). Same Google-account gate as the app admin plus
+// the same PIN.
 
 interface SessionRow {
   id: string;
@@ -60,7 +61,6 @@ export default function StudioPage() {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
-  const [pvcStatus, setPvcStatus] = useState<string | null>(null);
 
   const headers = useCallback(
     (): Record<string, string> => ({
@@ -176,7 +176,6 @@ export default function StudioPage() {
     setNote(null);
     setOpen(null);
     setApproved(new Set());
-    setPvcStatus(null);
     try {
       const res = await fetch(`/api/studio/sessions/${id}`, { headers: headers() });
       if (!res.ok) throw new Error("load failed");
@@ -189,14 +188,26 @@ export default function StudioPage() {
   };
 
   const flag = async (itemId: string, on: boolean) => {
-    if (!open) return;
+    // Serialized, and the UI updates from the POST's own response — a fresh
+    // GET straight after a write can race the blob store's edge cache and
+    // show the flag as never having happened.
+    if (!open || busy) return;
     const noteText = on ? prompt("Note for the actor (optional):") ?? "" : "";
-    await fetch(`/api/studio/sessions/${open.session.id}`, {
-      method: "POST",
-      headers: headers(),
-      body: JSON.stringify({ action: on ? "flag" : "unflag", itemId, note: noteText }),
-    }).catch(() => {});
-    void openSession(open.session.id);
+    setBusy("flag");
+    try {
+      const res = await fetch(`/api/studio/sessions/${open.session.id}`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({ action: on ? "flag" : "unflag", itemId, note: noteText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "flag failed");
+      setOpen((o) => (o ? { ...o, session: data.session as SessionRow } : o));
+    } catch (err) {
+      setNote(`⚠ ${err instanceof Error ? err.message : "flag failed"}`);
+    } finally {
+      setBusy(null);
+    }
   };
 
   const promote = async () => {
@@ -256,9 +267,7 @@ export default function StudioPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "failed");
-      if (action === "status") {
-        setPvcStatus(JSON.stringify(data.status, null, 1).slice(0, 2000));
-      } else if (action === "test-voice") {
+      if (action === "test-voice") {
         // Ear check: play the rendered line right here and show what it said.
         setNote(`▶ Test line: “${data.text}”`);
         void new Audio(`data:audio/mpeg;base64,${data.audioBase64}`).play();
@@ -267,46 +276,6 @@ export default function StudioPage() {
       }
     } catch (err) {
       setNote(`⚠ ${err instanceof Error ? err.message : "pvc failed"}`);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const pvcUpload = async () => {
-    if (!open) return;
-    const targets = open.items.filter((i) => i.takeUrl);
-    setBusy(`Uploading clone samples 0/${targets.length}…`);
-    let doneCount = 0;
-    try {
-      let batch: { name: string; mp3Base64: string }[] = [];
-      let bytes = 0;
-      const flush = async () => {
-        if (batch.length === 0) return;
-        const res = await fetch("/api/studio/pvc/upload", {
-          method: "POST",
-          headers: headers(),
-          body: JSON.stringify({ sessionId: open.session.id, files: batch }),
-        });
-        if (!res.ok) throw new Error((await res.json()).error ?? "upload failed");
-        doneCount += batch.length;
-        batch = [];
-        bytes = 0;
-        setBusy(`Uploading clone samples ${doneCount}/${targets.length}…`);
-      };
-      for (const item of targets) {
-        const buf = await (await fetch(item.takeUrl!)).arrayBuffer();
-        const { samples, sampleRate } = await decodeToMono(buf);
-        const mp3 = encodeMp3(samples, sampleRate, 192);
-        const b64 = bytesToBase64(mp3);
-        if (bytes + b64.length > 2_800_000) await flush();
-        batch.push({ name: `${item.id}.mp3`, mp3Base64: b64 });
-        bytes += b64.length;
-      }
-      await flush();
-      await pvcAction("mark-uploaded");
-      setNote(`✓ Uploaded ${doneCount} samples to the clone`);
-    } catch (err) {
-      setNote(`⚠ ${err instanceof Error ? err.message : "upload failed"}`);
     } finally {
       setBusy(null);
     }
@@ -496,6 +465,26 @@ export default function StudioPage() {
               {open.session.license.paynowId} · SGD $
               {(open.session.license.feeSgd ?? 0).toFixed(2)} ·{" "}
               {new Date(open.session.license.at).toLocaleString()} ({open.session.license.version})
+              {" · "}
+              <a
+                className="studio-link"
+                href={(() => {
+                  const lic = open.session.license;
+                  const flaggedCount = (open.session.flags ?? []).length;
+                  const link = `${location.origin}/record/${open.session.id}`;
+                  const subject =
+                    flaggedCount > 0
+                      ? "Your voice session — a few takes need another pass"
+                      : "Your voice session";
+                  const body =
+                    flaggedCount > 0
+                      ? `Hi ${lic.typedName},\n\nThanks for your recordings! A few items need another take — open your recording link and they'll be marked 🔁 with a note on each:\n\n${link}\n\nOnce you've re-recorded them, press "Review all takes & submit" again.\n\nThanks!`
+                      : `Hi ${lic.typedName},\n\nHere's your recording link:\n\n${link}\n\nThanks!`;
+                  return `mailto:${lic.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                })()}
+              >
+                ✉ Email actor
+              </a>
             </p>
           )}
           <div className="studio-actions">
@@ -514,24 +503,6 @@ export default function StudioPage() {
               disabled={!!busy || !open.session.pvc?.voiceId}
             >
               ▶ Test voice
-            </button>
-            <button onClick={() => void pvcAction("create")} disabled={!!busy || !!open.session.pvc?.voiceId}>
-              Create PVC voice
-            </button>
-            <button onClick={() => void pvcUpload()} disabled={!!busy || !open.session.pvc?.voiceId}>
-              Upload PVC samples
-            </button>
-            <button onClick={() => void pvcAction("open-verify")} disabled={!!busy || !open.session.pvc?.voiceId}>
-              Open actor verification
-            </button>
-            <button onClick={() => void pvcAction("train")} disabled={!!busy || !open.session.pvc?.voiceId}>
-              Start training
-            </button>
-            <button onClick={() => void pvcAction("status")} disabled={!!busy || !open.session.pvc?.voiceId}>
-              Clone status
-            </button>
-            <button onClick={() => void pvcAction("manual-verify")} disabled={!!busy || !open.session.pvc?.voiceId}>
-              Request manual verification
             </button>
           </div>
           {open.session.pvc && (
@@ -553,15 +524,13 @@ export default function StudioPage() {
           )}
           {open.session.pvc?.voiceId && (
             <p className="studio-license">
-              To make this voice live (instant clones are usable immediately; PVC after
-              training finishes): set{" "}
+              To make this voice live: set{" "}
               <code>ELEVENLABS_VOICE_{open.session.persona.toUpperCase()}</code> ={" "}
               <code>{open.session.pvc.voiceId}</code> in the Vercel environment, redeploy,
               then Re-render the persona in Admin — live phrases use it immediately, the
               pre-rendered pack after the re-render.
             </p>
           )}
-          {pvcStatus && <pre className="studio-status">{pvcStatus}</pre>}
           <table className="studio-table">
             <thead>
               <tr><th>✓</th><th>Item</th><th>Actor take</th><th>Current library</th><th>Flag</th></tr>
