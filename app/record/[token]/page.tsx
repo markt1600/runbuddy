@@ -25,6 +25,7 @@ interface SessionView {
   openFlags: { itemId: string; note: string | null }[];
   pvcState: string;
   pvcAttempts: number;
+  submittedAt: number;
 }
 
 const MAX_SECONDS = 120;
@@ -102,6 +103,12 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
   const [calVerdict, setCalVerdict] = useState<string | null>(null);
   const [calPass, setCalPass] = useState(false);
   const [calPreview, setCalPreview] = useState<string | null>(null);
+
+  // finish & submit: a final listen-through of every take, then the hand-in
+  const [reviewStage, setReviewStage] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitNote, setSubmitNote] = useState<string | null>(null);
+  const [boothReopened, setBoothReopened] = useState(false);
 
   // captcha stage
   const [capState, setCapState] = useState<"idle" | "recording" | "review" | "done">("idle");
@@ -503,6 +510,121 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
   const done = new Set(view.recorded);
   const flags = new Map(view.openFlags.map((f) => [f.itemId, f.note]));
   const doneCount = view.items.filter((it) => done.has(it.id) && !flags.has(it.id)).length;
+  const allComplete = doneCount === view.items.length;
+
+  const submit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitNote(null);
+    try {
+      const res = await fetch(`/api/record/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "submit" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "failed");
+      setView((v) => (v ? { ...v, submittedAt: data.submittedAt as number } : v));
+      setReviewStage(false);
+      setBoothReopened(false);
+    } catch (err) {
+      setSubmitNote(`⚠ ${err instanceof Error ? err.message : "Couldn't submit — try again"}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Everything recorded and handed in: the actor's finish line. New flags from
+  // review make allComplete false again, which drops them straight back into
+  // the booth on the flagged item.
+  if (allComplete && view.submittedAt > 0 && !boothReopened) {
+    return (
+      <div className="booth">
+        <h1>Submitted 🎉</h1>
+        <p className="booth-sub">
+          All {view.items.length} recordings are in — submitted on{" "}
+          <strong>{fmtDeadline(view.submittedAt)}</strong>.
+        </p>
+        <div className="booth-note">
+          Your work will be reviewed within <strong>2 business days</strong>. If any takes need
+          re-recording, we&apos;ll email you and they&apos;ll appear here marked 🔁 when you
+          reopen this link. If everything checks out, you&apos;ll receive your payment of{" "}
+          <strong>SGD ${view.feeSgd.toFixed(2)}</strong> to your PayNow ID. Thank you!
+        </div>
+        <div className="booth-tips">
+          Want to listen back or redo a take before review starts?{" "}
+          <button
+            className="booth-mic-change"
+            onClick={() => {
+              setBoothReopened(true);
+              setReviewStage(true);
+            }}
+          >
+            Review your takes
+          </button>{" "}
+          — just remember to submit again afterwards so we review your newest takes.
+        </div>
+      </div>
+    );
+  }
+
+  // ---- final listen-through before the hand-in ----
+  if (reviewStage && allComplete) {
+    return (
+      <div className="booth">
+        <h1>Review your takes</h1>
+        <p className="booth-sub">
+          One last pass: every recording is listed below. Listen to anything you want to
+          double-check, re-record what bothers you, then submit at the bottom.
+        </p>
+        <div className="booth-takes">
+          {view.items.map((it, i) => (
+            <div key={it.id} className="booth-take-row">
+              <div className="booth-take-info">
+                <span className="booth-take-num">{i + 1}</span>
+                <span className="booth-take-text">
+                  {it.kind === "read" ? `📖 ${it.title}` : it.text}
+                </span>
+              </div>
+              {view.takeUrls[it.id] && (
+                /* eslint-disable-next-line jsx-a11y/media-has-caption */
+                <audio controls preload="none" src={view.takeUrls[it.id]} />
+              )}
+              <button
+                className="booth-mic-change"
+                onClick={() => {
+                  setIdx(i);
+                  setReviewStage(false);
+                  setRecState("idle");
+                  setWarn(null);
+                }}
+              >
+                ● Re-record this one
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="booth-note booth-submit">
+          {view.submittedAt > 0
+            ? "Submitting again replaces your previous submission — we always review your newest takes."
+            : "Submitting hands everything in and starts the 2-business-day review."}
+          <button className="booth-primary" disabled={submitting} onClick={() => void submit()}>
+            {submitting
+              ? "Submitting…"
+              : view.submittedAt > 0
+                ? "✓ Re-submit for review"
+                : "✓ Submit all recordings for review"}
+          </button>
+          {submitNote && <div className="booth-warn">{submitNote}</div>}
+        </div>
+        <div className="booth-tips">
+          <button className="booth-mic-change" onClick={() => setReviewStage(false)}>
+            ‹ Back to the booth
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const startTake = async () => {
     setWarn(null);
@@ -550,12 +672,15 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
         body: take.wav,
       });
       if (!res.ok) throw new Error();
-      // local bookkeeping instead of a full reload — keeps the flow fast
+      // local bookkeeping instead of a full reload — keeps the flow fast. The
+      // object URL keeps the review listing playing THIS take, not a stale fetch.
+      const localUrl = URL.createObjectURL(take.wav);
       setView((v) =>
         v
           ? {
               ...v,
               recorded: [...new Set([...v.recorded, item.id])],
+              takeUrls: { ...v.takeUrls, [item.id]: localUrl },
               openFlags: v.openFlags.filter((f) => f.itemId !== item.id),
             }
           : v
@@ -583,6 +708,15 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
         <div className="booth-flags">
           🔁 {view.openFlags.length} item{view.openFlags.length === 1 ? "" : "s"} sent back for
           another take — they&apos;re marked below.
+        </div>
+      )}
+      {allComplete && (
+        <div className="booth-note booth-submit">
+          🎉 That&apos;s every item recorded. Next step: a final listen-through, then the
+          hand-in{view.submittedAt > 0 ? " (you re-opened after submitting — submit again so we review your newest takes)" : ""}.
+          <button className="booth-primary" onClick={() => setReviewStage(true)}>
+            ✓ Review all takes &amp; submit
+          </button>
         </div>
       )}
 

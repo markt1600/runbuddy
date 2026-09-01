@@ -3109,6 +3109,28 @@ input[type="range"]::-moz-range-thumb {
 }
 .booth-primary:disabled { opacity: 0.4; cursor: default; }
 
+/* Finish line: the submit block and the pre-submit listen-through listing */
+.booth-submit { display: grid; gap: 10px; justify-items: start; margin: 10px 0; }
+.booth-takes { display: grid; gap: 10px; margin: 14px 0; }
+.booth-take-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border-radius: 12px;
+}
+.booth-take-info { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; }
+.booth-take-num { color: var(--label-3); font-variant-numeric: tabular-nums; min-width: 2ch; }
+.booth-take-text {
+  color: var(--label);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.booth-take-row audio { width: 100%; height: 36px; }
+.booth-take-row .booth-mic-change { justify-self: start; }
+
 .booth-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 13px; color: var(--label-2); }
 .booth-top progress { flex: 1; accent-color: var(--accent); }
 

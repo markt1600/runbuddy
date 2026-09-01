@@ -81,20 +81,44 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
     openFlags,
     pvcState: session.pvc?.state ?? "none",
     pvcAttempts: session.pvc?.attempts ?? 0,
+    submittedAt: session.submittedAt ?? 0,
   });
 }
 
-/** Sign the license: typed full name + the exact text version they saw. */
+/** Sign the license (typed full name + the exact text version they saw),
+ *  or — with action "submit" — hand the finished work in for review. */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ token: string }> }) {
   if (!blobConfigured()) return NextResponse.json({ error: "no blob store" }, { status: 503 });
   const { token } = await ctx.params;
   const session = await getSession(token);
   if (!session) return NextResponse.json({ error: "not found" }, { status: 404 });
   const body = (await req.json().catch(() => null)) as {
+    action?: string;
     typedName?: string;
     email?: string;
     paynowId?: string;
   } | null;
+
+  if (body?.action === "submit") {
+    if (!session.license) return NextResponse.json({ error: "license first" }, { status: 403 });
+    // Only a genuinely complete set can be handed in.
+    const takes = await listTakes(token);
+    const recordedIds = new Set(takes.map((t) => t.itemId));
+    const itemCount = session.test
+      ? TEST_PHRASES.length + TEST_READS.length
+      : PHRASE_LIBRARY[session.persona].length +
+        (await readExtras(session.persona)).length +
+        readsFor(session.persona).length;
+    if (recordedIds.size < itemCount) {
+      return NextResponse.json(
+        { error: `not complete: ${recordedIds.size}/${itemCount} recorded` },
+        { status: 400 }
+      );
+    }
+    session.submittedAt = Date.now();
+    await writeSession(session);
+    return NextResponse.json({ ok: true, submittedAt: session.submittedAt });
+  }
   const typedName = (body?.typedName ?? "").trim();
   const email = (body?.email ?? "").trim();
   const paynowId = (body?.paynowId ?? "").trim();

@@ -18,6 +18,7 @@ interface SessionRow {
   createdAt: number;
   takeCount: number;
   itemTotal?: number;
+  submittedAt?: number;
   feeSgd?: number;
   deadlineAt?: number;
   test?: boolean;
@@ -384,6 +385,12 @@ export default function StudioPage() {
                   <td>
                     {s.takeCount}/{s.itemTotal ?? "?"}
                     {s.itemTotal ? ` (${Math.round((s.takeCount / s.itemTotal) * 100)}%)` : ""}
+                    {s.submittedAt
+                      ? ` · ✅ submitted ${new Date(s.submittedAt).toLocaleDateString("en-SG", {
+                          day: "numeric",
+                          month: "short",
+                        })}`
+                      : ""}
                   </td>
                   <td>{s.license ? `✓ ${s.license.typedName}` : "—"}</td>
                   <td>{s.pvc?.state ?? "—"}</td>

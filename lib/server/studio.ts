@@ -28,6 +28,9 @@ export interface StudioSession {
   /** Pipeline dry-run: a tiny built-in item list, and promotion disabled so
    *  no real persona's library can be touched. */
   test?: boolean;
+  /** When the actor pressed "finish & submit" — starts the review clock.
+   *  Re-submitted after flag redos; newest submission wins. */
+  submittedAt?: number;
   license?: {
     typedName: string;
     email: string;
