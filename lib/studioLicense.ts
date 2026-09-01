@@ -3,7 +3,7 @@
 // Drafted for a friendly indie engagement — have a lawyer review before the
 // first paid actor signs.
 
-export const LICENSE_VERSION = "v2-2026-09-01";
+export const LICENSE_VERSION = "v3-2026-09-01";
 
 /** The agreement, with the agreed fee baked into its own compensation
  *  clause — the actor signs the exact text they saw, amount included. */
@@ -44,10 +44,14 @@ performing.
 
 5. COMPENSATION. Producer will pay Performer a one-time fee of SGD {{FEE}}
 for the Recordings and the licences granted above, payable by PayNow to the
-ID Performer provides, after Producer's review of the completed Recordings
-(within 2 business days of completion). This licence is effective on signing;
-the fee remains contractually owed once the Recordings are completed and
-accepted.
+ID Performer provides. The fee is payable only when ALL of the requested
+Recordings (including any re-takes Producer reasonably requests) have been
+completed, and is subject to Producer's reasonable satisfaction with the
+completed work. There is no partial payment for partial work. Producer will
+review completed work within 2 business days of completion and either
+confirm acceptance and pay, or tell Performer what needs another take. This
+licence is effective on signing; once the Recordings are completed and
+accepted, the fee is contractually owed.
 
 6. NO OBLIGATION TO USE. Producer may choose not to use any or all of the
 Recordings or the AI Voice.
