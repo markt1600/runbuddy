@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readSession, uidHash } from "@/lib/server/auth";
 import { blobConfigured } from "@/lib/server/library";
 import { addFriend, listFriends, removeFriend } from "@/lib/server/friends";
+import { runningMap } from "@/lib/server/presence";
 import { UID_RE } from "@/lib/server/users";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,13 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
   if (!blobConfigured()) return NextResponse.json({ error: "no blob store" }, { status: 503 });
   const self = uidHash(user.sub);
-  return NextResponse.json({ self, friends: await listFriends(self) });
+  const friends = await listFriends(self);
+  // Live presence, mutual friends only — "Running" right in the list.
+  const running = await runningMap(friends.filter((f) => f.mutual).map((f) => f.uid));
+  return NextResponse.json({
+    self,
+    friends: friends.map((f) => ({ ...f, running: running[f.uid] === true })),
+  });
 }
 
 export async function POST(req: NextRequest) {

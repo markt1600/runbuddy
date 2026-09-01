@@ -416,6 +416,49 @@ export async function generateDuo(
   return lines;
 }
 
+/**
+ * A friend's shoutout, delivered by the runner's trainer with permission to
+ * embellish: the trainer announces who it's from and lands the message's
+ * meaning in their own voice. Verbatim delivery never comes through here —
+ * that's a fixed template, so the words stay exactly the sender's.
+ */
+export async function generateShoutoutLine(
+  persona: PersonaId,
+  fromName: string,
+  text: string
+): Promise<string> {
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
+  const client = new Anthropic();
+  const p = PERSONAS[persona];
+  const response = await client.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 250,
+    output_config: { effort: "low" },
+    system:
+      `${p.stylePrompt}\n\n` +
+      "Mid-run, a FRIEND of the runner has sent them a message through the app, and you " +
+      "are delivering it. Announce clearly that this is a message from that friend (use " +
+      "the friend's name), then deliver the message — you may embellish it warmly and in " +
+      "your own style, but every point the friend made must survive intact, and you must " +
+      "never invent things the friend didn't say. One spoken utterance, at most 55 words. " +
+      "No stage directions, no quotes around the whole line, no emoji.",
+    messages: [
+      {
+        role: "user",
+        content: `The friend's name: ${fromName}\nTheir message: ${text}`,
+      },
+    ],
+  });
+  if (response.stop_reason === "refusal") throw new Error("generation declined");
+  const line = response.content
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join(" ")
+    .trim();
+  if (!line) throw new Error("empty shoutout line");
+  return line;
+}
+
 /** Voice ID resolution: env var first, then the default in lib/personas.ts. */
 export function voiceIdFor(persona: PersonaId): string {
   const envName = `ELEVENLABS_VOICE_${persona.toUpperCase()}`;

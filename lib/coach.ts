@@ -7,6 +7,17 @@ import { hsFinishMs, wrFinishMs } from "./records";
 import { PERSONAS } from "./personas";
 import type { PersonaId } from "./types";
 
+/** A friend's shoutout as the deliver endpoint hands it over, ready to play. */
+export interface DeliveredShoutout {
+  fromName: string;
+  kind: "voice" | "trainer";
+  slot: "now" | "start" | "middle" | "end";
+  text?: string;
+  audioBase64: string;
+  mime?: string;
+  introBase64?: string;
+}
+
 // CoachEngine — decides WHAT the trainer says and WHEN.
 // tick() is called ~1x/second by the run screen with fresh stats.
 
@@ -133,6 +144,8 @@ export class CoachEngine {
    *  target (distance/time targets), so short runs still get the argument
    *  mid-run instead of never. */
   private duoPieces: { at?: number; frac?: number; kind: "duet" | "argument" }[] = [];
+  /** Friends' shoutouts waiting for their slot in this run. */
+  private shoutoutQueue: { at?: number; frac?: number; s: DeliveredShoutout }[] = [];
 
   constructor(
     persona: Persona,
@@ -295,6 +308,57 @@ export class CoachEngine {
     } else {
       this.duoPieces = [];
     }
+  }
+
+  /**
+   * Friends' shoutouts, fetched by the run screen. "now" plays at the next
+   * quiet moment; the next-run slots land after the intro, mid-run, and on
+   * the home stretch — by fraction when a target is set, by clock otherwise.
+   */
+  addShoutouts(items: DeliveredShoutout[]) {
+    const now = Date.now();
+    const hasTarget = this.targetKm > 0 || this.targetMin > 0;
+    for (const s of items) {
+      const slot =
+        s.slot === "now"
+          ? { at: 0 }
+          : s.slot === "start"
+            ? { at: now + 90_000 }
+            : s.slot === "middle"
+              ? hasTarget
+                ? { frac: 0.5 }
+                : { at: now + 14 * 60_000 }
+              : hasTarget
+                ? { frac: 0.88 }
+                : { at: now + 26 * 60_000 };
+      this.shoutoutQueue.push({ ...slot, s });
+    }
+  }
+
+  private playShoutout(s: DeliveredShoutout) {
+    vibrate([60, 80, 60]); // incoming-message buzz — worth a glance at the wrist
+    const items: { text: string; audioUrl?: string; speaker?: Persona; volume?: number }[] = [];
+    if (s.kind === "voice") {
+      if (s.introBase64) {
+        items.push({
+          text: `Message from ${s.fromName}!`,
+          audioUrl: `data:audio/mpeg;base64,${s.introBase64}`,
+          speaker: this.persona,
+        });
+      }
+      items.push({
+        text: `${s.fromName}'s message`,
+        audioUrl: `data:${s.mime ?? "audio/mpeg"};base64,${s.audioBase64}`,
+        volume: 1, // the sender's real voice plays at full level
+      });
+    } else {
+      items.push({
+        text: s.text ?? `Message from ${s.fromName}`,
+        audioUrl: `data:audio/mpeg;base64,${s.audioBase64}`,
+        speaker: this.persona,
+      });
+    }
+    this.voice.sayBatch(items);
   }
 
   /**
@@ -777,13 +841,13 @@ export class CoachEngine {
 
     // 0a¾. Duo set pieces — duets and the argument — fire the same way:
     // background round-trip, spoken only when the finished script lands.
+    const runFrac =
+      this.targetKm > 0
+        ? stats.distanceKm / this.targetKm
+        : this.targetMin > 0
+          ? stats.elapsedMs / (this.targetMin * 60_000)
+          : null;
     if (this.duoPieces.length > 0) {
-      const runFrac =
-        this.targetKm > 0
-          ? stats.distanceKm / this.targetKm
-          : this.targetMin > 0
-            ? stats.elapsedMs / (this.targetMin * 60_000)
-            : null;
       const due = this.duoPieces.findIndex(
         (p) =>
           (p.at !== undefined && now >= p.at) ||
@@ -792,6 +856,21 @@ export class CoachEngine {
       if (due >= 0) {
         const [piece] = this.duoPieces.splice(due, 1);
         void this.playDuoPiece(piece.kind, stats);
+      }
+    }
+
+    // 0a⅞. A friend's shoutout whose slot has arrived beats everything except
+    // what's already speaking — it's the most human thing the run can say.
+    if (this.shoutoutQueue.length > 0) {
+      const due = this.shoutoutQueue.findIndex(
+        (q) =>
+          (q.at !== undefined && now >= q.at) ||
+          (q.frac !== undefined && runFrac !== null && runFrac >= q.frac)
+      );
+      if (due >= 0) {
+        const [item] = this.shoutoutQueue.splice(due, 1);
+        this.playShoutout(item.s);
+        return;
       }
     }
 

@@ -322,12 +322,12 @@ export class VoiceEngine {
    * backlog cap. Only for scripted exchanges queued at a quiet moment —
    * everything still plays strictly one line at a time.
    */
-  sayBatch(items: { text: string; audioUrl?: string; speaker?: Persona }[]) {
+  sayBatch(items: { text: string; audioUrl?: string; speaker?: Persona; volume?: number }[]) {
     for (const it of items) {
       this.queue.push({
         text: it.text,
         audioUrl: it.audioUrl,
-        volume: it.speaker ? getVoiceVolume(it.speaker.id) : undefined,
+        volume: it.volume ?? (it.speaker ? getVoiceVolume(it.speaker.id) : undefined),
         speaker: it.speaker,
       });
     }

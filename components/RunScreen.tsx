@@ -67,6 +67,49 @@ export default function RunScreen({
   // Duo can be toggled mid-run via the chip, so it's live state seeded from
   // the prop. The pair is fixed: Ah Beng + Ah Lian.
   const [duoActive, setDuoActive] = useState(!!duoWith);
+  // Shoutout delivery renders in whatever trainer is CURRENT — track it.
+  const personaRef = useRef(persona);
+  personaRef.current = persona;
+
+  // Presence + friends' shoutouts, signed-in runs only. The heartbeat marks
+  // this runner as "Running" for their friends; the first fetch collects
+  // messages queued for this run's start/middle/end, and the slow poll picks
+  // up "right now" messages sent while the run is in progress.
+  useEffect(() => {
+    if (!runner) return; // guests have no friends layer
+    let stopped = false;
+    const deliver = (slots: string[]) => {
+      void fetch("/api/shoutouts/deliver", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ persona: personaRef.current.id, slots }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { shoutouts?: import("@/lib/coach").DeliveredShoutout[] } | null) => {
+          if (!stopped && data?.shoutouts?.length) {
+            coachRef.current?.addShoutouts(data.shoutouts);
+          }
+        })
+        .catch(() => {});
+    };
+    const beat = () => {
+      void fetch("/api/presence", { method: "POST" }).catch(() => {});
+    };
+    beat();
+    deliver(["start", "middle", "end"]);
+    const beatTimer = setInterval(() => {
+      if (!stopped) beat();
+    }, 75_000);
+    const nowTimer = setInterval(() => {
+      if (!stopped) deliver(["now"]);
+    }, 90_000);
+    return () => {
+      stopped = true;
+      clearInterval(beatTimer);
+      clearInterval(nowTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const treadmill = targetMin > 0;
   const [elapsedMs, setElapsedMs] = useState(0);
   const [paused, setPaused] = useState(false);

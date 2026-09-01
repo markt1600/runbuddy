@@ -2876,3 +2876,92 @@ input[type="range"]::-moz-range-thumb {
 .feed-comment-send:disabled {
   opacity: 0.35;
 }
+
+/* ---------- Shoutouts ---------- */
+
+.friend-running {
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #2f7d46;
+  animation: running-pulse 2s ease-in-out infinite;
+}
+
+@keyframes running-pulse {
+  50% { opacity: 0.45; }
+}
+
+.friend-shout {
+  background: none;
+  border: 0;
+  font-size: 15px;
+  padding: 4px 4px;
+  cursor: pointer;
+}
+
+.shout-composer {
+  padding: 10px 0 14px;
+  border-top: 0.5px solid var(--separator);
+}
+
+.shout-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.shout-pill {
+  border: 1px solid var(--separator-strong);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.shout-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.shout-pill.recording {
+  background: #b03030;
+  border-color: #b03030;
+  color: #fff;
+  animation: running-pulse 1.2s ease-in-out infinite;
+}
+
+.shout-pill:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.shout-text {
+  width: 100%;
+  padding: 10px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--separator);
+  background: var(--bg-elevated);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  resize: none;
+  margin-bottom: 8px;
+}
+
+.shout-preview {
+  height: 34px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.shout-send {
+  width: 100%;
+}
