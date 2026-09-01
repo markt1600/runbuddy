@@ -3242,3 +3242,15 @@ input[type="range"]::-moz-range-thumb {
   background: #f3d7d2;
   color: #7c2418;
 }
+
+/* The booth and studio are ordinary documents, not the app shell — give them
+   back document scrolling (and text selection) that the shell disables. */
+body:has(.booth),
+body:has(.studio) {
+  overflow-y: auto;
+  height: auto;
+  min-height: 100%;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: auto;
+}
