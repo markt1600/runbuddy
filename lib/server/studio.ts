@@ -29,6 +29,10 @@ export interface StudioSession {
   /** Pipeline dry-run: a tiny built-in item list, and promotion disabled so
    *  no real persona's library can be touched. */
   test?: boolean;
+  /** Voice-clone-only: the item list is the CLONE_READS paragraph set — no
+   *  phrase bank, no promotion, natural-voice brief. Fee and deadline are
+   *  optional for these. */
+  cloneOnly?: boolean;
   /** When the actor pressed "finish & submit" — starts the review clock.
    *  Re-submitted after flag redos; newest submission wins. */
   submittedAt?: number;
@@ -77,7 +81,8 @@ export async function createStudioSession(
   persona: PersonaId,
   feeSgd = 0,
   deadlineAt = 0,
-  test = false
+  test = false,
+  cloneOnly = false
 ): Promise<StudioSession> {
   const session: StudioSession = {
     id: randomBytes(12).toString("hex"),
@@ -86,6 +91,7 @@ export async function createStudioSession(
     feeSgd: Math.max(0, Math.min(100_000, feeSgd)),
     deadlineAt: deadlineAt > 0 ? deadlineAt : undefined,
     test: test || undefined,
+    cloneOnly: cloneOnly || undefined,
     createdAt: Date.now(),
   };
   await writeSession(session);

@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import { WavRecorder, toWav, encodeMp3, dbfs } from "@/lib/studioAudio";
-import { STUDIO_BRIEFS, EMBELLISH_NOTE } from "@/lib/studioReads";
+import { STUDIO_BRIEFS, EMBELLISH_NOTE, CLONE_BRIEF } from "@/lib/studioReads";
 import type { PersonaId } from "@/lib/types";
 
 // The actor's recording booth. The token in the URL is the whole identity:
@@ -28,6 +28,7 @@ interface SessionView {
   pvcState: string;
   pvcAttempts: number;
   submittedAt: number;
+  cloneOnly: boolean;
 }
 
 const MAX_SECONDS = 120;
@@ -241,11 +242,11 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
 
   // ---- stage 1: license ----
   if (!view.licensed) {
+    const paid = view.feeSgd > 0;
     const canSign =
       name.trim().length >= 3 &&
       /@.+\./.test(email) &&
-      paynow.trim().length >= 4 &&
-      paynow.trim() === paynow2.trim() &&
+      (!paid || (paynow.trim().length >= 4 && paynow.trim() === paynow2.trim())) &&
       agree;
     const sign = async () => {
       setLicNote(null);
@@ -267,9 +268,15 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
     };
     return (
       <div className="booth">
-        <h1>Run Buddy Voice Session</h1>
+        <h1>{view.cloneOnly ? "Voice Clone Session" : "Run Buddy Voice Session"}</h1>
         <p className="booth-sub">
-          Recording as <strong>{view.personaName}</strong> · {view.label}
+          {view.cloneOnly ? (
+            <>Recording your natural voice · {view.label}</>
+          ) : (
+            <>
+              Recording as <strong>{view.personaName}</strong> · {view.label}
+            </>
+          )}
         </p>
         <div className="booth-note">
           📋 This session covers {view.items.length} recordings and typically takes{" "}
@@ -290,26 +297,39 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
             Email
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </label>
-          <label>
-            PayNow ID (mobile or NRIC/FIN)
-            <input value={paynow} onChange={(e) => setPaynow(e.target.value)} placeholder="+65…" />
-          </label>
-          <label>
-            Confirm PayNow ID
-            <input value={paynow2} onChange={(e) => setPaynow2(e.target.value)} placeholder="Type it again" />
-            {paynow2 && paynow.trim() !== paynow2.trim() && (
-              <span className="booth-warn">PayNow IDs don&apos;t match</span>
-            )}
-          </label>
+          {paid && (
+            <>
+              <label>
+                PayNow ID (mobile or NRIC/FIN)
+                <input value={paynow} onChange={(e) => setPaynow(e.target.value)} placeholder="+65…" />
+              </label>
+              <label>
+                Confirm PayNow ID
+                <input value={paynow2} onChange={(e) => setPaynow2(e.target.value)} placeholder="Type it again" />
+                {paynow2 && paynow.trim() !== paynow2.trim() && (
+                  <span className="booth-warn">PayNow IDs don&apos;t match</span>
+                )}
+              </label>
+            </>
+          )}
           <label className="booth-agree">
             <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
             <span>I have read and agree to the licence above ({view.licenseVersion})</span>
           </label>
           <div className="booth-note">
-            Once you finish recording, your work will be reviewed within 2 business days. If
-            anything needs another take, we&apos;ll contact you at the email above; if all is
-            well, you&apos;ll receive payment of{" "}
-            <strong>SGD ${view.feeSgd.toFixed(2)}</strong> to your PayNow ID.
+            {paid ? (
+              <>
+                Once you finish recording, your work will be reviewed within 2 business days.
+                If anything needs another take, we&apos;ll contact you at the email above; if
+                all is well, you&apos;ll receive payment of{" "}
+                <strong>SGD ${view.feeSgd.toFixed(2)}</strong> to your PayNow ID.
+              </>
+            ) : (
+              <>
+                Once you finish recording, we&apos;ll review the takes within 2 business days
+                and contact you at the email above if anything needs another pass.
+              </>
+            )}
           </div>
           <button className="booth-primary" disabled={!canSign} onClick={() => void sign()}>
             Agree &amp; start recording
@@ -363,8 +383,16 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
         <div className="booth-note">
           Your work will be reviewed within <strong>2 business days</strong>. If any takes need
           re-recording, we&apos;ll email you and they&apos;ll appear here marked 🔁 when you
-          reopen this link. If everything checks out, you&apos;ll receive your payment of{" "}
-          <strong>SGD ${view.feeSgd.toFixed(2)}</strong> to your PayNow ID. Thank you!
+          reopen this link.{" "}
+          {view.feeSgd > 0 ? (
+            <>
+              If everything checks out, you&apos;ll receive your payment of{" "}
+              <strong>SGD ${view.feeSgd.toFixed(2)}</strong> to your PayNow ID.
+            </>
+          ) : (
+            <>If everything checks out, you&apos;re all done.</>
+          )}{" "}
+          Thank you!
         </div>
         <div className="booth-tips">
           Not happy with a take?{" "}
@@ -544,24 +572,34 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
     };
     return (
       <div className="booth">
-        <h1>Know your character</h1>
+        <h1>{view.cloneOnly ? "Your natural voice" : "Know your character"}</h1>
         <p className="booth-sub">
-          Levels are set. Last thing before the first take: you&apos;re recording as{" "}
-          <strong>{view.personaName}</strong> — take a minute with this, then stay in this
-          character for every single line.
+          {view.cloneOnly ? (
+            <>Levels are set. One minute on how to read before the first paragraph:</>
+          ) : (
+            <>
+              Levels are set. Last thing before the first take: you&apos;re recording as{" "}
+              <strong>{view.personaName}</strong> — take a minute with this, then stay in
+              this character for every single line.
+            </>
+          )}
         </p>
         <div className="booth-brief">
-          {STUDIO_BRIEFS[view.persona as PersonaId] ??
-            "Big energy, full commitment, same character on every take."}
+          {view.cloneOnly
+            ? CLONE_BRIEF
+            : STUDIO_BRIEFS[view.persona as PersonaId] ??
+              "Big energy, full commitment, same character on every take."}
         </div>
-        <div className="booth-note">🎨 {EMBELLISH_NOTE}</div>
+        {!view.cloneOnly && <div className="booth-note">🎨 {EMBELLISH_NOTE}</div>}
         <button className="booth-primary" onClick={acceptBrief}>
-          Got it — I&apos;m in character
+          {view.cloneOnly ? "Got it — let's record" : "Got it — I'm in character"}
         </button>
         <div className="booth-tips">
           This brief shows once per visit. If you come back tomorrow, read it again before
-          recording — the voice clone averages every take, so a half-hearted day drags the
-          whole voice down.
+          recording — the voice clone averages every take, so{" "}
+          {view.cloneOnly
+            ? "a different tone or mic distance on day two drags the whole voice."
+            : "a half-hearted day drags the whole voice down."}
         </div>
       </div>
     );
@@ -896,9 +934,10 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
           change mic / re-check levels
         </button>
         <br />
-        Quiet room · same mic throughout · stay in character, big energy · no effects or
-        noise reduction · sips of water between takes. Your progress saves as you go — you
-        can close this page and come back with the same link.
+        Quiet room · same mic throughout ·{" "}
+        {view.cloneOnly ? "your natural voice, same tone every take" : "stay in character, big energy"}{" "}
+        · no effects or noise reduction · sips of water between takes. Your progress saves as
+        you go — you can close this page and come back with the same link.
       </div>
     </div>
   );

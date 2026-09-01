@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { blobConfigured, elevenLabsConfigured, readExtras } from "@/lib/server/library";
 import { getSession, listTakes, writeSession } from "@/lib/server/studio";
 import { instantCloneFromSession } from "@/lib/server/studioClone";
-import { readsFor, TEST_PHRASES, TEST_READS } from "@/lib/studioReads";
+import { CLONE_READS, readsFor, TEST_PHRASES, TEST_READS } from "@/lib/studioReads";
 import { licenseTextFor, LICENSE_VERSION } from "@/lib/studioLicense";
 import { PHRASE_LIBRARY } from "@/lib/phrases";
 import { PERSONAS } from "@/lib/personas";
@@ -32,7 +32,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
     .filter((f) => (takeAt.get(f.itemId) ?? 0) < f.at)
     .map((f) => ({ itemId: f.itemId, note: f.note ?? null }));
 
-  const items = session.test
+  const items = session.cloneOnly
+    ? CLONE_READS.map((r) => ({
+        id: r.id,
+        kind: "read" as const,
+        title: r.title,
+        text: r.text,
+      }))
+    : session.test
     ? [
         ...TEST_PHRASES.map((p) => ({ id: p.id, kind: "phrase" as const, text: p.text })),
         ...TEST_READS.map((r) => ({
@@ -83,6 +90,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
     pvcState: session.pvc?.state ?? "none",
     pvcAttempts: session.pvc?.attempts ?? 0,
     submittedAt: session.submittedAt ?? 0,
+    cloneOnly: !!session.cloneOnly,
   });
 }
 
@@ -105,7 +113,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     // Only a genuinely complete set can be handed in.
     const takes = await listTakes(token);
     const recordedIds = new Set(takes.map((t) => t.itemId));
-    const itemCount = session.test
+    const itemCount = session.cloneOnly
+      ? CLONE_READS.length
+      : session.test
       ? TEST_PHRASES.length + TEST_READS.length
       : PHRASE_LIBRARY[session.persona].length +
         (await readExtras(session.persona)).length +
@@ -150,7 +160,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
     return NextResponse.json({ error: "valid email required" }, { status: 400 });
   }
-  if (paynowId.length < 4 || paynowId.length > 60) {
+  // No fee, no payment details — a zero-fee clone session signs with just
+  // name and email.
+  if ((session.feeSgd ?? 0) > 0 && (paynowId.length < 4 || paynowId.length > 60)) {
     return NextResponse.json({ error: "PayNow ID required" }, { status: 400 });
   }
   if (!session.license) {

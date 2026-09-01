@@ -9,7 +9,7 @@ import {
   listTakes,
   writeSession,
 } from "@/lib/server/studio";
-import { readsFor, TEST_PHRASES, TEST_READS } from "@/lib/studioReads";
+import { CLONE_READS, readsFor, TEST_PHRASES, TEST_READS } from "@/lib/studioReads";
 import { PHRASE_LIBRARY } from "@/lib/phrases";
 
 // One session, fully hydrated for the review screen: every recordable item
@@ -34,6 +34,19 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     readExtras(session.persona),
   ]);
   const takeMap = new Map(takes.map((t) => [t.itemId, t]));
+
+  if (session.cloneOnly) {
+    const items = CLONE_READS.map((r) => ({
+      id: r.id,
+      kind: "read" as const,
+      text: r.text,
+      title: r.title,
+      takeUrl: takeMap.get(r.id)?.url ?? null,
+      takeAt: takeMap.get(r.id)?.at ?? null,
+      libUrl: null,
+    }));
+    return NextResponse.json({ session, items });
+  }
 
   if (session.test) {
     const items = [

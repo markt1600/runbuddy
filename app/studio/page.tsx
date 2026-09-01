@@ -23,6 +23,7 @@ interface SessionRow {
   feeSgd?: number;
   deadlineAt?: number;
   test?: boolean;
+  cloneOnly?: boolean;
   license?: {
     typedName: string;
     email: string;
@@ -63,6 +64,7 @@ export default function StudioPage() {
   const [newFee, setNewFee] = useState("");
   const [newDeadline, setNewDeadline] = useState("");
   const [newTest, setNewTest] = useState(false);
+  const [newClone, setNewClone] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
@@ -177,6 +179,7 @@ export default function StudioPage() {
           // End of the chosen day, Singapore time.
           deadlineAt: Date.parse(`${newDeadline}T23:59:59+08:00`),
           test: newTest,
+          cloneOnly: newClone,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "failed");
@@ -341,12 +344,21 @@ export default function StudioPage() {
               />
               🧪 Test (13 items, no promotion)
             </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={newClone}
+                onChange={(e) => setNewClone(e.target.checked)}
+              />
+              🎧 Clone only (10 paragraphs, fee &amp; deadline optional)
+            </label>
             <button
               onClick={() => void createSession()}
               disabled={
                 !newLabel.trim() ||
-                !(Number(newFee) > 0) ||
-                !(Date.parse(`${newDeadline}T23:59:59+08:00`) > Date.now())
+                (!newClone &&
+                  (!(Number(newFee) > 0) ||
+                    !(Date.parse(`${newDeadline}T23:59:59+08:00`) > Date.now())))
               }
             >
               Create session
@@ -364,7 +376,7 @@ export default function StudioPage() {
                       {s.label}
                     </button>
                   </td>
-                  <td>{s.test ? "🧪 Test" : "Live"}</td>
+                  <td>{s.test ? "🧪 Test" : s.cloneOnly ? "🎧 Clone" : "Live"}</td>
                   <td>{s.persona}</td>
                   <td>${(s.feeSgd ?? 0).toFixed(0)}</td>
                   <td>
@@ -539,6 +551,7 @@ export default function StudioPage() {
           </button>
           <h2>
             {open.session.test ? "🧪 TEST SESSION · " : ""}
+            {open.session.cloneOnly ? "🎧 CLONE ONLY · " : ""}
             {open.session.label} · {open.session.persona} · SGD $
             {(open.session.feeSgd ?? 0).toFixed(2)}{" "}
             <button
@@ -617,8 +630,14 @@ export default function StudioPage() {
           <div className="studio-actions">
             <button
               onClick={() => void promote()}
-              disabled={!!busy || open.session.test}
-              title={open.session.test ? "Test sessions never touch a real library" : undefined}
+              disabled={!!busy || open.session.test || open.session.cloneOnly}
+              title={
+                open.session.test
+                  ? "Test sessions never touch a real library"
+                  : open.session.cloneOnly
+                    ? "Clone-only sessions have no phrases to promote"
+                    : undefined
+              }
             >
               ⬆ Promote {approved.size} approved takes
             </button>

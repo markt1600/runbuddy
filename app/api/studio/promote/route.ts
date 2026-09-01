@@ -30,6 +30,12 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  if (session.cloneOnly) {
+    return NextResponse.json(
+      { error: "clone-only session — no phrases to promote" },
+      { status: 400 }
+    );
+  }
   const items = (body?.items ?? []).slice(0, 25);
 
   const done: string[] = [];
