@@ -317,11 +317,18 @@ export default function RunBuddyApp() {
     };
   }, [auth.user]);
 
+  // What the What's-new strip shows: arrivals since the PREVIOUS visit.
+  // Snapshotted when the tab opens (before read-marking), so the strip is
+  // stable while you look at it and clear on the next visit.
+  const [stripSince, setStripSince] = useState<number | null>(null);
+
   // Opening the Friends tab reads everything.
   useEffect(() => {
     if (screen !== "friends" || !auth.user) return;
+    setStripSince(notifs.readAt);
     void fetch("/api/notifications", { method: "POST" }).catch(() => {});
     setNotifs((prev) => ({ ...prev, readAt: Date.now() }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, auth.user]);
 
   /** Deep-link: land where the alert points. */
@@ -446,7 +453,7 @@ export default function RunBuddyApp() {
       )}
       {screen === "friends" && auth.user && (
         <FriendsScreen
-          notifications={notifs.items}
+          notifications={notifs.items.filter((n) => n.at > (stripSince ?? notifs.readAt))}
           onOpenNotification={openNotification}
           onOpenRun={(run) => {
             setOpenFriendRun(run);

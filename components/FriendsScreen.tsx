@@ -502,7 +502,12 @@ export default function FriendsScreen({ onOpenRun, notifications, onOpenNotifica
         <>
           <div className="section-header">What&apos;s new</div>
           <div className="card" style={{ padding: "4px 14px" }}>
-            {notifications.slice(0, 8).map((n) => (
+            {notifications
+              // Same text twice (a glitch-era double-fire, or two adds racing)
+              // reads as noise — keep the newest of each.
+              .filter((n, i, arr) => arr.findIndex((m) => m.text === n.text) === i)
+              .slice(0, 8)
+              .map((n) => (
               <button
                 className="notif-row"
                 key={n.id}
