@@ -4,6 +4,7 @@ import { blobConfigured } from "@/lib/server/library";
 import { isMutual } from "@/lib/server/friends";
 import { isRunning } from "@/lib/server/presence";
 import { createShoutout, type ShoutoutSlot } from "@/lib/server/shoutouts";
+import { notify } from "@/lib/server/notifications";
 import { UID_RE } from "@/lib/server/users";
 
 // Send a shoutout to a mutual friend. "now" needs them to actually be
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
       slot,
       createdAt: Date.now(),
     });
+    await notifyShoutout(toUid, user.name, slot);
     return NextResponse.json({ ok: true });
   }
 
@@ -76,8 +78,21 @@ export async function POST(req: NextRequest) {
       slot,
       createdAt: Date.now(),
     });
+    await notifyShoutout(toUid, user.name, slot);
     return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ error: "bad kind" }, { status: 400 });
+}
+
+/** The alert deliberately never reveals the message — the run does that. */
+async function notifyShoutout(toUid: string, fromName: string, slot: ShoutoutSlot) {
+  await notify(toUid, {
+    type: "shoutout",
+    text:
+      slot === "now"
+        ? `📣 ${fromName} sent a message into your run — listen up`
+        : `📣 ${fromName} left a message for your next run`,
+    fromName,
+  });
 }

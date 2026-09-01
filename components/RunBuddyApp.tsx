@@ -9,6 +9,8 @@ import RunDetailScreen from "./RunDetailScreen";
 import AccountScreen from "./AccountScreen";
 import TabBar from "./TabBar";
 import FriendsScreen, { type FeedRun } from "./FriendsScreen";
+import { parseRunId } from "@/lib/runId";
+import type { AppNotification } from "@/lib/server/notifications";
 import RunScreen from "./RunScreen";
 import SummaryScreen from "./SummaryScreen";
 import AdminScreen from "./AdminScreen";
@@ -272,6 +274,78 @@ export default function RunBuddyApp() {
   // reload would eat live state.
   const screenRef = useRef(screen);
   screenRef.current = screen;
+
+  // ---- In-app alerts: friend confirmations, friends' runs, comments,
+  // shoutouts. Polled while the app is open; the Friends tab wears the
+  // unread count, and anything that arrives live shows as a toast (never
+  // over the run screen — mid-run, audio owns the airwaves).
+  const [notifs, setNotifs] = useState<{ items: AppNotification[]; readAt: number }>({
+    items: [],
+    readAt: 0,
+  });
+  const [toast, setToast] = useState<AppNotification | null>(null);
+  const newestSeenRef = useRef(0);
+  useEffect(() => {
+    if (!auth.user) return;
+    let cancelled = false;
+    const poll = () => {
+      void fetch("/api/notifications")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { items: AppNotification[]; readAt: number } | null) => {
+          if (cancelled || !data) return;
+          setNotifs({ items: data.items ?? [], readAt: data.readAt ?? 0 });
+          const newest = data.items?.[0];
+          if (
+            newest &&
+            newestSeenRef.current > 0 &&
+            newest.at > newestSeenRef.current &&
+            screenRef.current !== "run"
+          ) {
+            setToast(newest);
+            setTimeout(() => setToast((t) => (t === newest ? null : t)), 6000);
+          }
+          if (newest) newestSeenRef.current = Math.max(newestSeenRef.current, newest.at);
+          else newestSeenRef.current = Math.max(newestSeenRef.current, 1);
+        })
+        .catch(() => {});
+    };
+    poll();
+    const timer = setInterval(poll, 120_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [auth.user]);
+
+  // Opening the Friends tab reads everything.
+  useEffect(() => {
+    if (screen !== "friends" || !auth.user) return;
+    void fetch("/api/notifications", { method: "POST" }).catch(() => {});
+    setNotifs((prev) => ({ ...prev, readAt: Date.now() }));
+  }, [screen, auth.user]);
+
+  /** Deep-link: land where the alert points. */
+  const openNotification = (n: AppNotification) => {
+    setToast(null);
+    if (n.type === "run" && n.runId && n.friendUid) {
+      const parsed = parseRunId(n.runId);
+      if (parsed) {
+        setOpenFriendRun({ ...parsed, friendUid: n.friendUid, friendName: n.fromName ?? "Friend" });
+        setScreen("friendRun");
+        return;
+      }
+    }
+    if (n.type === "comment" && n.runId) {
+      const parsed = parseRunId(n.runId);
+      if (parsed) {
+        setOpenRun(parsed);
+        setScreen("runDetail");
+        return;
+      }
+    }
+    setScreen("friends");
+  };
+  const unreadCount = notifs.items.filter((n) => n.at > notifs.readAt).length;
   useEffect(() => {
     if (!isNativeApp()) return;
     let lastCheck = 0;
@@ -314,6 +388,11 @@ export default function RunBuddyApp() {
       className={`app${screen === "run" ? " theme-ink" : ""}`}
       style={{ "--persona": persona.accent } as React.CSSProperties}
     >
+      {toast && (
+        <button className="app-toast" onClick={() => openNotification(toast)}>
+          {toast.text}
+        </button>
+      )}
       {/* keyed by screen so each one opens scrolled to the top */}
       <div className="screen-scroll" key={screen}>
       {screen === "boot" && null}
@@ -367,6 +446,8 @@ export default function RunBuddyApp() {
       )}
       {screen === "friends" && auth.user && (
         <FriendsScreen
+          notifications={notifs.items}
+          onOpenNotification={openNotification}
           onOpenRun={(run) => {
             setOpenFriendRun(run);
             setScreen("friendRun");
@@ -489,6 +570,7 @@ export default function RunBuddyApp() {
           }
           showHome={auth.configured || !!auth.user}
           showFriends={!!auth.user}
+          friendsBadge={unreadCount}
           showAdmin={auth.isAdmin !== false}
           runLabel={screen === "setup" ? "START RUN" : "GET READY"}
           onHome={() => setScreen(auth.user ? "home" : "landing")}

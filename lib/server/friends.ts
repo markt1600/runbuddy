@@ -1,6 +1,7 @@
 import { list, put } from "@vercel/blob";
 import { getProfile, listUsers, setFriends, UID_RE, type UserProfile } from "./users";
 import { listRunsByHash, type RunSummary } from "./runs";
+import { notify } from "./notifications";
 
 // Friends: each profile stores who THEY added; runs (and comments) only
 // flow between MUTUAL pairs. Comments live in their own blobs per run, so
@@ -58,7 +59,36 @@ export async function addFriend(uid: string, friendUid: string): Promise<boolean
   if (!UID_RE.test(friendUid) || friendUid === uid) return false;
   const [me, them] = await Promise.all([getProfile(uid), getProfile(friendUid)]);
   if (!me || !them) return false;
-  return setFriends(uid, [...(me.friends ?? []), friendUid]);
+  const already = (me.friends ?? []).includes(friendUid);
+  const ok = await setFriends(uid, [...(me.friends ?? []), friendUid]);
+  if (ok && !already) {
+    if (hasFriend(them, uid)) {
+      // The add completed a mutual pair — tell both sides it's on.
+      await Promise.all([
+        notify(uid, {
+          type: "friend",
+          text: `✓ You and ${them.name} are now friends — their runs are in your feed`,
+          friendUid,
+          fromName: them.name,
+        }),
+        notify(friendUid, {
+          type: "friend",
+          text: `✓ ${me.name} added you back — you're now friends`,
+          friendUid: uid,
+          fromName: me.name,
+        }),
+      ]);
+    } else {
+      // A one-way add is effectively a friend request.
+      await notify(friendUid, {
+        type: "friend",
+        text: `👥 ${me.name} added you as a friend — add them back to share runs`,
+        friendUid: uid,
+        fromName: me.name,
+      });
+    }
+  }
+  return ok;
 }
 
 export async function removeFriend(uid: string, friendUid: string): Promise<boolean> {

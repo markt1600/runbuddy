@@ -38,6 +38,8 @@ export interface UserProfile {
    * their GPS routes) are visible to someone they never added back.
    */
   friends?: string[];
+  /** Everything newer than this counts as an unread in-app alert. */
+  notificationsReadAt?: number;
   /** Spotify OAuth tokens, AES-sealed (lib/server/spotify.ts) — never plaintext. */
   spotify?: string;
 }
@@ -138,6 +140,14 @@ export async function readCardBgImage(uid: string): Promise<ArrayBuffer | null> 
   if (!hit) return null;
   const res = await fetch(hit.url, { cache: "no-store" });
   return res.ok ? res.arrayBuffer() : null;
+}
+
+/** Mark all in-app alerts as read. */
+export async function setNotificationsRead(uid: string): Promise<void> {
+  if (!blobConfigured()) return;
+  const existing = await readProfile(uid);
+  if (!existing) return;
+  await writeProfile({ ...existing, notificationsReadAt: Date.now() });
 }
 
 /** Replace this user's friends list (deduped, capped, self excluded). */

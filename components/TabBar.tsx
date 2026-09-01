@@ -14,6 +14,8 @@ interface Props {
   showHome: boolean;
   /** Friends needs an account — hidden for guests. */
   showFriends: boolean;
+  /** Unread in-app alerts, worn by the Friends tab. */
+  friendsBadge?: number;
   /** ADMIN_EMAIL gating: only the admin account gets the entry point. */
   showAdmin: boolean;
   /** The big button: starts the run on setup, leads to setup elsewhere. */
@@ -29,6 +31,7 @@ export default function TabBar({
   active,
   showHome,
   showFriends,
+  friendsBadge = 0,
   showAdmin,
   runLabel,
   onHome,
@@ -57,7 +60,12 @@ export default function TabBar({
             className={`tab-item tab-friends${active === "friends" ? " active" : ""}`}
             onClick={onFriends}
           >
-            <span className="tab-icon">👥</span>
+            <span className="tab-icon">
+              👥
+              {friendsBadge > 0 && (
+                <span className="tab-badge">{friendsBadge > 9 ? "9+" : friendsBadge}</span>
+              )}
+            </span>
             <span className="tab-label">Friends</span>
           </button>
         )}

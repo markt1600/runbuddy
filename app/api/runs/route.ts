@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { readSession, uidHash } from "@/lib/server/auth";
 import { listRuns, runsConfigured, saveRun } from "@/lib/server/runs";
 import { setProfileHomeCityIfUnset } from "@/lib/server/users";
+import { listFriends } from "@/lib/server/friends";
+import { notify } from "@/lib/server/notifications";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId, RunStats } from "@/lib/types";
 
@@ -55,6 +57,28 @@ export async function POST(req: NextRequest) {
     // Not an error: sub-minimum runs are dropped on purpose ("clearly
     // accidents"), and the client shouldn't retry or complain.
     return NextResponse.json({ skipped: result.rejected });
+  }
+  // Tell every mutual friend a run just landed in their feed. Best-effort —
+  // an alert is never worth failing the save.
+  try {
+    const self = uidHash(user.sub);
+    const mutuals = (await listFriends(self)).filter((f) => f.mutual);
+    const what = stats.treadmill
+      ? `a ${Math.round(stats.elapsedMs / 60000)} min treadmill run`
+      : `a ${stats.distanceKm.toFixed(2)} km run`;
+    await Promise.all(
+      mutuals.map((f) =>
+        notify(f.uid, {
+          type: "run",
+          text: `🏃 ${user.name} posted ${what}`,
+          runId: result.id,
+          friendUid: self,
+          fromName: user.name,
+        })
+      )
+    );
+  } catch {
+    /* alerts are decoration */
   }
   // Travel mode's baseline: an unset home city fills itself from the first
   // saved run with a GPS city. Best-effort, and never overwrites a value.

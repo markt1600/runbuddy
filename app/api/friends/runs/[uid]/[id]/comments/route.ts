@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readSession, uidHash } from "@/lib/server/auth";
 import { blobConfigured } from "@/lib/server/library";
 import { addComment, isMutual, readComments } from "@/lib/server/friends";
+import { notify } from "@/lib/server/notifications";
 import { UID_RE } from "@/lib/server/users";
 
 // Comments on a run: readable and writable by the run's owner and their
@@ -51,5 +52,14 @@ export async function POST(
     text,
     at: Date.now(),
   });
+  if (selfUid !== uid) {
+    await notify(uid, {
+      type: "comment",
+      text: `💬 ${user.name} commented on your run: “${text.slice(0, 80)}”`,
+      runId: id,
+      friendUid: selfUid,
+      fromName: user.name,
+    });
+  }
   return NextResponse.json({ comments });
 }

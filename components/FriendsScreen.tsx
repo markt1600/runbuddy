@@ -6,6 +6,7 @@ import { PERSONAS } from "@/lib/personas";
 import { loadSpeedUnit } from "@/lib/units";
 import { drawRunCard } from "@/lib/runCard";
 import type { PersonaId, RunStats } from "@/lib/types";
+import type { AppNotification } from "@/lib/server/notifications";
 
 // The Friends tab: add people by name, and a feed of every mutual friend's
 // runs — their run cards, comments underneath, tap-through to the full
@@ -227,6 +228,18 @@ interface Comment {
 
 interface Props {
   onOpenRun: (run: FeedRun) => void;
+  /** The alert inbox (owned by the app shell, which also polls it). */
+  notifications?: AppNotification[];
+  onOpenNotification?: (n: AppNotification) => void;
+}
+
+/** "2h ago" style stamps for the What's New strip. */
+function ago(at: number): string {
+  const s = Math.max(0, Math.floor((Date.now() - at) / 1000));
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86_400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86_400)}d ago`;
 }
 
 /** One feed entry: the friend's run card, drawn from their real stats. */
@@ -384,7 +397,7 @@ function FeedCard({ run, onOpen }: { run: FeedRun; onOpen: () => void }) {
   );
 }
 
-export default function FriendsScreen({ onOpenRun }: Props) {
+export default function FriendsScreen({ onOpenRun, notifications, onOpenNotification }: Props) {
   const [friends, setFriends] = useState<FriendEntry[] | null>(null);
   const [feed, setFeed] = useState<FeedRun[] | null>(null);
   const [query, setQuery] = useState("");
@@ -471,6 +484,24 @@ export default function FriendsScreen({ onOpenRun }: Props) {
     <div className="fade-in">
       <h1 className="large-title">Friends</h1>
       <p className="subtitle">Their runs, your kaypoh commentary.</p>
+
+      {notifications !== undefined && notifications.length > 0 && (
+        <>
+          <div className="section-header">What&apos;s new</div>
+          <div className="card" style={{ padding: "4px 14px" }}>
+            {notifications.slice(0, 8).map((n) => (
+              <button
+                className="notif-row"
+                key={n.id}
+                onClick={() => onOpenNotification?.(n)}
+              >
+                <span className="notif-text">{n.text}</span>
+                <span className="notif-when">{ago(n.at)}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="section-header">Add a friend</div>
       <div className="friend-search">
