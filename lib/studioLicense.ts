@@ -3,7 +3,7 @@
 // Drafted for a friendly indie engagement — have a lawyer review before the
 // first paid actor signs.
 
-export const LICENSE_VERSION = "v3-2026-09-01";
+export const LICENSE_VERSION = "v4-2026-09-01";
 
 /** The agreement, with the agreed fee baked into its own compensation
  *  clause — the actor signs the exact text they saw, amount included. */
@@ -49,9 +49,13 @@ Recordings (including any re-takes Producer reasonably requests) have been
 completed, and is subject to Producer's reasonable satisfaction with the
 completed work. There is no partial payment for partial work. Producer will
 review completed work within 2 business days of completion and either
-confirm acceptance and pay, or tell Performer what needs another take. This
-licence is effective on signing; once the Recordings are completed and
-accepted, the fee is contractually owed.
+confirm acceptance and pay, or tell Performer what needs another take. Upon
+receiving such feedback, Performer has 5 business days to complete and
+resubmit the requested re-takes; if Performer does not, any payment under
+this agreement is forfeited, while the licences granted in sections 2 and 3
+over the Recordings already delivered remain in effect. This licence is
+effective on signing; once the Recordings are completed and accepted, the
+fee is contractually owed.
 
 6. NO OBLIGATION TO USE. Producer may choose not to use any or all of the
 Recordings or the AI Voice.
