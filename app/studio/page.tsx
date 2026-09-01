@@ -256,8 +256,15 @@ export default function StudioPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "failed");
-      if (action === "status") setPvcStatus(JSON.stringify(data.status, null, 1).slice(0, 2000));
-      else void openSession(open.session.id);
+      if (action === "status") {
+        setPvcStatus(JSON.stringify(data.status, null, 1).slice(0, 2000));
+      } else if (action === "test-voice") {
+        // Ear check: play the rendered line right here and show what it said.
+        setNote(`▶ Test line: “${data.text}”`);
+        void new Audio(`data:audio/mpeg;base64,${data.audioBase64}`).play();
+      } else {
+        void openSession(open.session.id);
+      }
     } catch (err) {
       setNote(`⚠ ${err instanceof Error ? err.message : "pvc failed"}`);
     } finally {
@@ -499,11 +506,20 @@ export default function StudioPage() {
             >
               ⬆ Promote {approved.size} approved takes
             </button>
+            <button onClick={() => void pvcAction("instant")} disabled={!!busy}>
+              ⚡ {open.session.pvc?.voiceId ? "Rebuild instant clone" : "Create instant clone"}
+            </button>
+            <button
+              onClick={() => void pvcAction("test-voice")}
+              disabled={!!busy || !open.session.pvc?.voiceId}
+            >
+              ▶ Test voice
+            </button>
             <button onClick={() => void pvcAction("create")} disabled={!!busy || !!open.session.pvc?.voiceId}>
-              Create clone voice
+              Create PVC voice
             </button>
             <button onClick={() => void pvcUpload()} disabled={!!busy || !open.session.pvc?.voiceId}>
-              Upload clone samples
+              Upload PVC samples
             </button>
             <button onClick={() => void pvcAction("open-verify")} disabled={!!busy || !open.session.pvc?.voiceId}>
               Open actor verification
@@ -537,7 +553,8 @@ export default function StudioPage() {
           )}
           {open.session.pvc?.voiceId && (
             <p className="studio-license">
-              To make this voice live once training finishes: set{" "}
+              To make this voice live (instant clones are usable immediately; PVC after
+              training finishes): set{" "}
               <code>ELEVENLABS_VOICE_{open.session.persona.toUpperCase()}</code> ={" "}
               <code>{open.session.pvc.voiceId}</code> in the Vercel environment, redeploy,
               then Re-render the persona in Admin — live phrases use it immediately, the

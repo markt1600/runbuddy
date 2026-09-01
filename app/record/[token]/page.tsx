@@ -85,7 +85,13 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const recRef = useRef<WavRecorder | null>(null);
-  const takeRef = useRef<{ wav: Blob; peak: number; seconds: number } | null>(null);
+  const takeRef = useRef<{
+    wav: Blob;
+    samples: Float32Array;
+    rate: number;
+    peak: number;
+    seconds: number;
+  } | null>(null);
   const recStartRef = useRef(0);
   const [elapsed, setElapsed] = useState(0);
 
@@ -646,7 +652,13 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
     recRef.current = null;
     const cap = await rec.stop();
     const wav = toWav(cap.samples, cap.sampleRate);
-    takeRef.current = { wav, peak: cap.peak, seconds: cap.seconds };
+    takeRef.current = {
+      wav,
+      samples: cap.samples,
+      rate: cap.sampleRate,
+      peak: cap.peak,
+      seconds: cap.seconds,
+    };
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(wav));
     if (cap.peak < SILENCE_PEAK) {
@@ -672,6 +684,21 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
         body: take.wav,
       });
       if (!res.ok) throw new Error();
+      if (item.kind === "read") {
+        // Long reads feed the voice clone, which wants a small file: encode a
+        // 192k MP3 twin here on the actor's machine. Best-effort — if it
+        // fails, the clone builder falls back to the WAV.
+        try {
+          const mp3 = encodeMp3(take.samples, take.rate, 192);
+          await fetch(`/api/record/${token}/take/${item.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "audio/mpeg" },
+            body: new Blob([mp3.buffer as ArrayBuffer], { type: "audio/mpeg" }),
+          });
+        } catch {
+          /* WAV fallback covers it */
+        }
+      }
       // local bookkeeping instead of a full reload — keeps the flow fast. The
       // object URL keeps the review listing playing THIS take, not a stale fetch.
       const localUrl = URL.createObjectURL(take.wav);

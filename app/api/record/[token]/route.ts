@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { blobConfigured, readExtras } from "@/lib/server/library";
+import { blobConfigured, elevenLabsConfigured, readExtras } from "@/lib/server/library";
 import { getSession, listTakes, writeSession } from "@/lib/server/studio";
+import { instantCloneFromSession } from "@/lib/server/studioClone";
 import { readsFor, TEST_PHRASES, TEST_READS } from "@/lib/studioReads";
 import { licenseTextFor, LICENSE_VERSION } from "@/lib/studioLicense";
 import { PHRASE_LIBRARY } from "@/lib/phrases";
@@ -117,7 +118,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     }
     session.submittedAt = Date.now();
     await writeSession(session);
-    return NextResponse.json({ ok: true, submittedAt: session.submittedAt });
+    // Submission is also the clone trigger: build the Instant Voice Clone
+    // from the long-read takes right now, so the admin opens the studio to a
+    // voice that already exists. A clone failure never fails the submission —
+    // the studio shows the error and has a retry button.
+    let clone: "ready" | "failed" | "skipped" = "skipped";
+    if (elevenLabsConfigured()) {
+      try {
+        await instantCloneFromSession(session);
+        clone = "ready";
+      } catch (err) {
+        clone = "failed";
+        session.pvc = {
+          ...(session.pvc ?? { state: "failed" as const }),
+          state: "failed",
+          note: err instanceof Error ? err.message : "clone failed",
+        };
+        await writeSession(session).catch(() => {});
+      }
+    }
+    return NextResponse.json({ ok: true, submittedAt: session.submittedAt, clone });
   }
   const typedName = (body?.typedName ?? "").trim();
   const email = (body?.email ?? "").trim();

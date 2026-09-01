@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { blobConfigured } from "@/lib/server/library";
-import { getSession, ITEM_ID_RE, saveTake } from "@/lib/server/studio";
+import { getSession, ITEM_ID_RE, saveTake, saveTakeMp3 } from "@/lib/server/studio";
 
-// One take, uploaded as raw WAV. Overwrites are the re-record path.
+// One take, uploaded as raw WAV. Overwrites are the re-record path. Long
+// reads also PUT a browser-encoded MP3 twin (Content-Type audio/mpeg) — the
+// copy the Instant Voice Clone uploads to ElevenLabs at submit time.
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -23,6 +25,10 @@ export async function PUT(
   if (buf.length < 1000 || buf.length > 40_000_000) {
     return NextResponse.json({ error: "bad audio size" }, { status: 400 });
   }
-  await saveTake(token, itemId, buf);
+  if ((req.headers.get("content-type") ?? "").includes("audio/mpeg")) {
+    await saveTakeMp3(token, itemId, buf);
+  } else {
+    await saveTake(token, itemId, buf);
+  }
   return NextResponse.json({ ok: true });
 }

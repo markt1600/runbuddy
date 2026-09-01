@@ -13,6 +13,7 @@ export type PvcState =
   | "uploaded"
   | "verify"
   | "training"
+  | "ready" // instant clone built — voice_id is usable immediately
   | "failed";
 
 export interface StudioSession {
@@ -65,6 +66,8 @@ const sessionPath = (id: string) => `studio/sessions/${id}.json`;
 const takesPrefix = (id: string) => `studio/takes/${id}/`;
 export const takePath = (sessionId: string, itemId: string) =>
   `${takesPrefix(sessionId)}${itemId}.wav`;
+export const takeMp3Path = (sessionId: string, itemId: string) =>
+  `${takesPrefix(sessionId)}${itemId}.mp3`;
 
 export const SESSION_TOKEN_RE = /^[0-9a-f]{24}$/;
 export const ITEM_ID_RE = /^[\w-]{1,60}$/;
@@ -150,6 +153,40 @@ export async function saveTake(
   });
 }
 
+/** Browser-encoded MP3 twin of a long-read take — the clone-training copy,
+ *  small enough to re-upload to ElevenLabs from a serverless function. */
+export async function saveTakeMp3(
+  sessionId: string,
+  itemId: string,
+  mp3: Buffer
+): Promise<void> {
+  await put(takeMp3Path(sessionId, itemId), mp3, {
+    access: "public",
+    contentType: "audio/mpeg",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+  });
+}
+
+/** Every audio file a session has, wav and mp3 alike, keyed for the clone
+ *  builder to pick the best copy of each item. */
+export async function listTakeFiles(
+  sessionId: string
+): Promise<{ itemId: string; ext: "wav" | "mp3"; url: string; size: number }[]> {
+  const out: { itemId: string; ext: "wav" | "mp3"; url: string; size: number }[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix: takesPrefix(sessionId), cursor });
+    for (const b of page.blobs) {
+      const m = b.pathname.match(/\/([\w-]+)\.(wav|mp3)$/);
+      if (m) out.push({ itemId: m[1], ext: m[2] as "wav" | "mp3", url: b.url, size: b.size });
+    }
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+  return out;
+}
+
 export async function listTakes(sessionId: string): Promise<StudioTake[]> {
   const out: StudioTake[] = [];
   let cursor: string | undefined;
@@ -188,8 +225,9 @@ export async function deleteSession(id: string): Promise<void> {
 }
 
 export async function deleteTake(sessionId: string, itemId: string): Promise<void> {
-  const pathname = takePath(sessionId, itemId);
-  const page = await list({ prefix: pathname, limit: 1 });
-  const hit = page.blobs.find((b) => b.pathname === pathname);
-  if (hit) await del(hit.url);
+  for (const pathname of [takePath(sessionId, itemId), takeMp3Path(sessionId, itemId)]) {
+    const page = await list({ prefix: pathname, limit: 2 });
+    const hit = page.blobs.find((b) => b.pathname === pathname);
+    if (hit) await del(hit.url);
+  }
 }

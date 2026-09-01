@@ -9,6 +9,9 @@ import {
   pvcStatus,
   pvcTrain,
 } from "@/lib/server/elevenPvc";
+import { instantCloneFromSession } from "@/lib/server/studioClone";
+import { ttsPreview } from "@/lib/server/elevenPvc";
+import { PHRASE_LIBRARY } from "@/lib/phrases";
 import { PERSONAS } from "@/lib/personas";
 
 // PVC lifecycle controls for the studio page. One action-dispatch route so
@@ -36,6 +39,13 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (body?.action) {
+      case "instant": {
+        // The default pipeline: (re)build the Instant Voice Clone from the
+        // session's long-read takes. Submission runs this automatically;
+        // this button is the retry / rebuild-after-flag-redos path.
+        await instantCloneFromSession(session);
+        return NextResponse.json({ session });
+      }
       case "create": {
         const voiceId = await pvcCreate(
           `RunBuddy ${PERSONAS[session.persona].shortName} — ${session.label}`
@@ -70,6 +80,21 @@ export async function POST(req: NextRequest) {
         session.pvc.state = "training";
         await writeSession(session);
         return NextResponse.json({ session });
+      }
+      case "test-voice": {
+        if (!session.pvc?.voiceId) throw new Error("create the voice first");
+        // A real line from the persona's own library, so the ear check hears
+        // the accent and energy the clone will actually be asked to deliver.
+        const bank = PHRASE_LIBRARY[session.persona];
+        const line =
+          bank[Math.floor(Math.random() * bank.length)]?.text ??
+          "Oi, steady lah! This is your new voice speaking. Run Buddy, checking in.";
+        const audio = await ttsPreview(session.pvc.voiceId, line);
+        return NextResponse.json({
+          session,
+          text: line,
+          audioBase64: audio.toString("base64"),
+        });
       }
       case "status": {
         if (!session.pvc?.voiceId) throw new Error("create the voice first");
