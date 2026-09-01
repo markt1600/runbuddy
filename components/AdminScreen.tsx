@@ -20,6 +20,8 @@ import {
   reRenderStale,
   renderedCount,
   isPhraseStale,
+  isPromoted,
+  promotedPhrases,
   stalePhrases,
   saveVoiceSpeed,
   saveVoiceVolume,
@@ -221,6 +223,16 @@ export default function AdminScreen({ onBack }: Props) {
 
   // Re-render a single phrase, for wording that changed after it was voiced.
   const onRedoPhrase = async (id: string) => {
+    if (
+      isPromoted(personaId, id) &&
+      !window.confirm(
+        `${id} is a REAL actor recording promoted from the studio. Re-rendering replaces ` +
+          "it with synthesized audio. (The take stays in the studio — you can re-promote " +
+          "it later.) Continue?"
+      )
+    ) {
+      return;
+    }
     setRedoing(id);
     setNotice(null);
     try {
@@ -269,12 +281,22 @@ export default function AdminScreen({ onBack }: Props) {
     refresh();
   };
 
+  const recordedHere = promotedPhrases(personaId);
+
   const onReRender = async () => {
     const count = allPhrasesFor(personaId).length;
+    const recordedWarning =
+      recordedHere.length > 0
+        ? `\n\n⚠ ${recordedHere.length} of them are REAL actor recordings promoted from ` +
+          "the studio — this replaces them with synthesized audio. (Takes stay saved in " +
+          "the studio, so you can re-promote them later.) To keep them, use " +
+          "“Re-render generated only” instead."
+        : "";
     if (
       !window.confirm(
         `Re-render ALL ${count} ${persona.name} phrases with the current voice? ` +
-          "This overwrites existing audio and spends ElevenLabs credits."
+          "This overwrites existing audio and spends ElevenLabs credits." +
+          recordedWarning
       )
     )
       return;
@@ -283,6 +305,31 @@ export default function AdminScreen({ onBack }: Props) {
       setProgress(p);
       refresh();
     });
+    refresh();
+  };
+
+  // The persona has a real actor: refresh only the synthesized phrases
+  // (voice ID changed, new phrases added, etc.) and leave every promoted
+  // actor take exactly as recorded.
+  const onReRenderGenerated = async () => {
+    const count = allPhrasesFor(personaId).length - recordedHere.length;
+    if (
+      !window.confirm(
+        `Re-render the ${count} generated ${persona.name} phrases with the current voice, ` +
+          `keeping all ${recordedHere.length} actor recordings untouched? ` +
+          "This spends ElevenLabs credits."
+      )
+    )
+      return;
+    setNotice(null);
+    await reRenderPersona(
+      personaId,
+      (p) => {
+        setProgress(p);
+        refresh();
+      },
+      { skipPromoted: true }
+    );
     refresh();
   };
 
@@ -578,6 +625,16 @@ export default function AdminScreen({ onBack }: Props) {
         >
           Render missing — all personas
         </button>
+        {recordedHere.length > 0 && (
+          <button
+            className="cta secondary"
+            style={{ marginTop: 10 }}
+            disabled={busy}
+            onClick={onReRenderGenerated}
+          >
+            Re-render generated only (keep {recordedHere.length} recorded)
+          </button>
+        )}
         <button
           className="cta secondary"
           style={{ marginTop: 10 }}
@@ -740,7 +797,7 @@ export default function AdminScreen({ onBack }: Props) {
                     </button>
                     <span className="phrase-text">{phrase.text}</span>
                     <span className={`phrase-badge ${rendered ? "ok" : ""}`}>
-                      {rendered ? "MP3" : "TTS"}
+                      {rendered ? (isPromoted(personaId, phrase.id) ? "🎙 REC" : "MP3") : "TTS"}
                     </span>
                     {recordedAt && (
                       <span className="phrase-date" title={recordedAt.toLocaleString()}>

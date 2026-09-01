@@ -10,6 +10,7 @@ import type { Persona, Phrase, PersonaId, PhraseCategory } from "./types";
 
 const urls = new Map<string, string>(); // "<persona>/<id>" → audio url
 const renderedAt = new Map<string, string>(); // "<persona>/<id>" → ISO recording time
+const promoted = new Set<string>(); // "<persona>/<id>" — a real actor's take, not TTS
 const PERSONA_IDS = Object.keys(PERSONAS) as PersonaId[];
 
 const extras = Object.fromEntries(PERSONA_IDS.map((p) => [p, [] as Phrase[]])) as Record<
@@ -145,6 +146,7 @@ export async function loadLibraryState(force = false): Promise<void> {
         rendered: Record<string, string>;
         renderedAt?: Record<string, string>;
         renderHashes?: Record<string, Record<string, string>>;
+        promoted?: string[];
         extras: Record<string, Phrase[]>;
         voiceSettings?: Record<PersonaId, { speed: number; volume: number }>;
       } = await res.json();
@@ -164,6 +166,8 @@ export async function loadLibraryState(force = false): Promise<void> {
       for (const [k, at] of Object.entries(data.renderedAt ?? {})) {
         renderedAt.set(k, at);
       }
+      promoted.clear();
+      for (const k of data.promoted ?? []) promoted.add(k);
       for (const persona of Object.keys(extras) as PersonaId[]) {
         extras[persona] = data.extras?.[persona] ?? [];
         renderHashes[persona] = data.renderHashes?.[persona] ?? {};
@@ -176,6 +180,20 @@ export async function loadLibraryState(force = false): Promise<void> {
   } catch {
     /* offline or route missing — flags stay pessimistic */
   }
+}
+
+// ---- promoted audio: a real actor's take, promoted from the studio ----
+
+/** True when this phrase's live audio is a studio-promoted actor recording. */
+export function isPromoted(persona: PersonaId, id: string): boolean {
+  return promoted.has(key(persona, id));
+}
+
+/** Ids of this persona's phrases whose live audio is a real actor's take. */
+export function promotedPhrases(persona: PersonaId): string[] {
+  return allPhrasesFor(persona)
+    .filter((p) => promoted.has(key(persona, p.id)))
+    .map((p) => p.id);
 }
 
 // ---- stale audio: the MP3 exists, but it says the old words ----
@@ -366,12 +384,17 @@ async function saveVoiceSetting(
  * Force re-render every phrase for one persona — used after its ElevenLabs
  * voice ID (or speed) changes. Overwrites blob audio; URLs get a cache-buster
  * so the new voice plays immediately despite long-lived browser caching.
+ * `skipPromoted` leaves studio-promoted actor recordings untouched — the mode
+ * for refreshing TTS audio on a persona that has a real actor.
  */
 export async function reRenderPersona(
   persona: PersonaId,
-  onProgress: (p: GenerationProgress) => void
+  onProgress: (p: GenerationProgress) => void,
+  opts?: { skipPromoted?: boolean }
 ): Promise<void> {
-  const pool = allPhrasesFor(persona);
+  const pool = allPhrasesFor(persona).filter(
+    (p) => !(opts?.skipPromoted && promoted.has(key(persona, p.id)))
+  );
   const report = (state: GenerationProgress["state"], done: number, message?: string) =>
     onProgress({ state, done, total: pool.length, message });
 
@@ -397,6 +420,7 @@ export async function reRenderPersona(
       const data: { url: string } = await res.json();
       urls.set(key(persona, phrase.id), `${data.url}?v=${Date.now()}`);
       renderedAt.set(key(persona, phrase.id), new Date().toISOString());
+      promoted.delete(key(persona, phrase.id)); // now TTS again
       consecutiveFailures = 0;
       done++;
       report("generating", done);
@@ -436,6 +460,7 @@ export async function reRenderPhrase(persona: PersonaId, id: string): Promise<vo
   // keep serving the old audio.
   urls.set(key(persona, id), `${data.url}?v=${Date.now()}`);
   renderedAt.set(key(persona, id), new Date().toISOString());
+  promoted.delete(key(persona, id)); // now TTS again
   // Mirror the hash the server just recorded, so the row stops reading as
   // stale without waiting for a status refetch.
   const text = allPhrasesFor(persona).find((p) => p.id === id)?.text;

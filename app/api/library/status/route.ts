@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   blobConfigured,
   elevenLabsConfigured,
+  listPromoted,
   listRendered,
   readExtras,
   readRenderHashes,
@@ -27,10 +28,11 @@ export async function GET() {
       Object.entries(renderedFull).map(([k, v]) => [k, v.at])
     );
     const personaIds = Object.keys(PERSONAS) as PersonaId[];
-    const [voiceSettings, extrasList, hashList] = await Promise.all([
+    const [voiceSettings, extrasList, hashList, promoted] = await Promise.all([
       readVoiceSettings(),
       Promise.all(personaIds.map((p) => readExtras(p))),
       Promise.all(personaIds.map((p) => readRenderHashes(p))),
+      listPromoted(),
     ]);
     const extras = Object.fromEntries(
       personaIds.map((p, i) => [p, extrasList[i]])
@@ -45,6 +47,7 @@ export async function GET() {
       rendered, // { "<persona>/<id>": url }
       renderedAt, // { "<persona>/<id>": ISO timestamp of the recording }
       renderHashes, // { <persona>: { <id>: textHash } } — what the audio says
+      promoted, // [ "<persona>/<id>" ] — audio that is a real actor's take
       extras,
       voiceSettings,
     });

@@ -69,6 +69,57 @@ export async function appendExtras(persona: PersonaId, phrases: Phrase[]): Promi
   return merged;
 }
 
+// ---- promoted provenance: which audio is a real actor's take ----
+// One tiny marker per phrase whose live audio came from a studio promotion
+// rather than TTS. It gates the admin's "re-render would overwrite a real
+// recording" warning and the generated-only re-render. Same pathname-as-data
+// scheme as the render markers, for the same stale-read reasons.
+
+const promotedPath = (persona: PersonaId, phraseId: string) =>
+  `library/${persona}/promoted/${phraseId}`;
+
+/** Every promoted phrase, as "<persona>/<id>" keys. */
+export async function listPromoted(): Promise<string[]> {
+  const out: string[] = [];
+  if (!blobConfigured()) return out;
+  await Promise.all(
+    (Object.keys(PHRASE_LIBRARY) as PersonaId[]).map(async (persona) => {
+      let cursor: string | undefined;
+      do {
+        const page = await list({ prefix: `library/${persona}/promoted/`, cursor });
+        for (const b of page.blobs) {
+          const id = b.pathname.split("/").pop();
+          if (id) out.push(`${persona}/${id}`);
+        }
+        cursor = page.hasMore ? page.cursor : undefined;
+      } while (cursor);
+    })
+  );
+  return out;
+}
+
+async function markPromoted(persona: PersonaId, phraseId: string): Promise<void> {
+  await put(promotedPath(persona, phraseId), "1", {
+    access: "public",
+    contentType: "text/plain",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+  });
+}
+
+/** The audio at this phrase is synthesized again — drop the actor-take mark. */
+async function clearPromoted(persona: PersonaId, phraseId: string): Promise<void> {
+  try {
+    const pathname = promotedPath(persona, phraseId);
+    const page = await list({ prefix: pathname, limit: 1 });
+    const hit = page.blobs.find((b) => b.pathname === pathname);
+    if (hit) await del(hit.url);
+  } catch {
+    /* best effort — a stray marker only over-warns, never loses audio */
+  }
+}
+
 // ---- render manifest: which text each rendered MP3 was actually cut from ----
 
 // One empty marker blob per render, with the phrase id and the text
@@ -166,6 +217,7 @@ export async function promoteAudio(
     cacheControlMaxAge: 31536000,
   });
   await recordRenderHash(persona, phraseId, phraseHash(phrase.text));
+  await markPromoted(persona, phraseId).catch(() => {});
   return blob.url;
 }
 
@@ -209,5 +261,8 @@ export async function renderPhraseToBlob(
   } catch {
     /* provenance is best-effort */
   }
+  // A forced render may have just replaced a promoted actor take with TTS —
+  // the actor-take mark must not outlive the audio it described.
+  if (force) await clearPromoted(persona, phraseId);
   return { url: blob.url, existed: false };
 }
