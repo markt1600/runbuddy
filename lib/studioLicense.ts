@@ -3,12 +3,23 @@
 // Drafted for a friendly indie engagement — have a lawyer review before the
 // first paid actor signs.
 
-export const LICENSE_VERSION = "v4-2026-09-01";
+export const LICENSE_VERSION = "v5-2026-09-01";
 
-/** The agreement, with the agreed fee baked into its own compensation
- *  clause — the actor signs the exact text they saw, amount included. */
-export function licenseTextFor(feeSgd: number): string {
-  return LICENSE_TEXT.replace("{{FEE}}", feeSgd.toFixed(2));
+/** The agreement with the agreed fee and deadline baked into its own
+ *  compensation clause — the actor signs the exact text they saw. */
+export function licenseTextFor(feeSgd: number, deadlineAt?: number): string {
+  const deadline = deadlineAt
+    ? new Date(deadlineAt).toLocaleDateString("en-SG", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "Asia/Singapore",
+      })
+    : "the date notified to Performer in writing";
+  return LICENSE_TEXT.replace("{{FEE}}", feeSgd.toFixed(2)).replace(
+    "{{DEADLINE}}",
+    deadline
+  );
 }
 
 const LICENSE_TEXT = `VOICE RECORDING AND AI VOICE LICENSE AGREEMENT
@@ -47,7 +58,11 @@ for the Recordings and the licences granted above, payable by PayNow to the
 ID Performer provides. The fee is payable only when ALL of the requested
 Recordings (including any re-takes Producer reasonably requests) have been
 completed, and is subject to Producer's reasonable satisfaction with the
-completed work. There is no partial payment for partial work. Producer will
+completed work. There is no partial payment for partial work. ALL of the
+requested Recordings must be completed and submitted by the end of
+{{DEADLINE}}, Singapore time (the "Deadline"); if they are not, any payment
+under this agreement is forfeited, while the licences granted in sections 2
+and 3 over Recordings already delivered remain in effect. Producer will
 review completed work within 2 business days of completion and either
 confirm acceptance and pay, or tell Performer what needs another take. Upon
 receiving such feedback, Performer has 5 business days to complete and

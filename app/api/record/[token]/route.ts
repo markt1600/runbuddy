@@ -50,9 +50,21 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
     personaName: PERSONAS[session.persona].name,
     label: session.label,
     licensed: !!session.license,
-    licenseText: licenseTextFor(session.feeSgd ?? 0),
+    licenseText: licenseTextFor(session.feeSgd ?? 0, session.deadlineAt),
     licenseVersion: LICENSE_VERSION,
     feeSgd: session.feeSgd ?? 0,
+    deadlineAt: session.deadlineAt ?? 0,
+    // Rough session length for the actor: short phrases run ~35s each with
+    // navigation and the odd re-take; long reads ~4 minutes.
+    estimateHours: (() => {
+      const phrases = items.filter((i) => i.kind === "phrase").length;
+      const reads = items.filter((i) => i.kind === "read").length;
+      const h = (phrases * 35 + reads * 240) / 3600;
+      return {
+        low: Math.max(0.5, Math.round(h * 2) / 2),
+        high: Math.max(1, Math.round(h * 1.35 * 2) / 2),
+      };
+    })(),
     items,
     recorded: [...recorded],
     takeUrls,
@@ -91,6 +103,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
       email,
       paynowId,
       feeSgd: session.feeSgd ?? 0,
+      deadlineAt: session.deadlineAt,
       at: Date.now(),
       ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
       ua: req.headers.get("user-agent") ?? undefined,

@@ -94,6 +94,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     await writeSession(session);
     return NextResponse.json({ session });
   }
+  if (body?.action === "deadline") {
+    const at = Number((body as { deadlineAt?: number }).deadlineAt);
+    if (!isFinite(at) || at <= Date.now()) {
+      return NextResponse.json({ error: "bad deadline" }, { status: 400 });
+    }
+    session.deadlineAt = at;
+    await writeSession(session);
+    return NextResponse.json({ session });
+  }
 
   const itemId = body?.itemId ?? "";
   if (!ITEM_ID_RE.test(itemId)) return NextResponse.json({ error: "bad item" }, { status: 400 });

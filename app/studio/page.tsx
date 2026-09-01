@@ -19,6 +19,7 @@ interface SessionRow {
   takeCount: number;
   itemTotal?: number;
   feeSgd?: number;
+  deadlineAt?: number;
   license?: {
     typedName: string;
     email: string;
@@ -52,6 +53,7 @@ export default function StudioPage() {
   const [newLabel, setNewLabel] = useState("");
   const [newPersona, setNewPersona] = useState<PersonaId>("ahbeng");
   const [newFee, setNewFee] = useState("");
+  const [newDeadline, setNewDeadline] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
@@ -152,11 +154,14 @@ export default function StudioPage() {
           label: newLabel,
           persona: newPersona,
           feeSgd: Number(newFee),
+          // End of the chosen day, Singapore time.
+          deadlineAt: Date.parse(`${newDeadline}T23:59:59+08:00`),
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "failed");
       setNewLabel("");
       setNewFee("");
+      setNewDeadline("");
       loadSessions();
     } catch (err) {
       setNote(`⚠ ${err instanceof Error ? err.message : "create failed"}`);
@@ -325,16 +330,26 @@ export default function StudioPage() {
               inputMode="decimal"
               style={{ width: 110 }}
             />
+            <input
+              type="date"
+              value={newDeadline}
+              onChange={(e) => setNewDeadline(e.target.value)}
+              title="Completion deadline (end of day, Singapore time)"
+            />
             <button
               onClick={() => void createSession()}
-              disabled={!newLabel.trim() || !(Number(newFee) > 0)}
+              disabled={
+                !newLabel.trim() ||
+                !(Number(newFee) > 0) ||
+                !(Date.parse(`${newDeadline}T23:59:59+08:00`) > Date.now())
+              }
             >
               Create session
             </button>
           </div>
           <table className="studio-table">
             <thead>
-              <tr><th>Actor</th><th>Persona</th><th>Fee</th><th>Progress</th><th>License</th><th>Clone</th><th>Link</th><th></th></tr>
+              <tr><th>Actor</th><th>Persona</th><th>Fee</th><th>Deadline</th><th>Progress</th><th>License</th><th>Clone</th><th>Link</th><th></th></tr>
             </thead>
             <tbody>
               {(sessions ?? []).map((s) => (
@@ -342,6 +357,14 @@ export default function StudioPage() {
                   <td><button className="studio-link" onClick={() => void openSession(s.id)}>{s.label}</button></td>
                   <td>{s.persona}</td>
                   <td>${(s.feeSgd ?? 0).toFixed(0)}</td>
+                  <td>
+                    {s.deadlineAt
+                      ? new Date(s.deadlineAt).toLocaleDateString("en-SG", {
+                          day: "numeric",
+                          month: "short",
+                        }) + (s.deadlineAt < Date.now() ? " ⚠" : "")
+                      : "—"}
+                  </td>
                   <td>
                     {s.takeCount}/{s.itemTotal ?? "?"}
                     {s.itemTotal ? ` (${Math.round((s.takeCount / s.itemTotal) * 100)}%)` : ""}
@@ -378,7 +401,7 @@ export default function StudioPage() {
                 </tr>
               ))}
               {sessions !== null && sessions.length === 0 && (
-                <tr><td colSpan={8}>No sessions yet — create one above.</td></tr>
+                <tr><td colSpan={9}>No sessions yet — create one above.</td></tr>
               )}
             </tbody>
           </table>
@@ -405,6 +428,30 @@ export default function StudioPage() {
                     method: "POST",
                     headers: headers(),
                     body: JSON.stringify({ action: "fee", feeSgd: Number(v) }),
+                  }).then(() => void openSession(open.session.id));
+                }
+              }}
+            >
+              edit
+            </button>
+            {" · ⏰ "}
+            {open.session.deadlineAt
+              ? new Date(open.session.deadlineAt).toLocaleDateString("en-SG", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })
+              : "no deadline"}{" "}
+            <button
+              className="studio-link"
+              onClick={() => {
+                const v = prompt("Deadline (YYYY-MM-DD, end of day Singapore time):");
+                const at = v ? Date.parse(`${v}T23:59:59+08:00`) : NaN;
+                if (isFinite(at) && at > Date.now()) {
+                  void fetch(`/api/studio/sessions/${open.session.id}`, {
+                    method: "POST",
+                    headers: headers(),
+                    body: JSON.stringify({ action: "deadline", deadlineAt: at }),
                   }).then(() => void openSession(open.session.id));
                 }
               }}
@@ -446,8 +493,27 @@ export default function StudioPage() {
           {open.session.pvc && (
             <p className="studio-license">
               Clone: {open.session.pvc.state}
-              {open.session.pvc.voiceId ? ` · ${open.session.pvc.voiceId}` : ""}
+              {open.session.pvc.voiceId ? ` · voice_id: ${open.session.pvc.voiceId} ` : ""}
+              {open.session.pvc.voiceId && (
+                <button
+                  className="studio-link"
+                  onClick={() =>
+                    void navigator.clipboard.writeText(open.session.pvc?.voiceId ?? "")
+                  }
+                >
+                  copy
+                </button>
+              )}
               {open.session.pvc.note ? ` · ${open.session.pvc.note}` : ""}
+            </p>
+          )}
+          {open.session.pvc?.voiceId && (
+            <p className="studio-license">
+              To make this voice live once training finishes: set{" "}
+              <code>ELEVENLABS_VOICE_{open.session.persona.toUpperCase()}</code> ={" "}
+              <code>{open.session.pvc.voiceId}</code> in the Vercel environment, redeploy,
+              then Re-render the persona in Admin — live phrases use it immediately, the
+              pre-rendered pack after the re-render.
             </p>
           )}
           {pvcStatus && <pre className="studio-status">{pvcStatus}</pre>}

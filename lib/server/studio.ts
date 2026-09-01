@@ -22,12 +22,16 @@ export interface StudioSession {
   createdAt: number;
   /** Agreed one-time fee in SGD — baked into the licence text they sign. */
   feeSgd?: number;
+  /** Hard completion deadline (ms epoch, end of a Singapore day) — also in
+   *  the licence, and shown on every actor visit. */
+  deadlineAt?: number;
   license?: {
     typedName: string;
     email: string;
     paynowId: string;
-    /** Snapshot of the fee the signed text contained. */
+    /** Snapshot of the fee and deadline the signed text contained. */
     feeSgd?: number;
+    deadlineAt?: number;
     at: number;
     ip?: string;
     ua?: string;
@@ -62,13 +66,15 @@ export const ITEM_ID_RE = /^[\w-]{1,60}$/;
 export async function createStudioSession(
   label: string,
   persona: PersonaId,
-  feeSgd = 0
+  feeSgd = 0,
+  deadlineAt = 0
 ): Promise<StudioSession> {
   const session: StudioSession = {
     id: randomBytes(12).toString("hex"),
     label: label.slice(0, 80),
     persona,
     feeSgd: Math.max(0, Math.min(100_000, feeSgd)),
+    deadlineAt: deadlineAt > 0 ? deadlineAt : undefined,
     createdAt: Date.now(),
   };
   await writeSession(session);

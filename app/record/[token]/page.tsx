@@ -17,6 +17,8 @@ interface SessionView {
   licenseText: string;
   licenseVersion: string;
   feeSgd: number;
+  deadlineAt: number;
+  estimateHours: { low: number; high: number };
   items: { id: string; kind: "phrase" | "read"; text: string; title?: string }[];
   recorded: string[];
   takeUrls: Record<string, string>;
@@ -37,6 +39,29 @@ const CAL_TEXT =
   "The quick brown fox jumps over the lazy dog, and the race starts at six in the morning " +
   "by the sea. If my levels look good, I will keep everything exactly like this.";
 const CAL_KEY = (token: string) => `runbuddy-cal-${token}`;
+
+const fmtDeadline = (at: number) =>
+  new Date(at).toLocaleDateString("en-SG", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+const daysLeft = (at: number) => Math.ceil((at - Date.now()) / 86_400_000);
+
+/** Shown on every visit — the contract's hard completion date. */
+function DeadlineBanner({ at }: { at: number }) {
+  if (!at) return null;
+  const d = daysLeft(at);
+  return (
+    <div className={`booth-deadline${d < 3 ? " urgent" : ""}`}>
+      ⏰ Deadline: <strong>{fmtDeadline(at)}</strong>
+      {d >= 0
+        ? ` — ${d === 0 ? "today" : `${d} day${d === 1 ? "" : "s"} left`}. All recordings must be 100% completed and submitted by then.`
+        : " — PASSED. Contact us immediately."}
+    </div>
+  );
+}
 
 export default function RecordPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
@@ -158,6 +183,15 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
         <p className="booth-sub">
           Recording as <strong>{view.personaName}</strong> · {view.label}
         </p>
+        <div className="booth-note">
+          📋 This session covers {view.items.length} recordings and typically takes{" "}
+          <strong>
+            about {view.estimateHours.low}–{view.estimateHours.high} hours
+          </strong>{" "}
+          of focused work. You can split it across multiple sittings — your progress saves
+          automatically.
+        </div>
+        <DeadlineBanner at={view.deadlineAt} />
         <div className="booth-license">{view.licenseText}</div>
         <div className="booth-form">
           <label>
@@ -485,6 +519,7 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
         </span>
         <progress value={doneCount} max={view.items.length} />
       </div>
+      <DeadlineBanner at={view.deadlineAt} />
       {view.openFlags.length > 0 && (
         <div className="booth-flags">
           🔁 {view.openFlags.length} item{view.openFlags.length === 1 ? "" : "s"} sent back for

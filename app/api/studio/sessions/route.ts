@@ -48,16 +48,21 @@ export async function POST(req: NextRequest) {
     label?: string;
     persona?: string;
     feeSgd?: number;
+    deadlineAt?: number;
   } | null;
   const persona = body?.persona as PersonaId;
   const label = (body?.label ?? "").trim();
   const feeSgd = Number(body?.feeSgd);
+  const deadlineAt = Number(body?.deadlineAt);
   if (!(persona in PERSONAS) || !label || !isFinite(feeSgd) || feeSgd <= 0) {
     return NextResponse.json(
       { error: "need label, persona and a fee amount" },
       { status: 400 }
     );
   }
-  const session = await createStudioSession(label, persona, feeSgd);
+  if (!isFinite(deadlineAt) || deadlineAt <= Date.now()) {
+    return NextResponse.json({ error: "need a future deadline" }, { status: 400 });
+  }
+  const session = await createStudioSession(label, persona, feeSgd, deadlineAt);
   return NextResponse.json({ session });
 }

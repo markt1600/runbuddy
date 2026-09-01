@@ -3228,3 +3228,17 @@ input[type="range"]::-moz-range-thumb {
 .studio-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
 .studio-license { font-size: 12.5px; color: var(--label-2); }
 .studio-status { font-size: 11px; background: var(--bg-elevated); padding: 10px; border-radius: 10px; overflow-x: auto; }
+
+.booth-deadline {
+  font-size: 13.5px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: #e8ecdf;
+  color: #3c4a2e;
+  margin-bottom: 12px;
+}
+
+.booth-deadline.urgent {
+  background: #f3d7d2;
+  color: #7c2418;
+}
