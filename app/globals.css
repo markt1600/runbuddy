@@ -3254,3 +3254,32 @@ body:has(.studio) {
   user-select: text;
   touch-action: auto;
 }
+
+.booth-mic {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.booth-mic select {
+  padding: 10px 13px;
+  border: 1px solid var(--separator-strong);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: inherit;
+  font: inherit;
+}
+
+.booth-mic-change {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}

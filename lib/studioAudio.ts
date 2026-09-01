@@ -27,10 +27,12 @@ export class WavRecorder {
   private chunks: Float32Array[] = [];
   private peak = 0;
 
-  /** onLevel gets the current input peak (0..1) a few times a second. */
-  async start(onLevel?: (level: number) => void): Promise<void> {
+  /** onLevel gets the current input peak (0..1) a few times a second.
+   *  deviceId pins a specific microphone — the mic check's selection. */
+  async start(onLevel?: (level: number) => void, deviceId?: string): Promise<void> {
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: {
+        ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
         channelCount: 1,
         echoCancellation: false,
         noiseSuppression: false, // raw takes — no browser processing

@@ -360,16 +360,17 @@ export default function StudioPage() {
           </div>
           <table className="studio-table">
             <thead>
-              <tr><th>Actor</th><th>Persona</th><th>Fee</th><th>Deadline</th><th>Progress</th><th>License</th><th>Clone</th><th>Link</th><th></th></tr>
+              <tr><th>Actor</th><th>Type</th><th>Persona</th><th>Fee</th><th>Deadline</th><th>Progress</th><th>License</th><th>Clone</th><th>Link</th><th></th></tr>
             </thead>
             <tbody>
               {(sessions ?? []).map((s) => (
                 <tr key={s.id}>
                   <td>
                     <button className="studio-link" onClick={() => void openSession(s.id)}>
-                      {s.test ? "🧪 " : ""}{s.label}
+                      {s.label}
                     </button>
                   </td>
+                  <td>{s.test ? "🧪 Test" : "Live"}</td>
                   <td>{s.persona}</td>
                   <td>${(s.feeSgd ?? 0).toFixed(0)}</td>
                   <td>
@@ -416,7 +417,7 @@ export default function StudioPage() {
                 </tr>
               ))}
               {sessions !== null && sessions.length === 0 && (
-                <tr><td colSpan={9}>No sessions yet — create one above.</td></tr>
+                <tr><td colSpan={10}>No sessions yet — create one above.</td></tr>
               )}
             </tbody>
           </table>
@@ -427,6 +428,7 @@ export default function StudioPage() {
             ‹ All sessions
           </button>
           <h2>
+            {open.session.test ? "🧪 TEST SESSION · " : ""}
             {open.session.label} · {open.session.persona} · SGD $
             {(open.session.feeSgd ?? 0).toFixed(2)}{" "}
             <button

@@ -88,6 +88,12 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
   const recStartRef = useRef(0);
   const [elapsed, setElapsed] = useState(0);
 
+  // microphone choice: laptops often carry several inputs and the browser's
+  // default is a lottery. Enumerated once permission exists; the selection
+  // feeds every recording on the page.
+  const [mics, setMics] = useState<{ id: string; label: string }[]>([]);
+  const [micId, setMicId] = useState<string>("");
+
   // calibration: once per visit (a new visit can mean a new mic, room or
   // laptop, so it re-runs whenever the browser session is fresh)
   const [calDone, setCalDone] = useState(false);
@@ -110,6 +116,39 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
       /* private mode — calibrate every visit, no harm */
     }
   }, [token]);
+
+  // Ask for mic permission up front so device labels are readable, then list
+  // the inputs. Re-runs on plug/unplug via devicechange.
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        if (cancelled) return;
+        const inputs = devices
+          .filter((d) => d.kind === "audioinput" && d.deviceId)
+          .map((d, i) => ({ id: d.deviceId, label: d.label || `Microphone ${i + 1}` }));
+        setMics(inputs);
+        setMicId((cur) => (cur && inputs.some((m) => m.id === cur) ? cur : inputs[0]?.id ?? ""));
+      } catch {
+        /* no device API — recording will use the default */
+      }
+    };
+    void (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((t) => t.stop());
+      } catch {
+        /* denied — labels stay generic, recording will re-ask */
+      }
+      await refresh();
+    })();
+    navigator.mediaDevices?.addEventListener?.("devicechange", refresh);
+    return () => {
+      cancelled = true;
+      navigator.mediaDevices?.removeEventListener?.("devicechange", refresh);
+    };
+  }, []);
 
   const load = () => {
     void fetch(`/api/record/${token}`)
@@ -239,7 +278,7 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
       setCalVerdict(null);
       try {
         const rec = new WavRecorder();
-        await rec.start(setLevel);
+        await rec.start(setLevel, micId || undefined);
         await new Promise((r) => setTimeout(r, 3000));
         const cap = await rec.stop();
         const noiseDb = dbfs(cap.rms);
@@ -265,7 +304,7 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
       setCalPass(false);
       try {
         const rec = new WavRecorder();
-        await rec.start(setLevel);
+        await rec.start(setLevel, micId || undefined);
         recRef.current = rec;
         setCalBusy(true);
       } catch {
@@ -314,6 +353,26 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
     return (
       <div className="booth">
         <h1>Mic check</h1>
+        {mics.length > 0 && (
+          <label className="booth-mic">
+            Microphone
+            <select
+              value={micId}
+              onChange={(e) => {
+                setMicId(e.target.value);
+                // A different mic invalidates everything measured so far.
+                setCalStep("room");
+                setCalVerdict(null);
+                setCalPass(false);
+                setCalPreview(null);
+              }}
+            >
+              {mics.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+          </label>
+        )}
         {calStep === "room" ? (
           <>
             <p className="booth-sub">
@@ -366,7 +425,7 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
       setCapNote(null);
       try {
         const rec = new WavRecorder();
-        await rec.start(setLevel);
+        await rec.start(setLevel, micId || undefined);
         recRef.current = rec;
         setCapState("recording");
       } catch {
@@ -449,7 +508,7 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
     setWarn(null);
     try {
       const rec = new WavRecorder();
-      await rec.start(setLevel);
+      await rec.start(setLevel, micId || undefined);
       recRef.current = rec;
       recStartRef.current = Date.now();
       setElapsed(0);
@@ -582,6 +641,25 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
       {warn && <div className="booth-warn">{warn}</div>}
 
       <div className="booth-tips">
+        🎙 {mics.find((m) => m.id === micId)?.label ?? "Default microphone"}{" "}
+        <button
+          className="booth-mic-change"
+          onClick={() => {
+            // Changing mics means re-calibrating — send them back through it.
+            try {
+              sessionStorage.removeItem(CAL_KEY(token));
+            } catch {
+              /* fine */
+            }
+            setCalDone(false);
+            setCalStep("room");
+            setCalVerdict(null);
+            setCalPass(false);
+          }}
+        >
+          change mic / re-check levels
+        </button>
+        <br />
         Quiet room · same mic throughout · stay in character, big energy · no effects or
         noise reduction · sips of water between takes. Your progress saves as you go — you
         can close this page and come back with the same link.
