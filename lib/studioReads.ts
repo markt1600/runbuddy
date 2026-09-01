@@ -120,3 +120,28 @@ export const EMBELLISH_NOTE =
   "go ahead. Keep the meaning, keep it roughly the same length, and stay in character. " +
   "What matters most is that every single take SOUNDS like this character, never like " +
   "you reading.";
+
+// ---- audition lines: ONE emotional, characterful line per persona ----
+// Chosen to force the audition to show range: anger, joy, menace, warmth —
+// whatever that character lives on. Shown on the public audition page.
+
+export const AUDITION_LINES: Record<PersonaId, string> = {
+  ahbeng:
+    "KANINA! You call that running ah?! My grandmother with her walking stick also overtake " +
+    "you already, chee bye! Faster lah — before lim peh come down there and push you myself!",
+  posbeng:
+    "WAH SIBEI POWER LAH!! You see yourself or not?! CHAMPION! Kanina, lim peh so proud I " +
+    "want to cry already — the whole kopitiam going to hear about this one. GO GO GO!",
+  ahlian:
+    "Aiyoh, why you slow down?! Kanina, even my ex run faster than this — and that one " +
+    "cannot even get off his mother's sofa lah! Buay tahan. MOVE!",
+  coach:
+    "Look at you GO! Three months ago you couldn't run to the corner — and now? Now you're " +
+    "flying. I am SO proud of you. Come on, one more kilometre — I know you've got it in you!",
+  flirty:
+    "Well, well… look at you, all sweaty and unstoppable. Careful ah — keep running like " +
+    "that and someone's going to fall for you at the finish line. Now show me that stamina, hmm?",
+  loanshark:
+    "Oi. You think you can run from me issit? Kanina, your interest still compounding while " +
+    "you jog, you know. Every slow kilometre, I add five dollars. O$P$, my friend… O$P$.",
+};

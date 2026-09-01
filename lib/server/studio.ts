@@ -214,6 +214,151 @@ export async function listTakes(sessionId: string): Promise<StudioTake[]> {
   return out;
 }
 
+// ---- auditions: one public link per character, many one-line submissions ----
+// A call is a shareable token; anyone with it can leave a name, an email and
+// ONE recorded line. Winners get a full paid session created from the studio.
+
+export interface AuditionCall {
+  id: string;
+  persona: PersonaId;
+  createdAt: number;
+}
+
+export interface AuditionSubmission {
+  id: string;
+  name: string;
+  email: string;
+  at: number;
+}
+
+const auditionPath = (id: string) => `studio/auditions/${id}.json`;
+const auditionSubPrefix = (id: string) => `studio/auditions/${id}/`;
+
+export async function createAuditionCall(persona: PersonaId): Promise<AuditionCall> {
+  const call: AuditionCall = {
+    id: randomBytes(12).toString("hex"),
+    persona,
+    createdAt: Date.now(),
+  };
+  await put(auditionPath(call.id), JSON.stringify(call), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+  });
+  return call;
+}
+
+export async function getAuditionCall(id: string): Promise<AuditionCall | null> {
+  if (!SESSION_TOKEN_RE.test(id)) return null;
+  const pathname = auditionPath(id);
+  const page = await list({ prefix: pathname, limit: 1 });
+  const hit = page.blobs.find((b) => b.pathname === pathname);
+  if (!hit) return null;
+  try {
+    const res = await fetch(bust(hit.url), { cache: "no-store" });
+    return res.ok ? ((await res.json()) as AuditionCall) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveAuditionSubmission(
+  callId: string,
+  name: string,
+  email: string,
+  mp3: Buffer
+): Promise<AuditionSubmission> {
+  const sub: AuditionSubmission = {
+    id: randomBytes(8).toString("hex"),
+    name: name.slice(0, 80),
+    email: email.slice(0, 200),
+    at: Date.now(),
+  };
+  // Audio first: an orphaned MP3 is invisible, a submission row with no
+  // audio would be a broken audition.
+  await put(`${auditionSubPrefix(callId)}${sub.id}.mp3`, mp3, {
+    access: "public",
+    contentType: "audio/mpeg",
+    addRandomSuffix: false,
+    allowOverwrite: false,
+    cacheControlMaxAge: 0,
+  });
+  await put(`${auditionSubPrefix(callId)}${sub.id}.json`, JSON.stringify(sub), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: false,
+    cacheControlMaxAge: 0,
+  });
+  return sub;
+}
+
+/** Every call with its submissions (audio URL attached), newest call first. */
+export async function listAuditionCalls(): Promise<
+  { call: AuditionCall; submissions: (AuditionSubmission & { audioUrl: string | null })[] }[]
+> {
+  const callUrls: string[] = [];
+  const subUrls = new Map<string, string[]>(); // callId → meta urls
+  const audioUrls = new Map<string, string>(); // "<callId>/<subId>" → mp3 url
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix: "studio/auditions/", cursor });
+    for (const b of page.blobs) {
+      const call = b.pathname.match(/^studio\/auditions\/([0-9a-f]{24})\.json$/);
+      const meta = b.pathname.match(/^studio\/auditions\/([0-9a-f]{24})\/(\w+)\.json$/);
+      const audio = b.pathname.match(/^studio\/auditions\/([0-9a-f]{24})\/(\w+)\.mp3$/);
+      if (call) callUrls.push(b.url);
+      else if (meta) subUrls.set(meta[1], [...(subUrls.get(meta[1]) ?? []), b.url]);
+      else if (audio) audioUrls.set(`${audio[1]}/${audio[2]}`, b.url);
+    }
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+
+  const readJson = async <T>(url: string): Promise<T | null> => {
+    try {
+      const res = await fetch(bust(url), { cache: "no-store" });
+      return res.ok ? ((await res.json()) as T) : null;
+    } catch {
+      return null;
+    }
+  };
+  const calls = (await Promise.all(callUrls.map((u) => readJson<AuditionCall>(u)))).filter(
+    (c): c is AuditionCall => !!c?.id
+  );
+  const out = await Promise.all(
+    calls.map(async (call) => {
+      const subs = (
+        await Promise.all(
+          (subUrls.get(call.id) ?? []).map((u) => readJson<AuditionSubmission>(u))
+        )
+      )
+        .filter((s): s is AuditionSubmission => !!s?.id)
+        .map((s) => ({ ...s, audioUrl: audioUrls.get(`${call.id}/${s.id}`) ?? null }))
+        .sort((a, b) => b.at - a.at);
+      return { call, submissions: subs };
+    })
+  );
+  return out.sort((a, b) => b.call.createdAt - a.call.createdAt);
+}
+
+/** Close a call: the link dies and every submission (audio + meta) goes too. */
+export async function deleteAuditionCall(id: string): Promise<void> {
+  if (!SESSION_TOKEN_RE.test(id)) return;
+  const doomed: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix: auditionSubPrefix(id), cursor });
+    for (const b of page.blobs) doomed.push(b.url);
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+  const callPage = await list({ prefix: auditionPath(id), limit: 1 });
+  const hit = callPage.blobs.find((b) => b.pathname === auditionPath(id));
+  if (hit) doomed.push(hit.url);
+  if (doomed.length > 0) await del(doomed);
+}
+
 /** Withdraw an invitation: the session record and every uploaded take. */
 export async function deleteSession(id: string): Promise<void> {
   if (!SESSION_TOKEN_RE.test(id)) return;

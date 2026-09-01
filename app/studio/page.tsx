@@ -35,6 +35,11 @@ interface SessionRow {
   flags?: { itemId: string; note?: string; at: number }[];
 }
 
+interface AuditionRow {
+  call: { id: string; persona: PersonaId; createdAt: number };
+  submissions: { id: string; name: string; email: string; at: number; audioUrl: string | null }[];
+}
+
 interface ReviewItem {
   id: string;
   kind: "phrase" | "read";
@@ -61,6 +66,8 @@ export default function StudioPage() {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
+  const [auditions, setAuditions] = useState<AuditionRow[] | null>(null);
+  const [audPersona, setAudPersona] = useState<PersonaId>("ahbeng");
 
   const headers = useCallback(
     (): Record<string, string> => ({
@@ -103,9 +110,19 @@ export default function StudioPage() {
       });
   }, [headers]);
 
+  const loadAuditions = useCallback(() => {
+    void fetch("/api/studio/auditions", { headers: headers() })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: { auditions: AuditionRow[] }) => setAuditions(data.auditions))
+      .catch(() => setAuditions([]));
+  }, [headers]);
+
   useEffect(() => {
-    if (pinOk && me?.isAdmin) loadSessions();
-  }, [pinOk, me, loadSessions]);
+    if (pinOk && me?.isAdmin) {
+      loadSessions();
+      loadAuditions();
+    }
+  }, [pinOk, me, loadSessions, loadAuditions]);
 
   if (!me) return <div className="studio"><p>Loading…</p></div>;
   if (!me.user || me.isAdmin === false) {
@@ -404,6 +421,116 @@ export default function StudioPage() {
               )}
             </tbody>
           </table>
+
+          <h2 style={{ marginTop: 28 }}>🎬 Auditions</h2>
+          <p className="studio-sub">
+            One public link per character — anyone with it reads the brief and records the
+            audition line. Like a take? Prefill a full paid session for that actor.
+          </p>
+          <div className="studio-create">
+            <select value={audPersona} onChange={(e) => setAudPersona(e.target.value as PersonaId)}>
+              {PERSONA_LIST.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                void fetch("/api/studio/auditions", {
+                  method: "POST",
+                  headers: headers(),
+                  body: JSON.stringify({ persona: audPersona }),
+                })
+                  .then((res) => (res.ok ? res.json() : Promise.reject()))
+                  .then((data: { call: { id: string } }) => {
+                    void navigator.clipboard.writeText(
+                      `${location.origin}/audition/${data.call.id}`
+                    );
+                    setNote("✓ Audition link created and copied to clipboard");
+                    loadAuditions();
+                  })
+                  .catch(() => setNote("⚠ Couldn't create the audition link"));
+              }}
+            >
+              🎤 New audition link
+            </button>
+          </div>
+          {(auditions ?? []).map(({ call, submissions }) => (
+            <div key={call.id} style={{ marginTop: 14 }}>
+              <p className="studio-license">
+                <strong>{PERSONA_LIST.find((p) => p.id === call.persona)?.name ?? call.persona}</strong>{" "}
+                · opened {new Date(call.createdAt).toLocaleDateString("en-SG", { day: "numeric", month: "short" })}{" "}
+                · {submissions.length} audition{submissions.length === 1 ? "" : "s"} ·{" "}
+                <button
+                  className="studio-link"
+                  onClick={() =>
+                    void navigator.clipboard.writeText(`${location.origin}/audition/${call.id}`)
+                  }
+                >
+                  Copy link
+                </button>{" "}
+                <button
+                  className="studio-link"
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `Close this ${call.persona} audition? The link stops working and all ${submissions.length} submissions are deleted.`
+                      )
+                    ) {
+                      void fetch(`/api/studio/auditions?id=${call.id}`, {
+                        method: "DELETE",
+                        headers: headers(),
+                      }).then(loadAuditions);
+                    }
+                  }}
+                >
+                  ✕ Close
+                </button>
+              </p>
+              {submissions.length > 0 && (
+                <table className="studio-table">
+                  <thead>
+                    <tr><th>Name</th><th>Email</th><th>When</th><th>Audition</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    {submissions.map((sub) => (
+                      <tr key={sub.id}>
+                        <td>{sub.name}</td>
+                        <td>{sub.email}</td>
+                        <td>
+                          {new Date(sub.at).toLocaleDateString("en-SG", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </td>
+                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                        <td>{sub.audioUrl ? <audio controls preload="none" src={sub.audioUrl} /> : "—"}</td>
+                        <td>
+                          <button
+                            className="studio-link"
+                            onClick={() => {
+                              // Prefill the session form; fee and deadline stay
+                              // the admin's call.
+                              setNewLabel(sub.name);
+                              setNewPersona(call.persona);
+                              setNote(
+                                `✓ Session form prefilled for ${sub.name} (${sub.email}) — set the fee and deadline, then Create session and email them the link.`
+                              );
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                            }}
+                          >
+                            ★ Cast — prefill session
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ))}
+          {auditions !== null && auditions.length === 0 && (
+            <p className="studio-sub">No audition calls open.</p>
+          )}
         </>
       ) : (
         <>
