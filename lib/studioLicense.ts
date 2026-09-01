@@ -3,7 +3,7 @@
 // Drafted for a friendly indie engagement — have a lawyer review before the
 // first paid actor signs.
 
-export const LICENSE_VERSION = "v5-2026-09-01";
+export const LICENSE_VERSION = "v6-2026-09-01";
 
 /** The agreement with the agreed fee and deadline baked into its own
  *  compensation clause — the actor signs the exact text they saw. */
@@ -25,7 +25,7 @@ export function licenseTextFor(feeSgd: number, deadlineAt?: number): string {
 const LICENSE_TEXT = `VOICE RECORDING AND AI VOICE LICENSE AGREEMENT
 
 Between: the voice performer identified by the typed name below ("Performer")
-and Mark Tan ("Producer").
+and Cabot Strait Holdings Limited ("Producer").
 
 1. THE RECORDINGS. Performer will record spoken audio through this web page,
 consisting of scripted phrases and reading passages provided by Producer
