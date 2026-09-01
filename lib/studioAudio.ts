@@ -1,6 +1,8 @@
 "use client";
 
-import { Mp3Encoder } from "lamejs";
+// The @breezystack fork, not upstream lamejs: upstream's Mp3Encoder crashes
+// at runtime ("MPEGMode is not defined") when bundled as an ES module.
+import { Mp3Encoder } from "@breezystack/lamejs";
 
 // Studio audio plumbing: uncompressed mono WAV capture (the clone training
 // wants raw takes, and MediaRecorder's opus/AAC would bake compression in),
@@ -131,7 +133,7 @@ export function encodeMp3(samples: Float32Array, sampleRate: number, kbps: numbe
     const s = Math.max(-1, Math.min(1, samples[i]));
     int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
   }
-  const parts: Int8Array[] = [];
+  const parts: Uint8Array[] = [];
   const CHUNK = 1152 * 32;
   for (let i = 0; i < int16.length; i += CHUNK) {
     const out = enc.encodeBuffer(int16.subarray(i, i + CHUNK));
@@ -143,7 +145,7 @@ export function encodeMp3(samples: Float32Array, sampleRate: number, kbps: numbe
   const mp3 = new Uint8Array(total);
   let off = 0;
   for (const p of parts) {
-    mp3.set(new Uint8Array(p.buffer, p.byteOffset, p.length), off);
+    mp3.set(p, off);
     off += p.length;
   }
   return mp3;
