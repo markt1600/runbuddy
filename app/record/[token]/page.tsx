@@ -293,6 +293,70 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
     );
   }
 
+  // ---- already submitted: land HERE, before any mic check ----
+  // A returning actor whose work is in review shouldn't re-calibrate just to
+  // see "you're done". Only choosing to re-record routes back through the
+  // mic check and character brief. New flags from review make allComplete
+  // false, which drops them into that same route automatically.
+  const done = new Set(view.recorded);
+  const flags = new Map(view.openFlags.map((f) => [f.itemId, f.note]));
+  const doneCount = view.items.filter((it) => done.has(it.id) && !flags.has(it.id)).length;
+  const allComplete = doneCount === view.items.length;
+
+  const submit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitNote(null);
+    try {
+      const res = await fetch(`/api/record/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "submit" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "failed");
+      setView((v) => (v ? { ...v, submittedAt: data.submittedAt as number } : v));
+      setReviewStage(false);
+      setBoothReopened(false);
+    } catch (err) {
+      setSubmitNote(`⚠ ${err instanceof Error ? err.message : "Couldn't submit — try again"}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (allComplete && view.submittedAt > 0 && !boothReopened) {
+    return (
+      <div className="booth">
+        <h1>Submitted 🎉</h1>
+        <p className="booth-sub">
+          All {view.items.length} recordings are in — submitted on{" "}
+          <strong>{fmtDeadline(view.submittedAt)}</strong> and now in review.
+        </p>
+        <div className="booth-note">
+          Your work will be reviewed within <strong>2 business days</strong>. If any takes need
+          re-recording, we&apos;ll email you and they&apos;ll appear here marked 🔁 when you
+          reopen this link. If everything checks out, you&apos;ll receive your payment of{" "}
+          <strong>SGD ${view.feeSgd.toFixed(2)}</strong> to your PayNow ID. Thank you!
+        </div>
+        <div className="booth-tips">
+          Not happy with a take?{" "}
+          <button
+            className="booth-mic-change"
+            onClick={() => {
+              setBoothReopened(true);
+              setReviewStage(true);
+            }}
+          >
+            Re-record &amp; re-submit
+          </button>{" "}
+          — you&apos;ll go through the mic check again first, and submitting again restarts
+          the 2-business-day review clock on your newest takes.
+        </div>
+      </div>
+    );
+  }
+
   // ---- calibration: room noise, then speaking level, once per visit ----
   if (!calDone) {
     const runRoomCheck = async () => {
@@ -557,66 +621,6 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
 
   // ---- stage 2: the booth ----
   const item = view.items[idx];
-  const done = new Set(view.recorded);
-  const flags = new Map(view.openFlags.map((f) => [f.itemId, f.note]));
-  const doneCount = view.items.filter((it) => done.has(it.id) && !flags.has(it.id)).length;
-  const allComplete = doneCount === view.items.length;
-
-  const submit = async () => {
-    if (submitting) return;
-    setSubmitting(true);
-    setSubmitNote(null);
-    try {
-      const res = await fetch(`/api/record/${token}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "submit" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "failed");
-      setView((v) => (v ? { ...v, submittedAt: data.submittedAt as number } : v));
-      setReviewStage(false);
-      setBoothReopened(false);
-    } catch (err) {
-      setSubmitNote(`⚠ ${err instanceof Error ? err.message : "Couldn't submit — try again"}`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Everything recorded and handed in: the actor's finish line. New flags from
-  // review make allComplete false again, which drops them straight back into
-  // the booth on the flagged item.
-  if (allComplete && view.submittedAt > 0 && !boothReopened) {
-    return (
-      <div className="booth">
-        <h1>Submitted 🎉</h1>
-        <p className="booth-sub">
-          All {view.items.length} recordings are in — submitted on{" "}
-          <strong>{fmtDeadline(view.submittedAt)}</strong>.
-        </p>
-        <div className="booth-note">
-          Your work will be reviewed within <strong>2 business days</strong>. If any takes need
-          re-recording, we&apos;ll email you and they&apos;ll appear here marked 🔁 when you
-          reopen this link. If everything checks out, you&apos;ll receive your payment of{" "}
-          <strong>SGD ${view.feeSgd.toFixed(2)}</strong> to your PayNow ID. Thank you!
-        </div>
-        <div className="booth-tips">
-          Want to listen back or redo a take before review starts?{" "}
-          <button
-            className="booth-mic-change"
-            onClick={() => {
-              setBoothReopened(true);
-              setReviewStage(true);
-            }}
-          >
-            Review your takes
-          </button>{" "}
-          — just remember to submit again afterwards so we review your newest takes.
-        </div>
-      </div>
-    );
-  }
 
   // ---- final listen-through before the hand-in ----
   if (reviewStage && allComplete) {
