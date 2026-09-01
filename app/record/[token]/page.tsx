@@ -16,6 +16,7 @@ interface SessionView {
   licensed: boolean;
   licenseText: string;
   licenseVersion: string;
+  feeSgd: number;
   items: { id: string; kind: "phrase" | "read"; text: string; title?: string }[];
   recorded: string[];
   takeUrls: Record<string, string>;
@@ -185,7 +186,8 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
           <div className="booth-note">
             Once you finish recording, your work will be reviewed within 2 business days. If
             anything needs another take, we&apos;ll contact you at the email above; if all is
-            well, you&apos;ll receive payment to your PayNow ID.
+            well, you&apos;ll receive payment of{" "}
+            <strong>SGD ${view.feeSgd.toFixed(2)}</strong> to your PayNow ID.
           </div>
           <button className="booth-primary" disabled={!canSign} onClick={() => void sign()}>
             Agree &amp; start recording

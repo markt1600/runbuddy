@@ -17,7 +17,16 @@ interface SessionRow {
   persona: PersonaId;
   createdAt: number;
   takeCount: number;
-  license?: { typedName: string; email: string; paynowId: string; at: number; version: string };
+  itemTotal?: number;
+  feeSgd?: number;
+  license?: {
+    typedName: string;
+    email: string;
+    paynowId: string;
+    feeSgd?: number;
+    at: number;
+    version: string;
+  };
   pvc?: { voiceId?: string; state: string; attempts?: number; note?: string };
   flags?: { itemId: string; note?: string; at: number }[];
 }
@@ -42,6 +51,7 @@ export default function StudioPage() {
   const [open, setOpen] = useState<{ session: SessionRow; items: ReviewItem[] } | null>(null);
   const [newLabel, setNewLabel] = useState("");
   const [newPersona, setNewPersona] = useState<PersonaId>("ahbeng");
+  const [newFee, setNewFee] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
@@ -138,10 +148,15 @@ export default function StudioPage() {
       const res = await fetch("/api/studio/sessions", {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({ label: newLabel, persona: newPersona }),
+        body: JSON.stringify({
+          label: newLabel,
+          persona: newPersona,
+          feeSgd: Number(newFee),
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "failed");
       setNewLabel("");
+      setNewFee("");
       loadSessions();
     } catch (err) {
       setNote(`⚠ ${err instanceof Error ? err.message : "create failed"}`);
@@ -303,20 +318,34 @@ export default function StudioPage() {
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
-            <button onClick={() => void createSession()} disabled={!newLabel.trim()}>
+            <input
+              value={newFee}
+              onChange={(e) => setNewFee(e.target.value)}
+              placeholder="Fee (SGD)"
+              inputMode="decimal"
+              style={{ width: 110 }}
+            />
+            <button
+              onClick={() => void createSession()}
+              disabled={!newLabel.trim() || !(Number(newFee) > 0)}
+            >
               Create session
             </button>
           </div>
           <table className="studio-table">
             <thead>
-              <tr><th>Actor</th><th>Persona</th><th>Takes</th><th>License</th><th>Clone</th><th>Link</th></tr>
+              <tr><th>Actor</th><th>Persona</th><th>Fee</th><th>Progress</th><th>License</th><th>Clone</th><th>Link</th><th></th></tr>
             </thead>
             <tbody>
               {(sessions ?? []).map((s) => (
                 <tr key={s.id}>
                   <td><button className="studio-link" onClick={() => void openSession(s.id)}>{s.label}</button></td>
                   <td>{s.persona}</td>
-                  <td>{s.takeCount}</td>
+                  <td>${(s.feeSgd ?? 0).toFixed(0)}</td>
+                  <td>
+                    {s.takeCount}/{s.itemTotal ?? "?"}
+                    {s.itemTotal ? ` (${Math.round((s.takeCount / s.itemTotal) * 100)}%)` : ""}
+                  </td>
                   <td>{s.license ? `✓ ${s.license.typedName}` : "—"}</td>
                   <td>{s.pvc?.state ?? "—"}</td>
                   <td>
@@ -327,10 +356,29 @@ export default function StudioPage() {
                       Copy link
                     </button>
                   </td>
+                  <td>
+                    <button
+                      className="studio-link"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Withdraw ${s.label}'s invitation? Their link stops working and all ${s.takeCount} uploaded takes are deleted. Promoted library audio is untouched.`
+                          )
+                        ) {
+                          void fetch(`/api/studio/sessions/${s.id}`, {
+                            method: "DELETE",
+                            headers: headers(),
+                          }).then(loadSessions);
+                        }
+                      }}
+                    >
+                      ✕ Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
               {sessions !== null && sessions.length === 0 && (
-                <tr><td colSpan={6}>No sessions yet — create one above.</td></tr>
+                <tr><td colSpan={8}>No sessions yet — create one above.</td></tr>
               )}
             </tbody>
           </table>
@@ -341,12 +389,34 @@ export default function StudioPage() {
             ‹ All sessions
           </button>
           <h2>
-            {open.session.label} · {open.session.persona}
+            {open.session.label} · {open.session.persona} · SGD $
+            {(open.session.feeSgd ?? 0).toFixed(2)}{" "}
+            <button
+              className="studio-link"
+              onClick={() => {
+                const v = prompt(
+                  open.session.license
+                    ? "Fee (SGD) — note: they already signed at the old amount, this only affects future signings:"
+                    : "Fee (SGD):",
+                  String(open.session.feeSgd ?? "")
+                );
+                if (v && Number(v) > 0) {
+                  void fetch(`/api/studio/sessions/${open.session.id}`, {
+                    method: "POST",
+                    headers: headers(),
+                    body: JSON.stringify({ action: "fee", feeSgd: Number(v) }),
+                  }).then(() => void openSession(open.session.id));
+                }
+              }}
+            >
+              edit
+            </button>
           </h2>
           {open.session.license && (
             <p className="studio-license">
               Signed: {open.session.license.typedName} · {open.session.license.email} · PayNow{" "}
-              {open.session.license.paynowId} ·{" "}
+              {open.session.license.paynowId} · SGD $
+              {(open.session.license.feeSgd ?? 0).toFixed(2)} ·{" "}
               {new Date(open.session.license.at).toLocaleString()} ({open.session.license.version})
             </p>
           )}

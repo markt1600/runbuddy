@@ -3,12 +3,18 @@
 // Drafted for a friendly indie engagement — have a lawyer review before the
 // first paid actor signs.
 
-export const LICENSE_VERSION = "v1-2026-08-31";
+export const LICENSE_VERSION = "v2-2026-09-01";
 
-export const LICENSE_TEXT = `VOICE RECORDING AND AI VOICE LICENSE AGREEMENT
+/** The agreement, with the agreed fee baked into its own compensation
+ *  clause — the actor signs the exact text they saw, amount included. */
+export function licenseTextFor(feeSgd: number): string {
+  return LICENSE_TEXT.replace("{{FEE}}", feeSgd.toFixed(2));
+}
+
+const LICENSE_TEXT = `VOICE RECORDING AND AI VOICE LICENSE AGREEMENT
 
 Between: the voice performer identified by the typed name below ("Performer")
-and Mark Tan, operator of Run Buddy (run.marktan.ai) ("Producer").
+and Mark Tan ("Producer").
 
 1. THE RECORDINGS. Performer will record spoken audio through this web page,
 consisting of scripted phrases and reading passages provided by Producer
@@ -17,8 +23,8 @@ consisting of scripted phrases and reading passages provided by Producer
 2. GRANT OF RIGHTS — RECORDINGS. Performer grants Producer a perpetual,
 irrevocable, worldwide, royalty-free, transferable licence to use, reproduce,
 modify, distribute and publicly perform the Recordings, in whole or in part,
-for any commercial or non-commercial purpose, including within the Run Buddy
-application and any related or successor products.
+for any commercial or non-commercial purpose, including within Producer's
+software applications and any related or successor products.
 
 3. GRANT OF RIGHTS — AI VOICE. Performer expressly consents to Producer
 creating one or more artificial-intelligence models of Performer's voice
@@ -36,9 +42,12 @@ speech as Performer's personal statements. The character material contains
 crude comedic language in Singlish, which Performer acknowledges and accepts
 performing.
 
-5. COMPENSATION. Any fee is as separately agreed between the parties. This
-licence is effective on signing regardless of the timing of payment, which
-remains contractually owed under that separate agreement.
+5. COMPENSATION. Producer will pay Performer a one-time fee of SGD {{FEE}}
+for the Recordings and the licences granted above, payable by PayNow to the
+ID Performer provides, after Producer's review of the completed Recordings
+(within 2 business days of completion). This licence is effective on signing;
+the fee remains contractually owed once the Recordings are completed and
+accepted.
 
 6. NO OBLIGATION TO USE. Producer may choose not to use any or all of the
 Recordings or the AI Voice.
@@ -46,7 +55,17 @@ Recordings or the AI Voice.
 7. PERFORMER WARRANTIES. Performer confirms they are at least 18 years old,
 the voice recorded is their own, and they have the right to grant the above.
 
-8. ENTIRE AGREEMENT. This is the entire agreement about the Recordings and
+8. GOVERNING LAW AND DISPUTES. This agreement is governed by the laws of the
+Republic of Singapore. Any dispute arising out of or in connection with this
+agreement, including any question regarding its existence, validity or
+termination, shall be referred to and finally resolved by arbitration
+administered by the Singapore International Arbitration Centre in accordance
+with its Arbitration Rules for the time being in force, which rules are
+deemed incorporated by reference into this clause. The seat of arbitration
+shall be Singapore, the tribunal shall consist of one arbitrator, and the
+language of the arbitration shall be English.
+
+9. ENTIRE AGREEMENT. This is the entire agreement about the Recordings and
 the AI Voice and can only be changed in writing signed by both parties.
 
 By typing your full legal name below and continuing, you agree to all of the

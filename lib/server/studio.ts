@@ -20,10 +20,14 @@ export interface StudioSession {
   label: string; // who this link was made for, e.g. "John Tan — Ah Beng"
   persona: PersonaId;
   createdAt: number;
+  /** Agreed one-time fee in SGD — baked into the licence text they sign. */
+  feeSgd?: number;
   license?: {
     typedName: string;
     email: string;
     paynowId: string;
+    /** Snapshot of the fee the signed text contained. */
+    feeSgd?: number;
     at: number;
     ip?: string;
     ua?: string;
@@ -57,12 +61,14 @@ export const ITEM_ID_RE = /^[\w-]{1,60}$/;
 
 export async function createStudioSession(
   label: string,
-  persona: PersonaId
+  persona: PersonaId,
+  feeSgd = 0
 ): Promise<StudioSession> {
   const session: StudioSession = {
     id: randomBytes(12).toString("hex"),
     label: label.slice(0, 80),
     persona,
+    feeSgd: Math.max(0, Math.min(100_000, feeSgd)),
     createdAt: Date.now(),
   };
   await writeSession(session);
@@ -149,6 +155,22 @@ export async function listTakes(sessionId: string): Promise<StudioTake[]> {
     cursor = page.hasMore ? page.cursor : undefined;
   } while (cursor);
   return out;
+}
+
+/** Withdraw an invitation: the session record and every uploaded take. */
+export async function deleteSession(id: string): Promise<void> {
+  if (!SESSION_TOKEN_RE.test(id)) return;
+  const doomed: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix: takesPrefix(id), cursor });
+    for (const b of page.blobs) doomed.push(b.url);
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+  const sessionPage = await list({ prefix: sessionPath(id), limit: 1 });
+  const hit = sessionPage.blobs.find((b) => b.pathname === sessionPath(id));
+  if (hit) doomed.push(hit.url);
+  if (doomed.length > 0) await del(doomed);
 }
 
 export async function deleteTake(sessionId: string, itemId: string): Promise<void> {

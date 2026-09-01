@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { blobConfigured, readExtras } from "@/lib/server/library";
 import { getSession, listTakes, writeSession } from "@/lib/server/studio";
 import { readsFor } from "@/lib/studioReads";
-import { LICENSE_TEXT, LICENSE_VERSION } from "@/lib/studioLicense";
+import { licenseTextFor, LICENSE_VERSION } from "@/lib/studioLicense";
 import { PHRASE_LIBRARY } from "@/lib/phrases";
 import { PERSONAS } from "@/lib/personas";
 
@@ -50,8 +50,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
     personaName: PERSONAS[session.persona].name,
     label: session.label,
     licensed: !!session.license,
-    licenseText: LICENSE_TEXT,
+    licenseText: licenseTextFor(session.feeSgd ?? 0),
     licenseVersion: LICENSE_VERSION,
+    feeSgd: session.feeSgd ?? 0,
     items,
     recorded: [...recorded],
     takeUrls,
@@ -89,6 +90,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
       typedName,
       email,
       paynowId,
+      feeSgd: session.feeSgd ?? 0,
       at: Date.now(),
       ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
       ua: req.headers.get("user-agent") ?? undefined,

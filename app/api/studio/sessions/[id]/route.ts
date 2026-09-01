@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/server/auth";
 import { checkPinHeader } from "@/lib/server/adminAuth";
 import { blobConfigured, listRendered, readExtras } from "@/lib/server/library";
-import { getSession, ITEM_ID_RE, listTakes, writeSession } from "@/lib/server/studio";
+import {
+  deleteSession,
+  getSession,
+  ITEM_ID_RE,
+  listTakes,
+  writeSession,
+} from "@/lib/server/studio";
 import { readsFor } from "@/lib/studioReads";
 import { PHRASE_LIBRARY } from "@/lib/phrases";
 
@@ -50,6 +56,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   return NextResponse.json({ session, items: [...phraseItems, ...readItems] });
 }
 
+/** Withdraw the invitation: the link dies and every take goes with it. */
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
+  if (!checkPinHeader(req)) return NextResponse.json({ error: "bad pin" }, { status: 403 });
+  if (!blobConfigured()) return NextResponse.json({ error: "no blob store" }, { status: 503 });
+  const { id } = await ctx.params;
+  await deleteSession(id);
+  return NextResponse.json({ ok: true });
+}
+
 /** Flag / unflag an item for re-record. The actor's page (same link) shows
  *  flagged items as "re-record requested" until a newer take lands. */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -66,6 +83,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     itemId?: string;
     note?: string;
   } | null;
+  // Fee updates ride the same route (no itemId involved); the amount only
+  // matters until signing, since the signed licence snapshots its contents.
+  if (body?.action === "fee") {
+    const fee = Number((body as { feeSgd?: number }).feeSgd);
+    if (!isFinite(fee) || fee <= 0) {
+      return NextResponse.json({ error: "bad fee" }, { status: 400 });
+    }
+    session.feeSgd = Math.max(0, Math.min(100_000, fee));
+    await writeSession(session);
+    return NextResponse.json({ session });
+  }
+
   const itemId = body?.itemId ?? "";
   if (!ITEM_ID_RE.test(itemId)) return NextResponse.json({ error: "bad item" }, { status: 400 });
 
