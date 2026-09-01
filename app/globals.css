@@ -3065,7 +3065,6 @@ input[type="range"]::-moz-range-thumb {
 .booth-sub { color: var(--label-2); margin-bottom: 18px; }
 
 .booth-license {
-  white-space: pre-wrap;
   font-size: 12.5px;
   line-height: 1.55;
   max-height: 320px;
@@ -3076,6 +3075,12 @@ input[type="range"]::-moz-range-thumb {
   background: var(--bg-elevated);
   margin-bottom: 18px;
 }
+/* The stored text hard-wraps at ~75 chars for the legal record; display
+   re-flows it into real paragraphs so phones don't get jagged line endings. */
+.booth-license p { margin: 0 0 10px; }
+.booth-license p:last-child { margin-bottom: 0; }
+.booth-license ul { margin: 0 0 10px; padding-left: 20px; }
+.booth-license li { margin-bottom: 6px; }
 
 .booth-form { display: flex; flex-direction: column; gap: 12px; }
 .booth-form label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 13px; }

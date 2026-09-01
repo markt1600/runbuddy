@@ -53,6 +53,33 @@ const fmtDeadline = (at: number) =>
   });
 const daysLeft = (at: number) => Math.ceil((at - Date.now()) / 86_400_000);
 
+/** The licence, re-flowed for reading: the stored text hard-wraps at ~75
+ *  chars (that exact string is what gets signed), but rendering those line
+ *  breaks literally gives phones jagged line endings. Blank lines split
+ *  paragraphs; "* " lines become a real bullet list; every other newline
+ *  collapses to a space. Display only — the signed bytes are untouched. */
+function LicenseText({ text }: { text: string }) {
+  return (
+    <div className="booth-license">
+      {text.split(/\n{2,}/).map((block, i) => {
+        if (block.trimStart().startsWith("* ")) {
+          const items = block
+            .split(/\n(?=\* )/)
+            .map((s) => s.replace(/^\* /, "").replace(/\n\s*/g, " ").trim());
+          return (
+            <ul key={i}>
+              {items.map((it, j) => (
+                <li key={j}>{it}</li>
+              ))}
+            </ul>
+          );
+        }
+        return <p key={i}>{block.replace(/\n\s*/g, " ").trim()}</p>;
+      })}
+    </div>
+  );
+}
+
 /** Shown on every visit — the contract's hard completion date. */
 function DeadlineBanner({ at }: { at: number }) {
   if (!at) return null;
@@ -253,7 +280,7 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
           automatically.
         </div>
         <DeadlineBanner at={view.deadlineAt} />
-        <div className="booth-license">{view.licenseText}</div>
+        <LicenseText text={view.licenseText} />
         <div className="booth-form">
           <label>
             Full legal name
