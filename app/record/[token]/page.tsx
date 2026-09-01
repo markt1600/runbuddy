@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
-import { WavRecorder, toWav, encodeMp3, bytesToBase64 } from "@/lib/studioAudio";
+import { WavRecorder, toWav, encodeMp3, dbfs } from "@/lib/studioAudio";
 
 // The actor's recording booth. The token in the URL is the whole identity:
 // license first (name, email, PayNow, the agreement), then the phrase bank
@@ -28,6 +28,15 @@ const MAX_SECONDS = 120;
 const SILENCE_PEAK = 0.02;
 const CLIP_PEAK = 0.99;
 
+// Calibration targets, from ElevenLabs' PVC guidance: speech around
+// −23…−18 dB RMS with true peaks below −3 dB, over a quiet noise floor.
+const CAL_TEXT =
+  "This is my microphone check for the Run Buddy voice session. I am speaking at the same " +
+  "volume and energy I will use for every recording today. One, two, three, four, five. " +
+  "The quick brown fox jumps over the lazy dog, and the race starts at six in the morning " +
+  "by the sea. If my levels look good, I will keep everything exactly like this.";
+const CAL_KEY = (token: string) => `runbuddy-cal-${token}`;
+
 export default function RecordPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const [view, setView] = useState<SessionView | null>(null);
@@ -53,11 +62,28 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
   const recStartRef = useRef(0);
   const [elapsed, setElapsed] = useState(0);
 
+  // calibration: once per visit (a new visit can mean a new mic, room or
+  // laptop, so it re-runs whenever the browser session is fresh)
+  const [calDone, setCalDone] = useState(false);
+  const [calStep, setCalStep] = useState<"room" | "level">("room");
+  const [calBusy, setCalBusy] = useState(false);
+  const [calVerdict, setCalVerdict] = useState<string | null>(null);
+  const [calPass, setCalPass] = useState(false);
+  const [calPreview, setCalPreview] = useState<string | null>(null);
+
   // captcha stage
   const [capState, setCapState] = useState<"idle" | "recording" | "review" | "done">("idle");
   const [capNote, setCapNote] = useState<string | null>(null);
   const capTakeRef = useRef<{ samples: Float32Array; rate: number } | null>(null);
   const [capPreview, setCapPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(CAL_KEY(token)) === "1") setCalDone(true);
+    } catch {
+      /* private mode — calibrate every visit, no harm */
+    }
+  }, [token]);
 
   const load = () => {
     void fetch(`/api/record/${token}`)
@@ -165,6 +191,134 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
             Agree &amp; start recording
           </button>
           {licNote && <div className="booth-warn">{licNote}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  // ---- calibration: room noise, then speaking level, once per visit ----
+  if (!calDone) {
+    const runRoomCheck = async () => {
+      setCalBusy(true);
+      setCalVerdict(null);
+      try {
+        const rec = new WavRecorder();
+        await rec.start(setLevel);
+        await new Promise((r) => setTimeout(r, 3000));
+        const cap = await rec.stop();
+        const noiseDb = dbfs(cap.rms);
+        if (noiseDb > -45) {
+          setCalVerdict(
+            `⚠ Room noise is high (${noiseDb.toFixed(0)} dB). Turn off fans and aircon, close windows, and try again — a noisy floor bakes into every take.`
+          );
+        } else {
+          setCalVerdict(`✓ Nice and quiet (${noiseDb.toFixed(0)} dB noise floor).`);
+          setTimeout(() => {
+            setCalVerdict(null);
+            setCalStep("level");
+          }, 1200);
+        }
+      } catch {
+        setCalVerdict("⚠ Couldn't reach the microphone — check browser permissions.");
+      } finally {
+        setCalBusy(false);
+      }
+    };
+    const startLevelCheck = async () => {
+      setCalVerdict(null);
+      setCalPass(false);
+      try {
+        const rec = new WavRecorder();
+        await rec.start(setLevel);
+        recRef.current = rec;
+        setCalBusy(true);
+      } catch {
+        setCalVerdict("⚠ Couldn't reach the microphone.");
+      }
+    };
+    const stopLevelCheck = async () => {
+      const rec = recRef.current;
+      if (!rec) return;
+      recRef.current = null;
+      const cap = await rec.stop();
+      setCalBusy(false);
+      if (calPreview) URL.revokeObjectURL(calPreview);
+      setCalPreview(URL.createObjectURL(toWav(cap.samples, cap.sampleRate)));
+      const rmsDb = dbfs(cap.rms);
+      const peakDb = dbfs(cap.peak);
+      if (cap.peak < SILENCE_PEAK) {
+        setCalVerdict("⚠ No audio detected — check that the right microphone is selected.");
+      } else if (peakDb > -1.5) {
+        setCalVerdict(
+          `⚠ Clipping (peak ${peakDb.toFixed(1)} dB). Move a hand-width further from the mic, or lower the input gain, and run the check again.`
+        );
+      } else if (rmsDb < -30) {
+        setCalVerdict(
+          `⚠ Too quiet (average ${rmsDb.toFixed(0)} dB — target −23 to −18). Move closer to the mic or raise the input gain, and run the check again.`
+        );
+      } else if (rmsDb > -12) {
+        setCalVerdict(
+          `⚠ Very hot (average ${rmsDb.toFixed(0)} dB — target −23 to −18). Back off slightly or lower the gain, and run the check again.`
+        );
+      } else {
+        setCalVerdict(
+          `✓ Levels look great (average ${rmsDb.toFixed(0)} dB, peak ${peakDb.toFixed(1)} dB). Listen back — if it sounds clean, lock everything in and don't touch mic or gain again today.`
+        );
+        setCalPass(true);
+      }
+    };
+    const acceptCal = () => {
+      try {
+        sessionStorage.setItem(CAL_KEY(token), "1");
+      } catch {
+        /* fine */
+      }
+      setCalDone(true);
+    };
+    return (
+      <div className="booth">
+        <h1>Mic check</h1>
+        {calStep === "room" ? (
+          <>
+            <p className="booth-sub">
+              Step 1 of 2 — room noise. Sit exactly where you&apos;ll record, then press the
+              button and stay <strong>completely silent for three seconds</strong>.
+            </p>
+            <div className="booth-meter"><div style={{ width: `${Math.min(100, level * 130)}%` }} /></div>
+            <button className="booth-record" disabled={calBusy} onClick={() => void runRoomCheck()}>
+              {calBusy ? "Listening…" : "🤫 Check room noise"}
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="booth-sub">
+              Step 2 of 2 — speaking level. Read this paragraph at the{" "}
+              <strong>same volume and energy you&apos;ll use for every take</strong>:
+            </p>
+            <div className="booth-phrase long">{CAL_TEXT}</div>
+            <div className="booth-meter"><div style={{ width: `${Math.min(100, level * 130)}%` }} /></div>
+            {calBusy ? (
+              <button className="booth-record recording" onClick={() => void stopLevelCheck()}>⏹ Stop</button>
+            ) : (
+              <button className="booth-record" onClick={() => void startLevelCheck()}>● Record the check</button>
+            )}
+            {calPreview && !calBusy && (
+              <div className="booth-review">
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <audio controls src={calPreview} />
+                {calPass && (
+                  <button className="booth-primary" onClick={acceptCal}>
+                    ✓ Sounds clean — start recording
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+        {calVerdict && <div className={calVerdict.startsWith("✓") ? "booth-note" : "booth-warn"}>{calVerdict}</div>}
+        <div className="booth-tips">
+          Once your levels pass, keep everything fixed for the whole session: same seat, same
+          distance to the mic, same gain. If you come back another day, this check runs again.
         </div>
       </div>
     );
@@ -284,6 +438,8 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
       setWarn("⚠ The recording clipped (too loud) — move back from the mic and re-record.");
     } else if (cap.seconds < 0.8) {
       setWarn("⚠ That was very short — make sure you read the whole line.");
+    } else if (dbfs(cap.rms) < -32) {
+      setWarn("⚠ Quieter than your mic check — same distance and energy as calibration, please.");
     }
     setRecState("review");
   };

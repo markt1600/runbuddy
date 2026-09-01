@@ -12,8 +12,13 @@ export interface CaptureResult {
   samples: Float32Array;
   sampleRate: number;
   peak: number;
+  /** Root-mean-square level, linear 0..1 — loudness for calibration. */
+  rms: number;
   seconds: number;
 }
+
+export const dbfs = (linear: number): number =>
+  linear <= 0 ? -120 : 20 * Math.log10(linear);
 
 export class WavRecorder {
   private ctx: AudioContext | null = null;
@@ -68,7 +73,10 @@ export class WavRecorder {
       off += c.length;
     }
     this.chunks = [];
-    return { samples, sampleRate, peak: this.peak, seconds: total / sampleRate };
+    let sq = 0;
+    for (let i = 0; i < samples.length; i++) sq += samples[i] * samples[i];
+    const rms = total > 0 ? Math.sqrt(sq / total) : 0;
+    return { samples, sampleRate, peak: this.peak, rms, seconds: total / sampleRate };
   }
 }
 
