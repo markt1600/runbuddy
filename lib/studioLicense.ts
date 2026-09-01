@@ -3,7 +3,7 @@
 // Drafted for a friendly indie engagement — have a lawyer review before the
 // first paid actor signs.
 
-export const LICENSE_VERSION = "v7-2026-09-01";
+export const LICENSE_VERSION = "v8-2026-09-01";
 
 /** The agreement with the agreed fee and deadline baked into its own
  *  compensation clause — the actor signs the exact text they saw. */
@@ -16,7 +16,8 @@ export function licenseTextFor(feeSgd: number, deadlineAt?: number): string {
         timeZone: "Asia/Singapore",
       })
     : "the date notified to Performer in writing";
-  return LICENSE_TEXT.replace("{{FEE}}", feeSgd.toFixed(2)).replace(
+  // replaceAll: the fee appears in both the compensation and liability clauses.
+  return LICENSE_TEXT.replaceAll("{{FEE}}", feeSgd.toFixed(2)).replaceAll(
     "{{DEADLINE}}",
     deadline
   );
@@ -35,6 +36,9 @@ IN PLAIN ENGLISH — PLEASE READ THIS FIRST:
 * We will never present the AI voice as your personal statements or
   endorsements, and we won't use it for unlawful content (see section 4).
   Beyond that, there are no restrictions on how it may be used.
+* If content made with the AI voice or your recordings causes any harm,
+  you agree not to bring claims against us for it — and in any event, the
+  most we could ever owe you under this agreement is the fee itself.
 
 If you are not comfortable with an AI version of your voice existing and
 being used freely in this way, do not sign. The summary above is part of
@@ -98,7 +102,17 @@ Recordings or the AI Voice.
 7. PERFORMER WARRANTIES. Performer confirms they are at least 18 years old,
 the voice recorded is their own, and they have the right to grant the above.
 
-8. GOVERNING LAW AND DISPUTES. This agreement is governed by the laws of the
+8. NO CLAIMS; LIMITATION OF LIABILITY. To the maximum extent permitted by
+law, Performer waives, and agrees not to bring, any claim against Producer
+arising out of the use of the Recordings or the AI Voice as permitted by
+this agreement, including any claim for reputational, emotional or economic
+harm caused by content generated with the AI Voice. In any event, Producer's
+total aggregate liability to Performer arising out of or in connection with
+this agreement, however arising (whether in contract, tort or otherwise),
+shall not exceed the fee actually paid or payable under section 5
+(SGD {{FEE}}).
+
+9. GOVERNING LAW AND DISPUTES. This agreement is governed by the laws of the
 Republic of Singapore. Any dispute arising out of or in connection with this
 agreement, including any question regarding its existence, validity or
 termination, shall be referred to and finally resolved by arbitration
@@ -108,7 +122,7 @@ deemed incorporated by reference into this clause. The seat of arbitration
 shall be Singapore, the tribunal shall consist of one arbitrator, and the
 language of the arbitration shall be English.
 
-9. ENTIRE AGREEMENT. This is the entire agreement about the Recordings and
+10. ENTIRE AGREEMENT. This is the entire agreement about the Recordings and
 the AI Voice and can only be changed in writing signed by both parties.
 
 By typing your full legal name below and continuing, you agree to all of the
