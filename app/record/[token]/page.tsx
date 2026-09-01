@@ -2,6 +2,8 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import { WavRecorder, toWav, encodeMp3, dbfs } from "@/lib/studioAudio";
+import { STUDIO_BRIEFS, EMBELLISH_NOTE } from "@/lib/studioReads";
+import type { PersonaId } from "@/lib/types";
 
 // The actor's recording booth. The token in the URL is the whole identity:
 // license first (name, email, PayNow, the agreement), then the phrase bank
@@ -40,6 +42,7 @@ const CAL_TEXT =
   "The quick brown fox jumps over the lazy dog, and the race starts at six in the morning " +
   "by the sea. If my levels look good, I will keep everything exactly like this.";
 const CAL_KEY = (token: string) => `runbuddy-cal-${token}`;
+const BRIEF_KEY = (token: string) => `runbuddy-brief-${token}`;
 
 const fmtDeadline = (at: number) =>
   new Date(at).toLocaleDateString("en-SG", {
@@ -101,6 +104,11 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
   const [mics, setMics] = useState<{ id: string; label: string }[]>([]);
   const [micId, setMicId] = useState<string>("");
 
+  // character brief: read once per visit, right after the mic check — the
+  // clone reproduces the average of every take, so the actor must be in
+  // character from the very first line.
+  const [briefDone, setBriefDone] = useState(false);
+
   // calibration: once per visit (a new visit can mean a new mic, room or
   // laptop, so it re-runs whenever the browser session is fresh)
   const [calDone, setCalDone] = useState(false);
@@ -125,6 +133,7 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
   useEffect(() => {
     try {
       if (sessionStorage.getItem(CAL_KEY(token)) === "1") setCalDone(true);
+      if (sessionStorage.getItem(BRIEF_KEY(token)) === "1") setBriefDone(true);
     } catch {
       /* private mode — calibrate every visit, no harm */
     }
@@ -427,6 +436,41 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
         <div className="booth-tips">
           Once your levels pass, keep everything fixed for the whole session: same seat, same
           distance to the mic, same gain. If you come back another day, this check runs again.
+        </div>
+      </div>
+    );
+  }
+
+  // ---- character brief: who you are, before the first take ----
+  if (!briefDone) {
+    const acceptBrief = () => {
+      try {
+        sessionStorage.setItem(BRIEF_KEY(token), "1");
+      } catch {
+        /* fine */
+      }
+      setBriefDone(true);
+    };
+    return (
+      <div className="booth">
+        <h1>Know your character</h1>
+        <p className="booth-sub">
+          Levels are set. Last thing before the first take: you&apos;re recording as{" "}
+          <strong>{view.personaName}</strong> — take a minute with this, then stay in this
+          character for every single line.
+        </p>
+        <div className="booth-brief">
+          {STUDIO_BRIEFS[view.persona as PersonaId] ??
+            "Big energy, full commitment, same character on every take."}
+        </div>
+        <div className="booth-note">🎨 {EMBELLISH_NOTE}</div>
+        <button className="booth-primary" onClick={acceptBrief}>
+          Got it — I&apos;m in character
+        </button>
+        <div className="booth-tips">
+          This brief shows once per visit. If you come back tomorrow, read it again before
+          recording — the voice clone averages every take, so a half-hearted day drags the
+          whole voice down.
         </div>
       </div>
     );

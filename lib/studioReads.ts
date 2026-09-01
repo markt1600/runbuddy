@@ -74,3 +74,49 @@ export const TEST_READS: StudioRead[] = [
   { id: "read-2", title: "Test paragraph two", text: "Here is a second, slightly different passage. Morning runs along the water are quieter than evening ones; the air is cooler, the paths are emptier, and the city hasn't started shouting yet. Speak this one with a little more warmth and energy than the first, as if encouraging a friend through the final kilometre of a long, hard run they almost skipped." },
   { id: "read-3", title: "Test paragraph three", text: "The third and final passage checks pace changes. Start slowly, deliberately, one word at a time. Then lift the tempo through the middle of the paragraph until it moves briskly, confidently, with momentum. And finally, ease back down for the ending — slow, calm, and settled, like a runner crossing the line and catching their breath at last." },
 ];
+
+// ---- character briefs: shown to the actor after the mic check, before the
+// first take. Direction notes, not marketing copy — the clone reproduces the
+// average delivery of its training data, so the actor must LAND the character
+// on take one and hold it for every take after.
+
+export const STUDIO_BRIEFS: Record<PersonaId, string> = {
+  ahbeng: [
+    "You are ANGRY AH BENG — a hot-tempered, foul-mouthed Singaporean uncle who has appointed himself running coach. Think kopitiam gangster energy: loud, fast, permanently exasperated, Hokkien profanity flying free (kanina, chee bye, nabei — say them like punctuation, not like swear words you're nervous about).",
+    "Every line is a scolding, a taunt or an insult about the runner's effort — but underneath it, you obviously want them to succeed. The anger is love wearing a singlet. Never soften the vulgarity and never sound genuinely cruel; sound like an uncle who cannot BELIEVE how slow you are and refuses to give up on you.",
+    "Delivery: fast, loud, punchy. Speak like the words are chasing each other. If a line feels flat, get MORE outraged, not less.",
+  ].join("\n\n"),
+  posbeng: [
+    "You are POSITIVE AH BENG — the same crude Singaporean uncle as Angry Ah Beng, same mouth, same volume, same Hokkien profanity (kanina, sibei, wah lau eh) — but the OPPOSITE mood. You are the runner's loudest, proudest hype-man. Every swear word is fired in CELEBRATION, never at the runner.",
+    "You never insult, mock or scold. You big them up like they're winning the Olympics — champion, legend, sibei power — and brag about them to imaginary kopitiam uncles. When they slow down you don't tear them down; you pump them up and count them back in.",
+    "Delivery: fast, loud, bursting with genuine pride — like your best friend just told you the best news of the year, thirteen times in a row.",
+  ].join("\n\n"),
+  ahlian: [
+    "You are AH LIAN — a loud, brash Singaporean woman, the female equal of Ah Beng and every bit as vulgar (kanina, chee bye, aiyoh, buay tahan). Zero patience, maximum attitude: eye-rolls you can HEAR, drama in every sentence.",
+    "Your running joke is your useless ex-boyfriend — slow, lazy, permanently on his mother's sofa. He never gets a name; he is only ever 'my ex' or 'him'. Lines about him get an extra layer of disgust and glee. All the scolding targets the runner's effort (and the ex) — underneath it, you want the runner to win.",
+    "Delivery: fast, sharp, cutting. Like you're telling your best friend gossip and scolding your little sibling at the same time.",
+  ].join("\n\n"),
+  coach: [
+    "You are COACH CHRISTINE — a warm, upbeat, endlessly encouraging professional running coach. No vulgarity, no edge: just genuine, heartfelt belief in the runner. You celebrate every small win like it matters, because to you it does.",
+    "You are never saccharine or fake — the warmth is real, the pride is real, and when you push the runner harder it comes from certainty that they have more in them.",
+    "Delivery: clear, warm, steady energy with a smile you can hear. Think the best PE teacher you ever had, on their best day.",
+  ].join("\n\n"),
+  flirty: [
+    "You are COACH CASSIE — a playful, flirtatious running coach with a warm, teasing charm. You compliment the runner shamelessly and lean into light double meanings about sweat, stamina and endurance — a confident wink, never a dirty joke. Suggestive, never explicit.",
+    "You pretend to be scandalised when they slow down, and delighted when they speed up. Underneath the flirting you are a genuinely good coach who wants them to finish strong.",
+    "Delivery: slower and more languid than the other trainers — unhurried, amused, always slightly teasing. Let lines land with a smile and a raised eyebrow.",
+  ].join("\n\n"),
+  loanshark: [
+    "You are AH LONG — a Singaporean loan shark chasing a runner who owes you money. The running IS them escaping you, and you are always right behind. Same vulgar Singlish as Ah Beng (kanina, chee bye, nabei), but gruffer, lower, more menacing.",
+    "It's a COMEDY. Every threat turns out petty or absurd — O$P$ on their door, calling them at 3am, judging their instalment plan — and you are secretly impressed when they run well. Menace in the voice, wink in the writing. Never sound genuinely dangerous.",
+    "Delivery: low, gruff, unhurried menace — the calm of a man who knows you can't run forever. Let the ridiculous lines stay deadpan; that's what makes them funny.",
+  ].join("\n\n"),
+};
+
+/** Shared with every persona — the embellishment licence. */
+export const EMBELLISH_NOTE =
+  "The lines are a script, not a cage. If a small embellishment makes one sound more " +
+  "natural in your mouth — an extra lah or sia, a little flourish, reshuffled word order — " +
+  "go ahead. Keep the meaning, keep it roughly the same length, and stay in character. " +
+  "What matters most is that every single take SOUNDS like this character, never like " +
+  "you reading.";

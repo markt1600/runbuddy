@@ -3109,6 +3109,18 @@ input[type="range"]::-moz-range-thumb {
 }
 .booth-primary:disabled { opacity: 0.4; cursor: default; }
 
+/* The character brief — direction notes the actor reads before take one */
+.booth-brief {
+  white-space: pre-wrap;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--label);
+  padding: 14px 16px;
+  background: var(--bg-elevated);
+  border-radius: 12px;
+  margin: 12px 0;
+}
+
 /* Finish line: the submit block and the pre-submit listen-through listing */
 .booth-submit { display: grid; gap: 10px; justify-items: start; margin: 10px 0; }
 .booth-takes { display: grid; gap: 10px; margin: 14px 0; }
