@@ -58,13 +58,22 @@ const profilePath = (uid: string) => `users/${uid}.json`;
 
 export const UID_RE = /^[0-9a-f]{24}$/;
 
+// Overwritten blobs can serve the PREVIOUS content from the edge for a short
+// window even with cacheControlMaxAge 0. Profiles are read-modify-written
+// (logins, friend adds, edits), so a stale read here doesn't just misdisplay
+// — the next write bakes the stale copy back in and silently loses the newer
+// fields (a friend added minutes ago, say). A fresh query string forces a
+// cache miss on every profile read.
+const bust = (url: string) =>
+  `${url}${url.includes("?") ? "&" : "?"}nocache=${Date.now()}`;
+
 async function readProfile(uid: string): Promise<UserProfile | null> {
   const pathname = profilePath(uid);
   const page = await list({ prefix: pathname, limit: 1 });
   const hit = page.blobs.find((b) => b.pathname === pathname);
   if (!hit) return null;
   try {
-    const res = await fetch(hit.url, { cache: "no-store" });
+    const res = await fetch(bust(hit.url), { cache: "no-store" });
     return res.ok ? ((await res.json()) as UserProfile) : null;
   } catch {
     return null;
@@ -360,7 +369,7 @@ export async function listUsers(): Promise<UserProfile[]> {
   const bodies = await Promise.all(
     urls.map(async (url) => {
       try {
-        const res = await fetch(url, { cache: "no-store" });
+        const res = await fetch(bust(url), { cache: "no-store" });
         return res.ok ? ((await res.json()) as UserProfile) : null;
       } catch {
         return null;
