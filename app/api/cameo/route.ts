@@ -32,7 +32,9 @@ export async function POST(req: NextRequest) {
   // Duo mode's set pieces ride the same route and rendering: a "duet" (the
   // pair discuss the runner) or an "argument" (a 10–12 line blow-up).
   const mode: DuoKind | "cameo" =
-    body.mode === "duet" || body.mode === "argument" ? body.mode : "cameo";
+    body.mode === "duet" || body.mode === "argument" || body.mode === "banter"
+      ? body.mode
+      : "cameo";
 
   try {
     const script =

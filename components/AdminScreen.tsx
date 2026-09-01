@@ -58,6 +58,7 @@ const CATEGORY_LABELS: Record<PhraseCategory, string> = {
   wr_finish: "World-record moments",
   hs_finish: "High-school-record moments",
   pr: "Personal-record moments",
+  duo_react: "Duo reactions",
 };
 
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS) as PhraseCategory[];

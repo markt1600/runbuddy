@@ -7,6 +7,7 @@ export type PhraseCategory =
   | "pace_up" // runner slowed down
   | "pace_down" // runner sped up / praise pace
   | "milestone" // each km (generic; used past the pre-rendered marker range)
+  | "duo_react" // duo mode: one trainer reacting to the other's line
   | "km_marker" // "three kilometres down" — one per km, so the number is in-voice
   | "pace_lead" // lead-in that hands off to the spoken pace figure
   | "anecdote" // facts, stories, nuggets

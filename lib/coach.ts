@@ -30,6 +30,10 @@ const FRESH_ENCOURAGE_CHANCE = 0.25; // odds regular encouragement is freshly ge
 // Pace reactions fire often, so a finite bank starts repeating inside one run
 // however deep it is. Some of them come from the API instead.
 const FRESH_PACE_CHANCE = 0.35;
+// Duo mode: how often an ambient/pace slot becomes the pair talking to each
+// other instead of one of them addressing the runner.
+const DUO_BANTER_CHANCE = 0.5;
+const DUO_PACE_BANTER_CHANCE = 0.4;
 
 // How long a stop is allowed to run before the trainer starts commenting on it,
 // and how often they come back to it. Scaled by the chatter setting like
@@ -122,6 +126,9 @@ export class CoachEngine {
   /** Duo mode: a second trainer coaches the whole run alongside the first. */
   private duo: Persona | null = null;
   private duoTurn = Math.random() < 0.5;
+  private runStarted = false;
+  /** Whoever spoke the last library line — the duo partner reacts to them. */
+  private lastLibSpeaker: Persona | null = null;
   /** Duo set pieces: fired at a clock time (free runs) OR a fraction of the
    *  target (distance/time targets), so short runs still get the argument
    *  mid-run instead of never. */
@@ -265,12 +272,43 @@ export class CoachEngine {
 
   /**
    * Duo mode: a second trainer joins for the whole run. Library lines
-   * alternate between the two voices, and the pair break into live duets
-   * (talking to each other about the runner) and one full-blown argument.
-   * Call before onRunStart.
+   * alternate between the two voices, and the pair break into live duets,
+   * banter and one full-blown argument. Works before the run OR mid-run —
+   * the chip cycles through duo like any other trainer: joining mid-run,
+   * the partner announces themselves and the set pieces reschedule; leaving
+   * mid-run, the pieces are dropped.
    */
   setDuo(partner: Persona | null) {
-    this.duo = partner && partner.id !== this.persona.id ? partner : null;
+    const next = partner && partner.id !== this.persona.id ? partner : null;
+    if ((next?.id ?? null) === (this.duo?.id ?? null)) return;
+    this.duo = next;
+    if (!this.runStarted || this.disposed) return;
+    if (next) {
+      this.voice.clearPending();
+      const p = this.pick("start", next.id);
+      if (p) this.voice.say(p.text, getPhraseUrl(next.id, p.id), undefined, next);
+      const now = Date.now();
+      this.duoPieces = [
+        { at: now + (2 + Math.random() * 2) * 60_000, kind: "duet" },
+        { at: now + (7 + Math.random() * 4) * 60_000, kind: "argument" },
+      ];
+    } else {
+      this.duoPieces = [];
+    }
+  }
+
+  /**
+   * Duo interaction: half the time, the OTHER trainer immediately answers
+   * whoever just spoke — a pre-rendered quip aimed at their co-trainer, so
+   * the pair feel like they're in the same room, not taking turns at a mic.
+   */
+  private maybeDuoReact(chance = 0.5) {
+    if (!this.duo || !this.lastLibSpeaker || Math.random() >= chance) return;
+    const reactor =
+      this.lastLibSpeaker.id === this.persona.id ? this.duo : this.persona;
+    const phrase = this.pick("duo_react", reactor.id);
+    if (!phrase) return;
+    this.voice.say(phrase.text, getPhraseUrl(reactor.id, phrase.id), undefined, reactor);
   }
 
   /**
@@ -437,11 +475,13 @@ export class CoachEngine {
     const s = this.speaker();
     const phrase = this.pick(category, s.id);
     if (!phrase) return;
+    this.lastLibSpeaker = s;
     this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s);
   }
 
   onRunStart() {
     const now = Date.now();
+    this.runStarted = true;
     this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS);
     this.nextAnecdoteAt = now + this.gap(ANECDOTE_GAP_MS);
     if (this.duo) {
@@ -521,7 +561,9 @@ export class CoachEngine {
       (p) => p.target === target && p.mark === mark
     );
     if (!phrase) return false;
+    this.lastLibSpeaker = s;
     this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s);
+    this.maybeDuoReact();
     return true;
   }
 
@@ -535,7 +577,9 @@ export class CoachEngine {
     const s = this.speaker();
     const marker = allPhrasesFor(s.id, "km_marker").find((p) => p.km === km);
     if (marker) {
+      this.lastLibSpeaker = s;
       this.voice.say(marker.text, getPhraseUrl(s.id, marker.id), undefined, s);
+      this.maybeDuoReact();
       return;
     }
     this.sayFromLibrary("milestone");
@@ -840,14 +884,12 @@ export class CoachEngine {
         // half the cooldown, so a marginal stretch resolves quickly.
         if (ratio > PACE_TARGET_SLOW) {
           this.lastPaceEventAt = now;
-          if (Math.random() < FRESH_PACE_CHANCE) void this.sayFresh("pace_up", stats);
-          else this.sayFromLibrary("pace_up");
+          this.sayPaceEvent("pace_up", stats);
           return;
         }
         if (ratio <= PACE_TARGET_GOOD) {
           this.lastPaceEventAt = now;
-          if (Math.random() < FRESH_PACE_CHANCE) void this.sayFresh("pace_down", stats);
-          else this.sayFromLibrary("pace_down");
+          this.sayPaceEvent("pace_down", stats);
           return;
         }
         this.lastPaceEventAt = now - PACE_COOLDOWN_MS / 2;
@@ -861,14 +903,12 @@ export class CoachEngine {
       const ratio = stats.paceSecPerKm / stats.avgPaceSecPerKm;
       if (ratio > 1.18) {
         this.lastPaceEventAt = now;
-        if (Math.random() < FRESH_PACE_CHANCE) void this.sayFresh("pace_up", stats);
-        else this.sayFromLibrary("pace_up");
+        this.sayPaceEvent("pace_up", stats);
         return;
       }
       if (ratio < 0.85) {
         this.lastPaceEventAt = now;
-        if (Math.random() < FRESH_PACE_CHANCE) void this.sayFresh("pace_down", stats);
-        else this.sayFromLibrary("pace_down");
+        this.sayPaceEvent("pace_down", stats);
         return;
       }
     }
@@ -876,11 +916,31 @@ export class CoachEngine {
     this.tickAmbient(stats, now);
   }
 
+  /** A pace deviation: solo call-out, fresh line, or — in duo — the pair
+   *  sparring about it ("Eh Lian, you see the pace or not?"). */
+  private sayPaceEvent(kind: "pace_up" | "pace_down", stats: RunStats) {
+    if (this.duo && Math.random() < DUO_PACE_BANTER_CHANCE) {
+      void this.playDuoPiece("banter", stats, {
+        paceNote:
+          kind === "pace_up"
+            ? "the runner just SLOWED DOWN — spar over whose job it is to fix that"
+            : "the runner just SPED UP — react to it together",
+      });
+      return;
+    }
+    if (Math.random() < FRESH_PACE_CHANCE) void this.sayFresh(kind, stats);
+    else this.sayFromLibrary(kind);
+  }
+
   /** Anecdotes and periodic encouragement — the cues that need no GPS. */
   private tickAmbient(stats: RunStats, now: number) {
     if (now >= this.nextAnecdoteAt) {
       this.nextAnecdoteAt = now + this.gap(ANECDOTE_GAP_MS);
-      if (Math.random() < FRESH_ANECDOTE_CHANCE) {
+      // Duo mode: half the ambient slots become the pair talking to each
+      // other about the run — the interaction IS the product.
+      if (this.duo && Math.random() < DUO_BANTER_CHANCE) {
+        void this.playDuoPiece("banter", stats);
+      } else if (Math.random() < FRESH_ANECDOTE_CHANCE) {
         void this.sayFresh("anecdote", stats);
       } else {
         this.sayFromLibrary("anecdote");
@@ -890,7 +950,9 @@ export class CoachEngine {
 
     if (now >= this.nextEncourageAt) {
       this.nextEncourageAt = now + this.gap(ENCOURAGE_GAP_MS);
-      if (Math.random() < FRESH_ENCOURAGE_CHANCE) {
+      if (this.duo && Math.random() < DUO_BANTER_CHANCE) {
+        void this.playDuoPiece("banter", stats);
+      } else if (Math.random() < FRESH_ENCOURAGE_CHANCE) {
         void this.sayFresh("encourage", stats);
       } else {
         this.sayFromLibrary("encourage");
@@ -956,7 +1018,11 @@ export class CoachEngine {
    * snap back together behind the runner. Same wait-for-quiet discipline as
    * the cameo, and the same rule: it plays whole or not at all.
    */
-  private async playDuoPiece(kind: "duet" | "argument", stats: RunStats) {
+  private async playDuoPiece(
+    kind: "duet" | "argument" | "banter",
+    stats: RunStats,
+    extra: Record<string, unknown> = {}
+  ) {
     if (!this.duo) return;
     try {
       const res = await fetch("/api/cameo", {
@@ -966,7 +1032,7 @@ export class CoachEngine {
           persona: this.persona.id,
           cameo: this.duo.id,
           mode: kind,
-          context: this.buildContext(stats),
+          context: this.buildContext(stats, extra),
         }),
       });
       if (!res.ok) return;

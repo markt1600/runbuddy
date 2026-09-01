@@ -22,6 +22,8 @@ export interface PhraseContext {
   targetKm?: number;
   progressPercent?: number;
   remainingKm?: number;
+  /** A moment hint for duo banter, e.g. "the runner just slowed down". */
+  paceNote?: string;
   pausedSeconds?: number; // how long they've been standing still
   // Treadmill (time-target) runs
   treadmill?: boolean;
@@ -183,6 +185,7 @@ function contextLines(context: PhraseContext): string {
       ? `Pace for the kilometre they just finished: ${context.lastKmPaceMinPerKm} min/km`
       : null,
     context.speedKmh !== undefined ? `Current speed: ${context.speedKmh} km/h` : null,
+    context.paceNote ? `This exact moment: ${context.paceNote}` : null,
     context.pausedSeconds !== undefined
       ? `They have been stopped, not moving, for ${context.pausedSeconds} seconds`
       : null,
@@ -333,7 +336,7 @@ const DUO_DYNAMICS: Record<string, string> = {
     "and who the aunties at the market actually listen to.",
 };
 
-export type DuoKind = "duet" | "argument";
+export type DuoKind = "duet" | "argument" | "banter";
 
 /**
  * Duo mode's live set pieces. A duet: the two trainers talk to each other
@@ -357,7 +360,14 @@ export async function generateDuo(
     DUO_DYNAMICS[`${a}+${b}`] ?? DUO_DYNAMICS[`${b}+${a}`] ?? "";
 
   const task =
-    kind === "duet"
+    kind === "banter"
+      ? "Write EXACTLY 2 spoken lines — one from each trainer, either may start. A quick " +
+        "exchange between the TWO OF THEM about the runner's current numbers or effort — " +
+        "the runner is eavesdropping and is not addressed. One observation, one riposte. " +
+        "At most 16 words per line. No stage directions, no quotes, no emoji.\n" +
+        "Format strictly, nothing before or after, e.g.:\n" +
+        "A: <line>\nB: <line>"
+      : kind === "duet"
       ? "Write EXACTLY 3 spoken lines, alternating A, B, A. The two trainers talk to EACH " +
         "OTHER about the runner — the runner is eavesdropping through their earphones and " +
         "is never addressed until the final line, which turns to the runner and pushes them " +
@@ -377,7 +387,7 @@ export async function generateDuo(
 
   const response = await client.messages.create({
     model: "claude-sonnet-5",
-    max_tokens: kind === "duet" ? 400 : 1200,
+    max_tokens: kind === "argument" ? 1200 : 400,
     output_config: { effort: "low" },
     system:
       "You write live comic dialogue for a two-trainer running-coach app set in Singapore. " +
@@ -400,8 +410,9 @@ export async function generateDuo(
     .filter((bl) => bl.type === "text")
     .map((bl) => bl.text)
     .join("\n");
-  const lines = parseCameoScript(raw, a, b, kind === "duet" ? 3 : 12);
-  if (lines.length < (kind === "duet" ? 2 : 8)) throw new Error("duo script unparseable");
+  const max = kind === "banter" ? 2 : kind === "duet" ? 3 : 12;
+  const lines = parseCameoScript(raw, a, b, max);
+  if (lines.length < (kind === "argument" ? 8 : 2)) throw new Error("duo script unparseable");
   return lines;
 }
 

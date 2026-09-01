@@ -39,6 +39,8 @@ interface Props {
   onPersonaChange?: (id: PersonaId) => void;
   /** Duo mode: this persona co-coaches the run alongside `persona`. */
   duoWith?: PersonaId | null;
+  /** Mid-run duo toggling reports here so the preference persists. */
+  onDuoModeChange?: (on: boolean) => void;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -59,8 +61,12 @@ export default function RunScreen({
   personalRecords,
   onPersonaChange,
   duoWith,
+  onDuoModeChange,
   onFinish,
 }: Props) {
+  // Duo can be toggled mid-run via the chip, so it's live state seeded from
+  // the prop. The pair is fixed: Ah Beng + Ah Lian.
+  const [duoActive, setDuoActive] = useState(!!duoWith);
   const treadmill = targetMin > 0;
   const [elapsedMs, setElapsedMs] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -527,18 +533,36 @@ export default function RunScreen({
    * state updates too, so the accent colour, summary and saved run follow.
    */
   const switchPersona = () => {
-    if (!onPersonaChange || duoWith) return; // the duo pair doesn't cycle
-    const idx = PERSONA_LIST.findIndex((p) => p.id === persona.id);
-    const next = PERSONA_LIST[(idx + 1) % PERSONA_LIST.length];
-    coachRef.current?.setPersona(next);
-    onPersonaChange(next.id);
-    vibrate(40);
-    // Warm the new voice's pack in the background (no-op when cached).
+    if (!onPersonaChange) return;
+    // The cycle: every solo trainer, then the duo, then round again. The
+    // coach keeps all run state across every hop — only the voices change.
+    const cycle: (PersonaId | "duo")[] = [...PERSONA_LIST.map((p) => p.id), "duo"];
+    const current: PersonaId | "duo" = duoActive ? "duo" : persona.id;
+    const next = cycle[(cycle.indexOf(current) + 1) % cycle.length];
+    const coach = coachRef.current;
     const native = runBuddyNative();
-    if (native) {
-      const urls = renderedUrlsFor(next.id);
-      if (urls.length > 0) void native.prefetchAudio({ urls });
+    if (next === "duo") {
+      coach?.setPersona(PERSONAS.ahbeng);
+      coach?.setDuo(PERSONAS.ahlian);
+      onPersonaChange("ahbeng");
+      onDuoModeChange?.(true);
+      setDuoActive(true);
+      if (native) {
+        const urls = [...renderedUrlsFor("ahbeng"), ...renderedUrlsFor("ahlian")];
+        if (urls.length > 0) void native.prefetchAudio({ urls });
+      }
+    } else {
+      coach?.setDuo(null);
+      coach?.setPersona(PERSONAS[next]);
+      onPersonaChange(next);
+      if (duoActive) onDuoModeChange?.(false);
+      setDuoActive(false);
+      if (native) {
+        const urls = renderedUrlsFor(next);
+        if (urls.length > 0) void native.prefetchAudio({ urls });
+      }
     }
+    vibrate(40);
   };
 
   const musicLabel =
@@ -570,17 +594,15 @@ export default function RunScreen({
       <div className="run-topbar">
         <button
           className={`run-persona-chip${speaking ? " speaking" : ""}`}
-          aria-label={duoWith ? "Duo trainers" : "Switch trainer"}
+          aria-label="Switch trainer"
           onClick={switchPersona}
         >
           <span className="chip-emoji">
             {persona.emoji}
-            {duoWith ? PERSONAS[duoWith]?.emoji : ""}
+            {duoActive ? PERSONAS.ahlian.emoji : ""}
           </span>
-          {duoWith
-            ? `${persona.shortName} + ${PERSONAS[duoWith]?.shortName ?? ""}`
-            : persona.name}
-          {onPersonaChange && !duoWith && <span className="chip-swap">⇄</span>}
+          {duoActive ? `${persona.shortName} + ${PERSONAS.ahlian.shortName}` : persona.name}
+          {onPersonaChange && <span className="chip-swap">⇄</span>}
         </button>
         {treadmill ? (
           <div className="gps-pill treadmill">🏃 Treadmill</div>

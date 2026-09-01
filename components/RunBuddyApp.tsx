@@ -437,6 +437,7 @@ export default function RunBuddyApp() {
           personalRecords={personalRecords}
           onPersonaChange={setPersonaId}
           duoWith={duoMode ? "ahlian" : null}
+          onDuoModeChange={setDuoMode}
           onFinish={(stats) => {
             setFinalStats(stats);
             setSavedRunId(null);
