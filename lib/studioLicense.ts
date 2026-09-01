@@ -3,7 +3,7 @@
 // Drafted for a friendly indie engagement — have a lawyer review before the
 // first paid actor signs.
 
-export const LICENSE_VERSION = "v6-2026-09-01";
+export const LICENSE_VERSION = "v7-2026-09-01";
 
 /** The agreement with the agreed fee and deadline baked into its own
  *  compensation clause — the actor signs the exact text they saw. */
@@ -24,6 +24,22 @@ export function licenseTextFor(feeSgd: number, deadlineAt?: number): string {
 
 const LICENSE_TEXT = `VOICE RECORDING AND AI VOICE LICENSE AGREEMENT
 
+IN PLAIN ENGLISH — PLEASE READ THIS FIRST:
+
+* You are recording your voice for us.
+* We will use your recordings to train an AI clone of your voice.
+* That AI voice can be made to say things you never actually said, and we
+  can use it — and your original recordings — for ANY purpose, commercial
+  or otherwise, anywhere in the world, forever, without asking you again
+  and without any further payment beyond the one-time fee below.
+* We will never present the AI voice as your personal statements or
+  endorsements, and we won't use it for unlawful content (see section 4).
+  Beyond that, there are no restrictions on how it may be used.
+
+If you are not comfortable with an AI version of your voice existing and
+being used freely in this way, do not sign. The summary above is part of
+this agreement; the sections below are the full legal terms.
+
 Between: the voice performer identified by the typed name below ("Performer")
 and Cabot Strait Holdings Limited ("Producer").
 
@@ -42,9 +58,13 @@ creating one or more artificial-intelligence models of Performer's voice
 trained on the Recordings (an "AI Voice"), and grants Producer the same
 perpetual, irrevocable, worldwide, royalty-free, transferable licence to
 generate, use, reproduce, modify and distribute synthetic speech produced by
-the AI Voice for any commercial or non-commercial purpose. Performer will,
-if asked, complete a short voice-verification recording used solely to
-confirm the authenticity of this consent with the AI provider.
+the AI Voice for any commercial or non-commercial purpose. For the avoidance
+of doubt: the AI Voice may be used to generate speech consisting of words
+Performer never recorded or said, in any context and for any purpose
+(subject only to section 4), without further consent from, credit to, or
+payment to Performer. Performer will, if asked, complete a short
+voice-verification recording used solely to confirm the authenticity of
+this consent with the AI provider.
 
 4. LIMITS. Producer will not use the Recordings or the AI Voice to present
 Performer as personally endorsing third-party products, or to generate
