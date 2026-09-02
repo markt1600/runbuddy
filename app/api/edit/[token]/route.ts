@@ -32,6 +32,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
   return NextResponse.json({
     personaName: PERSONAS[session.persona].name,
     label: session.label,
+    // Only the 🔞 characters get the "add more vulgarity" nudge — Christine
+    // and Cassie are clean by design.
+    vulgar: ["ahbeng", "posbeng", "ahlian", "loanshark"].includes(session.persona),
     // The actor brief minus its "Delivery:" paragraph — that's direction for
     // speaking the lines, and this job is only editing them.
     brief: STUDIO_BRIEFS[session.persona]

@@ -13,6 +13,7 @@ interface EditView {
   personaName: string;
   label: string;
   brief: string;
+  vulgar: boolean;
   phrases: { id: string; category: string; text: string }[];
   suggestions: Record<string, string>;
   resolved: Record<string, "accepted" | "rejected">;
@@ -133,8 +134,18 @@ export default function EditPage({ params }: { params: Promise<{ token: string }
         <div className="booth-note">
           ✏️ <strong>Your job:</strong> fix Singlish that reads off, awkward phrasing, or
           typos — one phrase per page. Change only what needs changing; a good line left
-          alone is a good edit. Everything saves as you go, and if you leave, the same link
-          brings you back to the exact phrase you were on.
+          alone is a good edit.
+          {view.vulgar && (
+            <>
+              {" "}
+              And don&apos;t be shy: if a line can take <strong>more colourful Hokkien
+              vulgarity</strong>, pile it on — kanina, chee bye, nabei, lan jiao — the
+              crasser and funnier, the truer this character sounds. Always spell it in
+              full (&quot;kanina&quot;, never &quot;knn&quot;).
+            </>
+          )}{" "}
+          Everything saves as you go, and if you leave, the same link brings you back to
+          the exact phrase you were on.
         </div>
         <p className="booth-sub">
           Every fix has to keep this character&apos;s voice — here&apos;s who they are:
