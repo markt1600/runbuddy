@@ -84,10 +84,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     action?: string;
     phraseId?: string;
     text?: string;
+    knownResolved?: Record<string, string>;
   } | null;
   const phraseId = body?.phraseId ?? "";
   const suggested = session.suggestions?.[phraseId];
   if (!suggested) return NextResponse.json({ error: "no such suggestion" }, { status: 400 });
+
+  // Anti-lost-update merge: if THIS read got a stale copy missing verdicts
+  // written moments ago, the client's view of them fills the holes (the
+  // fresher server copy wins any conflict). Without this, rejecting several
+  // phrases quickly could silently resurrect the earlier ones.
+  if (body?.knownResolved && typeof body.knownResolved === "object") {
+    const fill: Record<string, "accepted" | "rejected"> = {};
+    for (const [k, v] of Object.entries(body.knownResolved)) {
+      if ((v === "accepted" || v === "rejected") && session.suggestions?.[k]) fill[k] = v;
+    }
+    session.resolved = { ...fill, ...(session.resolved ?? {}) };
+  }
 
   if (body?.action === "amend") {
     // The admin polishes the suggestion (typos etc.) — it stays a PENDING

@@ -403,11 +403,27 @@ export default function StudioPage() {
       const res = await fetch(`/api/studio/edits/${openEdit.session.id}`, {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({ action, phraseId }),
+        body: JSON.stringify({
+          action,
+          phraseId,
+          // Every verdict this screen already knows — the server merges them
+          // in case its own read of the session was a stale copy.
+          knownResolved: Object.fromEntries(
+            openEdit.items.filter((i) => i.verdict).map((i) => [i.id, i.verdict])
+          ),
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "failed");
-      setOpenEdit(data as { session: EditRow; items: EditItem[] });
+      const data = (await res.json()) as { session: EditRow; items: EditItem[] };
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "failed");
+      // Belt and braces against blob-storage lag: whatever any (possibly
+      // stale) copy claims, the verdict that was just written must not
+      // un-happen on screen.
+      data.items = data.items.map((x) =>
+        x.id === phraseId
+          ? { ...x, verdict: action === "accept" ? ("accepted" as const) : ("rejected" as const) }
+          : x
+      );
+      setOpenEdit(data);
     } catch (err) {
       setNote(`⚠ ${err instanceof Error ? err.message : "verdict failed"}`);
     } finally {
@@ -422,11 +438,23 @@ export default function StudioPage() {
       const res = await fetch(`/api/studio/edits/${openEdit.session.id}`, {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({ action: "amend", phraseId: amendId, text: amendText }),
+        body: JSON.stringify({
+          action: "amend",
+          phraseId: amendId,
+          text: amendText,
+          knownResolved: Object.fromEntries(
+            openEdit.items.filter((i) => i.verdict).map((i) => [i.id, i.verdict])
+          ),
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "failed");
-      setOpenEdit(data as { session: EditRow; items: EditItem[] });
+      const data = (await res.json()) as { session: EditRow; items: EditItem[] };
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "failed");
+      // Same stale-copy guard as verdicts: the amendment just saved wins.
+      const saved = amendText.trim().slice(0, 600);
+      data.items = data.items.map((x) =>
+        x.id === amendId ? { ...x, suggested: saved, verdict: null } : x
+      );
+      setOpenEdit(data);
       setAmendId(null);
     } catch (err) {
       setNote(`⚠ ${err instanceof Error ? err.message : "edit failed"}`);
