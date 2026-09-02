@@ -3114,6 +3114,65 @@ input[type="range"]::-moz-range-thumb {
 }
 .booth-primary:disabled { opacity: 0.4; cursor: default; }
 
+/* Phrase editing suite (booth chrome, no microphone) + review diffs */
+.booth-wide { max-width: 860px; }
+.edit-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  background: var(--bg);
+  font-size: 13.5px;
+  color: var(--label-2);
+  border-bottom: 1px solid var(--separator-strong);
+  margin-bottom: 12px;
+}
+.edit-topbar progress { flex: 1; accent-color: var(--accent); }
+.edit-save-state { min-width: 60px; text-align: right; }
+.edit-row { margin: 10px 0 14px; }
+.edit-row textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 14.5px;
+  line-height: 1.45;
+  padding: 10px 12px;
+  border: 1px solid var(--separator-strong);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: var(--label);
+  resize: vertical;
+}
+.edit-row.changed textarea { border-color: var(--accent); }
+.edit-row-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.edit-id { color: var(--label-3); font-variant-numeric: tabular-nums; }
+.edit-tag { color: var(--accent); font-weight: 600; }
+.edit-tag.ok { color: #2c7a3f; }
+.edit-tag.bad { color: var(--label-3); }
+.phrase-diff { font-size: 14px; line-height: 1.5; }
+.phrase-diff del {
+  color: #a8391e;
+  background: rgba(168, 57, 30, 0.12);
+  text-decoration: line-through;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.phrase-diff ins {
+  color: #2c7a3f;
+  background: rgba(44, 122, 63, 0.14);
+  text-decoration: none;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
 /* The character brief — direction notes the actor reads before take one */
 .booth-brief {
   white-space: pre-wrap;

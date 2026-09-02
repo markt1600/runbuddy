@@ -69,6 +69,83 @@ export async function appendExtras(persona: PersonaId, phrases: Phrase[]): Promi
   return merged;
 }
 
+// ---- accepted phrase edits: text overrides layered over the shipped bank ----
+// The static library is compiled source; human corrections accepted in the
+// studio land here instead, and every reader of phrase TEXT — findPhrase on
+// the server, allPhrasesFor on the client via /api/library/status — applies
+// them, so renders, staleness hashes and the coach all speak the corrected
+// words.
+
+const overridesPath = (persona: PersonaId) => `library/${persona}/overrides.json`;
+const bustUrl = (url: string) =>
+  `${url}${url.includes("?") ? "&" : "?"}nocache=${Date.now()}`;
+
+export async function readOverrides(persona: PersonaId): Promise<Record<string, string>> {
+  if (!blobConfigured()) return {};
+  try {
+    const page = await list({ prefix: overridesPath(persona), limit: 1 });
+    const hit = page.blobs.find((b) => b.pathname === overridesPath(persona));
+    if (!hit) return {};
+    const res = await fetch(bustUrl(hit.url), { cache: "no-store" });
+    if (!res.ok) return {};
+    const data = await res.json();
+    return data && typeof data === "object" ? (data as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export async function setOverride(
+  persona: PersonaId,
+  phraseId: string,
+  text: string
+): Promise<void> {
+  const cur = await readOverrides(persona);
+  await put(overridesPath(persona), JSON.stringify({ ...cur, [phraseId]: text }, null, 1), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+  });
+}
+
+/** Remove a phrase's rendered audio and its bookkeeping — the text changed,
+ *  so the old recording says the wrong words; "Render missing" recuts it. */
+export async function deleteRenderedAudio(
+  persona: PersonaId,
+  phraseId: string
+): Promise<void> {
+  const doomed: string[] = [];
+  const audioPath = `${PREFIX}/${persona}/${phraseId}.mp3`;
+  for (const prefix of [
+    audioPath,
+    `${markerPrefix(persona)}${phraseId}__`,
+    `library/${persona}/promoted/${phraseId}`,
+  ]) {
+    try {
+      let cursor: string | undefined;
+      do {
+        const page = await list({ prefix, cursor });
+        for (const b of page.blobs) {
+          // Exact-file prefixes must not sweep near-namesakes (li-pu-1 vs li-pu-17).
+          if (
+            b.pathname === audioPath ||
+            b.pathname.startsWith(`${markerPrefix(persona)}${phraseId}__`) ||
+            b.pathname === `library/${persona}/promoted/${phraseId}`
+          ) {
+            doomed.push(b.url);
+          }
+        }
+        cursor = page.hasMore ? page.cursor : undefined;
+      } while (cursor);
+    } catch {
+      /* best effort per prefix */
+    }
+  }
+  if (doomed.length > 0) await del(doomed);
+}
+
 // ---- promoted provenance: which audio is a real actor's take ----
 // One tiny marker per phrase whose live audio came from a studio promotion
 // rather than TTS. It gates the admin's "re-render would overwrite a real
@@ -190,9 +267,12 @@ async function recordRenderHash(persona: PersonaId, phraseId: string, hash: stri
 }
 
 async function findPhrase(persona: PersonaId, phraseId: string): Promise<Phrase | undefined> {
-  const fromStatic = PHRASE_LIBRARY[persona].find((p) => p.id === phraseId);
-  if (fromStatic) return fromStatic;
-  return (await readExtras(persona)).find((p) => p.id === phraseId);
+  const base =
+    PHRASE_LIBRARY[persona].find((p) => p.id === phraseId) ??
+    (await readExtras(persona)).find((p) => p.id === phraseId);
+  if (!base) return undefined;
+  const corrected = (await readOverrides(persona))[phraseId];
+  return corrected ? { ...base, text: corrected } : base;
 }
 
 /**

@@ -41,6 +41,68 @@ interface AuditionRow {
   submissions: { id: string; name: string; email: string; at: number; audioUrl: string | null }[];
 }
 
+interface EditRow {
+  id: string;
+  label: string;
+  persona: PersonaId;
+  createdAt: number;
+  submittedAt: number;
+  pending: number;
+  accepted: number;
+  rejected: number;
+}
+
+interface EditItem {
+  id: string;
+  category: string;
+  original: string;
+  suggested: string;
+  verdict: "accepted" | "rejected" | null;
+}
+
+/** Word-level track changes: deletions struck red, insertions green. */
+function WordDiff({ from, to }: { from: string; to: string }) {
+  const A = from.split(/\s+/);
+  const B = to.split(/\s+/);
+  const dp: number[][] = Array.from({ length: A.length + 1 }, () =>
+    new Array<number>(B.length + 1).fill(0)
+  );
+  for (let i = A.length - 1; i >= 0; i--) {
+    for (let j = B.length - 1; j >= 0; j--) {
+      dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const parts: { type: "same" | "del" | "ins"; text: string }[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < A.length && j < B.length) {
+    if (A[i] === B[j]) {
+      parts.push({ type: "same", text: A[i] });
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      parts.push({ type: "del", text: A[i] });
+      i++;
+    } else {
+      parts.push({ type: "ins", text: B[j] });
+      j++;
+    }
+  }
+  while (i < A.length) parts.push({ type: "del", text: A[i++] });
+  while (j < B.length) parts.push({ type: "ins", text: B[j++] });
+  return (
+    <span className="phrase-diff">
+      {parts.map((p, k) => (
+        <span key={k}>
+          {p.type === "same" && p.text}
+          {p.type === "del" && <del>{p.text}</del>}
+          {p.type === "ins" && <ins>{p.text}</ins>}{" "}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 interface ReviewItem {
   id: string;
   kind: "phrase" | "read";
@@ -70,6 +132,10 @@ export default function StudioPage() {
   const [approved, setApproved] = useState<Set<string>>(new Set());
   const [auditions, setAuditions] = useState<AuditionRow[] | null>(null);
   const [audPersona, setAudPersona] = useState<PersonaId>("ahbeng");
+  const [edits, setEdits] = useState<EditRow[] | null>(null);
+  const [editPersona, setEditPersona] = useState<PersonaId>("ahbeng");
+  const [editLabel, setEditLabel] = useState("");
+  const [openEdit, setOpenEdit] = useState<{ session: EditRow; items: EditItem[] } | null>(null);
 
   const headers = useCallback(
     (): Record<string, string> => ({
@@ -119,12 +185,20 @@ export default function StudioPage() {
       .catch(() => setAuditions([]));
   }, [headers]);
 
+  const loadEdits = useCallback(() => {
+    void fetch("/api/studio/edits", { headers: headers() })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: { edits: EditRow[] }) => setEdits(data.edits))
+      .catch(() => setEdits([]));
+  }, [headers]);
+
   useEffect(() => {
     if (pinOk && me?.isAdmin) {
       loadSessions();
       loadAuditions();
+      loadEdits();
     }
-  }, [pinOk, me, loadSessions, loadAuditions]);
+  }, [pinOk, me, loadSessions, loadAuditions, loadEdits]);
 
   if (!me) return <div className="studio"><p>Loading…</p></div>;
   if (!me.user || me.isAdmin === false) {
@@ -301,6 +375,36 @@ export default function StudioPage() {
     }
   };
 
+  const openEditSession = async (id: string) => {
+    setNote(null);
+    try {
+      const res = await fetch(`/api/studio/edits/${id}`, { headers: headers() });
+      if (!res.ok) throw new Error("load failed");
+      setOpenEdit((await res.json()) as { session: EditRow; items: EditItem[] });
+    } catch (err) {
+      setNote(`⚠ ${err instanceof Error ? err.message : "load failed"}`);
+    }
+  };
+
+  const editVerdict = async (phraseId: string, action: "accept" | "reject") => {
+    if (!openEdit || busy) return;
+    setBusy(action);
+    try {
+      const res = await fetch(`/api/studio/edits/${openEdit.session.id}`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({ action, phraseId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "failed");
+      setOpenEdit(data as { session: EditRow; items: EditItem[] });
+    } catch (err) {
+      setNote(`⚠ ${err instanceof Error ? err.message : "verdict failed"}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const flaggedSet = new Set((open?.session.flags ?? []).map((f) => f.itemId));
 
   return (
@@ -310,7 +414,54 @@ export default function StudioPage() {
       {note && <div className="studio-note">{note}</div>}
       {busy && <div className="studio-note">⏳ {busy}</div>}
 
-      {!open ? (
+      {openEdit ? (
+        <>
+          <button className="studio-link" onClick={() => { setOpenEdit(null); loadEdits(); }}>
+            ‹ Back
+          </button>
+          <h2>
+            ✏️ {openEdit.session.label} · {openEdit.session.persona} — suggested phrase edits
+          </h2>
+          {openEdit.items.length === 0 && <p className="studio-sub">No suggestions yet.</p>}
+          {openEdit.items.map((it) => (
+            <div key={it.id} className="edit-row">
+              <div className="edit-row-head">
+                <span className="edit-id">
+                  {it.id} · {it.category}
+                </span>
+                {it.verdict === "accepted" && (
+                  <span className="edit-tag ok">✓ accepted — audio deleted for re-render</span>
+                )}
+                {it.verdict === "rejected" && <span className="edit-tag bad">✗ rejected</span>}
+              </div>
+              <WordDiff from={it.original} to={it.suggested} />
+              {!it.verdict && (
+                <div style={{ marginTop: 6, display: "flex", gap: 14 }}>
+                  <button
+                    className="studio-link"
+                    disabled={!!busy}
+                    onClick={() => void editVerdict(it.id, "accept")}
+                  >
+                    ✓ Accept
+                  </button>
+                  <button
+                    className="studio-link"
+                    disabled={!!busy}
+                    onClick={() => void editVerdict(it.id, "reject")}
+                  >
+                    ✗ Reject
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+          <p className="studio-sub">
+            Accepting replaces the phrase&apos;s text everywhere immediately and deletes its
+            audio — the app&apos;s automatic gap-fill (or Admin&apos;s &quot;Render
+            missing&quot;) re-cuts it with the corrected words.
+          </p>
+        </>
+      ) : !open ? (
         <>
           <div className="studio-create">
             <input
@@ -542,6 +693,94 @@ export default function StudioPage() {
           ))}
           {auditions !== null && auditions.length === 0 && (
             <p className="studio-sub">No audition calls open.</p>
+          )}
+
+          <h2 style={{ marginTop: 28 }}>✏️ Phrase edits</h2>
+          <p className="studio-sub">
+            A link where a human fixes AI-generated Singlish, one text box per phrase.
+            Review every change as a tracked diff; accepting updates the app and queues
+            the audio for re-render.
+          </p>
+          <div className="studio-create">
+            <input
+              value={editLabel}
+              onChange={(e) => setEditLabel(e.target.value)}
+              placeholder="Editor label, e.g. Auntie Karen"
+            />
+            <select
+              value={editPersona}
+              onChange={(e) => setEditPersona(e.target.value as PersonaId)}
+            >
+              {PERSONA_LIST.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <button
+              disabled={!editLabel.trim()}
+              onClick={() => {
+                void fetch("/api/studio/edits", {
+                  method: "POST",
+                  headers: headers(),
+                  body: JSON.stringify({ label: editLabel, persona: editPersona }),
+                })
+                  .then((res) => (res.ok ? res.json() : Promise.reject()))
+                  .then((data: { session: { id: string } }) => {
+                    void navigator.clipboard.writeText(
+                      `${location.origin}/edit/${data.session.id}`
+                    );
+                    setEditLabel("");
+                    setNote("✓ Editing link created and copied to clipboard");
+                    loadEdits();
+                  })
+                  .catch(() => setNote("⚠ Couldn't create the editing link"));
+              }}
+            >
+              ✏️ New editing link
+            </button>
+          </div>
+          {(edits ?? []).map((e) => (
+            <p className="studio-license" key={e.id}>
+              <button className="studio-link" onClick={() => void openEditSession(e.id)}>
+                <strong>{e.label}</strong>
+              </button>{" "}
+              · {e.persona} · {e.pending} pending · {e.accepted} accepted · {e.rejected}{" "}
+              rejected
+              {e.submittedAt
+                ? ` · ✅ submitted ${new Date(e.submittedAt).toLocaleDateString("en-SG", {
+                    day: "numeric",
+                    month: "short",
+                  })}`
+                : ""}{" "}
+              ·{" "}
+              <button
+                className="studio-link"
+                onClick={() =>
+                  void navigator.clipboard.writeText(`${location.origin}/edit/${e.id}`)
+                }
+              >
+                Copy link
+              </button>{" "}
+              <button
+                className="studio-link"
+                onClick={() => {
+                  if (
+                    confirm(
+                      `Delete ${e.label}'s editing link? Unreviewed suggestions are lost; accepted edits stay live.`
+                    )
+                  ) {
+                    void fetch(`/api/studio/edits?id=${e.id}`, {
+                      method: "DELETE",
+                      headers: headers(),
+                    }).then(loadEdits);
+                  }
+                }}
+              >
+                ✕ Delete
+              </button>
+            </p>
+          ))}
+          {edits !== null && edits.length === 0 && (
+            <p className="studio-sub">No editing links yet.</p>
           )}
         </>
       ) : (

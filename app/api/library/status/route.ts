@@ -5,6 +5,7 @@ import {
   listPromoted,
   listRendered,
   readExtras,
+  readOverrides,
   readRenderHashes,
 } from "@/lib/server/library";
 import { readVoiceSettings } from "@/lib/server/voiceSettings";
@@ -28,11 +29,12 @@ export async function GET() {
       Object.entries(renderedFull).map(([k, v]) => [k, v.at])
     );
     const personaIds = Object.keys(PERSONAS) as PersonaId[];
-    const [voiceSettings, extrasList, hashList, promoted] = await Promise.all([
+    const [voiceSettings, extrasList, hashList, promoted, overridesList] = await Promise.all([
       readVoiceSettings(),
       Promise.all(personaIds.map((p) => readExtras(p))),
       Promise.all(personaIds.map((p) => readRenderHashes(p))),
       listPromoted(),
+      Promise.all(personaIds.map((p) => readOverrides(p))),
     ]);
     const extras = Object.fromEntries(
       personaIds.map((p, i) => [p, extrasList[i]])
@@ -48,6 +50,8 @@ export async function GET() {
       renderedAt, // { "<persona>/<id>": ISO timestamp of the recording }
       renderHashes, // { <persona>: { <id>: textHash } } — what the audio says
       promoted, // [ "<persona>/<id>" ] — audio that is a real actor's take
+      // { <persona>: { <id>: text } } — human-corrected phrase wording
+      overrides: Object.fromEntries(personaIds.map((p, i) => [p, overridesList[i]])),
       extras,
       voiceSettings,
     });

@@ -27,6 +27,11 @@ const voiceVolumes = Object.fromEntries(
 const renderHashes = Object.fromEntries(
   PERSONA_IDS.map((p) => [p, {} as Record<string, string>])
 ) as Record<PersonaId, Record<string, string>>;
+// Human-corrected wording (accepted studio edits) — applied to every phrase
+// text this module hands out, so the coach and admin speak the fixed words.
+const textOverrides = Object.fromEntries(
+  PERSONA_IDS.map((p) => [p, {} as Record<string, string>])
+) as Record<PersonaId, Record<string, string>>;
 let stateLoaded = false;
 
 const key = (persona: PersonaId, id: string) => `${persona}/${id}`;
@@ -78,7 +83,10 @@ export function getPhraseRenderedAt(persona: PersonaId, id: string): Date | null
 }
 
 export function allPhrasesFor(persona: PersonaId, category?: PhraseCategory): Phrase[] {
-  const merged = [...PHRASE_LIBRARY[persona], ...extras[persona]];
+  const o = textOverrides[persona];
+  const merged = [...PHRASE_LIBRARY[persona], ...extras[persona]].map((p) =>
+    o[p.id] ? { ...p, text: o[p.id] } : p
+  );
   return category ? merged.filter((p) => p.category === category) : merged;
 }
 
@@ -147,6 +155,7 @@ export async function loadLibraryState(force = false): Promise<void> {
         renderedAt?: Record<string, string>;
         renderHashes?: Record<string, Record<string, string>>;
         promoted?: string[];
+        overrides?: Record<string, Record<string, string>>;
         extras: Record<string, Phrase[]>;
         voiceSettings?: Record<PersonaId, { speed: number; volume: number }>;
       } = await res.json();
@@ -171,6 +180,7 @@ export async function loadLibraryState(force = false): Promise<void> {
       for (const persona of Object.keys(extras) as PersonaId[]) {
         extras[persona] = data.extras?.[persona] ?? [];
         renderHashes[persona] = data.renderHashes?.[persona] ?? {};
+        textOverrides[persona] = data.overrides?.[persona] ?? {};
         const speed = data.voiceSettings?.[persona]?.speed;
         if (typeof speed === "number") voiceSpeeds[persona] = speed;
         const volume = data.voiceSettings?.[persona]?.volume;
