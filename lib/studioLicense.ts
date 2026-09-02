@@ -3,11 +3,18 @@
 // Drafted for a friendly indie engagement — have a lawyer review before the
 // first paid actor signs.
 
-export const LICENSE_VERSION = "v8-2026-09-01";
+export const LICENSE_VERSION = "v9-2026-09-02";
 
-/** The agreement with the agreed fee and deadline baked into its own
- *  compensation clause — the actor signs the exact text they saw. */
-export function licenseTextFor(feeSgd: number, deadlineAt?: number): string {
+/** The agreement with the agreed fee, currency, payment channel and deadline
+ *  baked into its own compensation clause — the actor signs the exact text
+ *  they saw. `payVia` empty means PayNow; a platform name (e.g. "Fiverr")
+ *  means the fee is a gross amount paid through that platform. */
+export function licenseTextFor(
+  fee: number,
+  deadlineAt?: number,
+  currency: "SGD" | "USD" = "SGD",
+  payVia?: string
+): string {
   const deadline = deadlineAt
     ? new Date(deadlineAt).toLocaleDateString("en-SG", {
         day: "numeric",
@@ -16,11 +23,16 @@ export function licenseTextFor(feeSgd: number, deadlineAt?: number): string {
         timeZone: "Asia/Singapore",
       })
     : "the date notified to Performer in writing";
+  const platform = (payVia ?? "").trim();
+  const paySentence = platform
+    ? `payable through ${platform}. The fee is a gross amount, and any ${platform} ` +
+      "fees, charges or currency-conversion costs are borne by Performer"
+    : "payable by PayNow to the ID Performer provides";
   // replaceAll: the fee appears in both the compensation and liability clauses.
-  return LICENSE_TEXT.replaceAll("{{FEE}}", feeSgd.toFixed(2)).replaceAll(
-    "{{DEADLINE}}",
-    deadline
-  );
+  return LICENSE_TEXT.replaceAll("{{FEE}}", fee.toFixed(2))
+    .replaceAll("{{CUR}}", currency)
+    .replaceAll("{{PAY_SENTENCE}}", paySentence)
+    .replaceAll("{{DEADLINE}}", deadline);
 }
 
 const LICENSE_TEXT = `VOICE RECORDING AND AI VOICE LICENSE AGREEMENT
@@ -77,9 +89,9 @@ speech as Performer's personal statements. The character material contains
 crude comedic language in Singlish, which Performer acknowledges and accepts
 performing.
 
-5. COMPENSATION. Producer will pay Performer a one-time fee of SGD {{FEE}}
-for the Recordings and the licences granted above, payable by PayNow to the
-ID Performer provides. The fee is payable only when ALL of the requested
+5. COMPENSATION. Producer will pay Performer a one-time fee of {{CUR}} {{FEE}}
+for the Recordings and the licences granted above, {{PAY_SENTENCE}}. The fee
+is payable only when ALL of the requested
 Recordings (including any re-takes Producer reasonably requests) have been
 completed, and is subject to Producer's reasonable satisfaction with the
 completed work. There is no partial payment for partial work. ALL of the
@@ -110,7 +122,7 @@ harm caused by content generated with the AI Voice. In any event, Producer's
 total aggregate liability to Performer arising out of or in connection with
 this agreement, however arising (whether in contract, tort or otherwise),
 shall not exceed the fee actually paid or payable under section 5
-(SGD {{FEE}}).
+({{CUR}} {{FEE}}).
 
 9. GOVERNING LAW AND DISPUTES. This agreement is governed by the laws of the
 Republic of Singapore. Any dispute arising out of or in connection with this

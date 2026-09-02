@@ -21,8 +21,15 @@ export interface StudioSession {
   label: string; // who this link was made for, e.g. "John Tan — Ah Beng"
   persona: PersonaId;
   createdAt: number;
-  /** Agreed one-time fee in SGD — baked into the licence text they sign. */
+  /** Agreed one-time fee — baked into the licence text they sign. The field
+   *  predates currency choice, so despite the name it holds the amount in
+   *  whatever `currency` says. */
   feeSgd?: number;
+  /** Fee currency; absent means SGD. */
+  currency?: "SGD" | "USD";
+  /** Payment platform (e.g. "Fiverr") when NOT paying by PayNow. Absent or
+   *  empty = PayNow, and the booth collects a PayNow ID. */
+  payVia?: string;
   /** Hard completion deadline (ms epoch, end of a Singapore day) — also in
    *  the licence, and shown on every actor visit. */
   deadlineAt?: number;
@@ -40,8 +47,10 @@ export interface StudioSession {
     typedName: string;
     email: string;
     paynowId: string;
-    /** Snapshot of the fee and deadline the signed text contained. */
+    /** Snapshot of the fee, currency, channel and deadline the signed text contained. */
     feeSgd?: number;
+    currency?: "SGD" | "USD";
+    payVia?: string;
     deadlineAt?: number;
     at: number;
     ip?: string;
@@ -82,13 +91,17 @@ export async function createStudioSession(
   feeSgd = 0,
   deadlineAt = 0,
   test = false,
-  cloneOnly = false
+  cloneOnly = false,
+  currency: "SGD" | "USD" = "SGD",
+  payVia = ""
 ): Promise<StudioSession> {
   const session: StudioSession = {
     id: randomBytes(12).toString("hex"),
     label: label.slice(0, 80),
     persona,
     feeSgd: Math.max(0, Math.min(100_000, feeSgd)),
+    currency,
+    payVia: payVia.trim().slice(0, 40) || undefined,
     deadlineAt: deadlineAt > 0 ? deadlineAt : undefined,
     test: test || undefined,
     cloneOnly: cloneOnly || undefined,

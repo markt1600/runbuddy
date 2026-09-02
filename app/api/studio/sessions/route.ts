@@ -54,12 +54,16 @@ export async function POST(req: NextRequest) {
     deadlineAt?: number;
     test?: boolean;
     cloneOnly?: boolean;
+    currency?: string;
+    payVia?: string;
   } | null;
   const persona = body?.persona as PersonaId;
   const label = (body?.label ?? "").trim();
   const feeSgd = Number(body?.feeSgd);
   const deadlineAt = Number(body?.deadlineAt);
   const cloneOnly = body?.cloneOnly === true;
+  const currency = body?.currency === "USD" ? ("USD" as const) : ("SGD" as const);
+  const payVia = typeof body?.payVia === "string" ? body.payVia.trim().slice(0, 40) : "";
   // Clone-only sessions can be favours, not gigs: fee and deadline optional.
   if (!(persona in PERSONAS) || !label || (!cloneOnly && (!isFinite(feeSgd) || feeSgd <= 0))) {
     return NextResponse.json(
@@ -76,7 +80,9 @@ export async function POST(req: NextRequest) {
     isFinite(feeSgd) && feeSgd > 0 ? feeSgd : 0,
     isFinite(deadlineAt) && deadlineAt > Date.now() ? deadlineAt : 0,
     body?.test === true,
-    cloneOnly
+    cloneOnly,
+    currency,
+    payVia
   );
   return NextResponse.json({ session });
 }

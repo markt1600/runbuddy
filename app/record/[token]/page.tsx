@@ -19,6 +19,8 @@ interface SessionView {
   licenseText: string;
   licenseVersion: string;
   feeSgd: number;
+  currency: string;
+  payVia: string;
   deadlineAt: number;
   estimateHours: { low: number; high: number };
   items: { id: string; kind: "phrase" | "read"; text: string; title?: string }[];
@@ -243,10 +245,13 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
   // ---- stage 1: license ----
   if (!view.licensed) {
     const paid = view.feeSgd > 0;
+    // PayNow details only when PayNow is the channel — platform payments
+    // (Fiverr etc.) settle outside the booth.
+    const wantsPaynow = paid && !view.payVia;
     const canSign =
       name.trim().length >= 3 &&
       /@.+\./.test(email) &&
-      (!paid || (paynow.trim().length >= 4 && paynow.trim() === paynow2.trim())) &&
+      (!wantsPaynow || (paynow.trim().length >= 4 && paynow.trim() === paynow2.trim())) &&
       agree;
     const sign = async () => {
       setLicNote(null);
@@ -297,7 +302,7 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
             Email
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </label>
-          {paid && (
+          {wantsPaynow && (
             <>
               <label>
                 PayNow ID (mobile or NRIC/FIN)
@@ -322,7 +327,10 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
                 Once you finish recording, your work will be reviewed within 2 business days.
                 If anything needs another take, we&apos;ll contact you at the email above; if
                 all is well, you&apos;ll receive payment of{" "}
-                <strong>SGD ${view.feeSgd.toFixed(2)}</strong> to your PayNow ID.
+                <strong>
+                  {view.currency} {view.feeSgd.toFixed(2)}
+                </strong>{" "}
+                {view.payVia ? `through ${view.payVia}` : "to your PayNow ID"}.
               </>
             ) : (
               <>
@@ -387,7 +395,10 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
           {view.feeSgd > 0 ? (
             <>
               If everything checks out, you&apos;ll receive your payment of{" "}
-              <strong>SGD ${view.feeSgd.toFixed(2)}</strong> to your PayNow ID.
+              <strong>
+                {view.currency} {view.feeSgd.toFixed(2)}
+              </strong>{" "}
+              {view.payVia ? `through ${view.payVia}` : "to your PayNow ID"}.
             </>
           ) : (
             <>If everything checks out, you&apos;re all done.</>

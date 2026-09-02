@@ -76,9 +76,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
     personaName: PERSONAS[session.persona].name,
     label: session.label,
     licensed: !!session.license,
-    licenseText: licenseTextFor(session.feeSgd ?? 0, session.deadlineAt),
+    licenseText: licenseTextFor(
+      session.feeSgd ?? 0,
+      session.deadlineAt,
+      session.currency ?? "SGD",
+      session.payVia
+    ),
     licenseVersion: LICENSE_VERSION,
     feeSgd: session.feeSgd ?? 0,
+    currency: session.currency ?? "SGD",
+    payVia: session.payVia ?? "",
     deadlineAt: session.deadlineAt ?? 0,
     // Rough session length for the actor: short phrases run ~35s each with
     // navigation and the odd re-take; long reads ~4 minutes.
@@ -168,9 +175,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
     return NextResponse.json({ error: "valid email required" }, { status: 400 });
   }
-  // No fee, no payment details — a zero-fee clone session signs with just
+  // PayNow details are only collected when PayNow is actually the channel:
+  // zero-fee sessions and platform payments (Fiverr etc.) sign with just
   // name and email.
-  if ((session.feeSgd ?? 0) > 0 && (paynowId.length < 4 || paynowId.length > 60)) {
+  const wantsPaynow = (session.feeSgd ?? 0) > 0 && !session.payVia;
+  if (wantsPaynow && (paynowId.length < 4 || paynowId.length > 60)) {
     return NextResponse.json({ error: "PayNow ID required" }, { status: 400 });
   }
   if (!session.license) {
@@ -179,6 +188,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
       email,
       paynowId,
       feeSgd: session.feeSgd ?? 0,
+      currency: session.currency ?? "SGD",
+      payVia: session.payVia,
       deadlineAt: session.deadlineAt,
       at: Date.now(),
       ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),

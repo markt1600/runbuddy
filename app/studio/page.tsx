@@ -21,6 +21,8 @@ interface SessionRow {
   itemTotal?: number;
   submittedAt?: number;
   feeSgd?: number;
+  currency?: "SGD" | "USD";
+  payVia?: string;
   deadlineAt?: number;
   test?: boolean;
   cloneOnly?: boolean;
@@ -29,6 +31,8 @@ interface SessionRow {
     email: string;
     paynowId: string;
     feeSgd?: number;
+    currency?: "SGD" | "USD";
+    payVia?: string;
     at: number;
     version: string;
   };
@@ -127,6 +131,9 @@ export default function StudioPage() {
   const [newDeadline, setNewDeadline] = useState("");
   const [newTest, setNewTest] = useState(false);
   const [newClone, setNewClone] = useState(false);
+  const [newCurrency, setNewCurrency] = useState<"SGD" | "USD">("SGD");
+  const [newPayMode, setNewPayMode] = useState<"paynow" | "other">("paynow");
+  const [newPlatform, setNewPlatform] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
@@ -260,6 +267,8 @@ export default function StudioPage() {
           label: newLabel,
           persona: newPersona,
           feeSgd: Number(newFee),
+          currency: newCurrency,
+          payVia: newPayMode === "other" ? newPlatform : "",
           // End of the chosen day, Singapore time.
           deadlineAt: Date.parse(`${newDeadline}T23:59:59+08:00`),
           test: newTest,
@@ -577,10 +586,34 @@ export default function StudioPage() {
             <input
               value={newFee}
               onChange={(e) => setNewFee(e.target.value)}
-              placeholder="Fee (SGD)"
+              placeholder="Fee"
               inputMode="decimal"
-              style={{ width: 110 }}
+              style={{ width: 90 }}
             />
+            <select
+              value={newCurrency}
+              onChange={(e) => setNewCurrency(e.target.value as "SGD" | "USD")}
+              title="Fee currency — baked into the licence"
+            >
+              <option value="SGD">SGD</option>
+              <option value="USD">USD</option>
+            </select>
+            <select
+              value={newPayMode}
+              onChange={(e) => setNewPayMode(e.target.value as "paynow" | "other")}
+              title="PayNow collects the actor's PayNow ID; a platform (Fiverr etc.) settles outside the booth"
+            >
+              <option value="paynow">Pay by PayNow</option>
+              <option value="other">Pay via platform…</option>
+            </select>
+            {newPayMode === "other" && (
+              <input
+                value={newPlatform}
+                onChange={(e) => setNewPlatform(e.target.value)}
+                placeholder="Platform, e.g. Fiverr"
+                style={{ width: 140 }}
+              />
+            )}
             <input
               type="date"
               value={newDeadline}
@@ -607,6 +640,7 @@ export default function StudioPage() {
               onClick={() => void createSession()}
               disabled={
                 !newLabel.trim() ||
+                (newPayMode === "other" && !newPlatform.trim()) ||
                 (!newClone &&
                   (!(Number(newFee) > 0) ||
                     !(Date.parse(`${newDeadline}T23:59:59+08:00`) > Date.now())))
@@ -629,7 +663,10 @@ export default function StudioPage() {
                   </td>
                   <td>{s.test ? "🧪 Test" : s.cloneOnly ? "🎧 Clone" : "Live"}</td>
                   <td>{s.persona}</td>
-                  <td>${(s.feeSgd ?? 0).toFixed(0)}</td>
+                  <td>
+                    {(s.feeSgd ?? 0).toFixed(0)} {s.currency ?? "SGD"}
+                    {s.payVia ? ` · ${s.payVia}` : ""}
+                  </td>
                   <td>
                     {s.deadlineAt
                       ? new Date(s.deadlineAt).toLocaleDateString("en-SG", {
@@ -942,8 +979,9 @@ export default function StudioPage() {
           <h2>
             {open.session.test ? "🧪 TEST SESSION · " : ""}
             {open.session.cloneOnly ? "🎧 CLONE ONLY · " : ""}
-            {open.session.label} · {open.session.persona} · SGD $
-            {(open.session.feeSgd ?? 0).toFixed(2)}{" "}
+            {open.session.label} · {open.session.persona} · {open.session.currency ?? "SGD"}{" "}
+            {(open.session.feeSgd ?? 0).toFixed(2)}
+            {open.session.payVia ? ` via ${open.session.payVia}` : ""}{" "}
             <button
               className="studio-link"
               onClick={() => {
@@ -991,8 +1029,11 @@ export default function StudioPage() {
           </h2>
           {open.session.license && (
             <p className="studio-license">
-              Signed: {open.session.license.typedName} · {open.session.license.email} · PayNow{" "}
-              {open.session.license.paynowId} · SGD $
+              Signed: {open.session.license.typedName} · {open.session.license.email} ·{" "}
+              {open.session.license.payVia
+                ? `via ${open.session.license.payVia}`
+                : `PayNow ${open.session.license.paynowId || "—"}`}{" "}
+              · {open.session.license.currency ?? "SGD"}{" "}
               {(open.session.license.feeSgd ?? 0).toFixed(2)} ·{" "}
               {new Date(open.session.license.at).toLocaleString()} ({open.session.license.version})
               {" · "}
