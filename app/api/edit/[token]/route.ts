@@ -3,6 +3,7 @@ import { blobConfigured, readExtras, readOverrides } from "@/lib/server/library"
 import { getEditSession, writeEditSession } from "@/lib/server/phraseEdits";
 import { PHRASE_LIBRARY } from "@/lib/phrases";
 import { PERSONAS } from "@/lib/personas";
+import { STUDIO_BRIEFS } from "@/lib/studioReads";
 
 // The phrase editor's API. Token is the gate, same as the booth. GET hands
 // over every phrase (with accepted corrections already applied — the editor
@@ -31,9 +32,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
   return NextResponse.json({
     personaName: PERSONAS[session.persona].name,
     label: session.label,
+    brief: STUDIO_BRIEFS[session.persona],
     phrases: await currentPhrases(session.persona),
     suggestions: session.suggestions ?? {},
     resolved: session.resolved ?? {},
+    cursor: session.cursor ?? 0,
     submittedAt: session.submittedAt ?? 0,
   });
 }
@@ -45,6 +48,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ token: stri
   if (!session) return NextResponse.json({ error: "not found" }, { status: 404 });
   const body = (await req.json().catch(() => null)) as {
     suggestions?: Record<string, string>;
+    cursor?: number;
   } | null;
   if (!body?.suggestions || typeof body.suggestions !== "object") {
     return NextResponse.json({ error: "bad body" }, { status: 400 });
@@ -65,6 +69,9 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ token: stri
   }
   session.suggestions = next;
   session.resolved = resolved;
+  if (typeof body.cursor === "number" && isFinite(body.cursor)) {
+    session.cursor = Math.max(0, Math.min(known.size - 1, Math.round(body.cursor)));
+  }
   await writeEditSession(session);
   return NextResponse.json({ ok: true, changed: Object.keys(next).length });
 }

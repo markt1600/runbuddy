@@ -17,6 +17,8 @@ export interface PhraseEditSession {
   suggestions: Record<string, string>;
   /** phraseId → verdict; a re-edit after a verdict clears it (new suggestion). */
   resolved?: Record<string, "accepted" | "rejected">;
+  /** Index of the phrase the editor last had open — the resume point. */
+  cursor?: number;
   submittedAt?: number;
 }
 
