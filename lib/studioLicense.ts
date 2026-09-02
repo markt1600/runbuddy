@@ -3,7 +3,7 @@
 // Drafted for a friendly indie engagement — have a lawyer review before the
 // first paid actor signs.
 
-export const LICENSE_VERSION = "v9-2026-09-02";
+export const LICENSE_VERSION = "v10-2026-09-02";
 
 /** The agreement with the agreed fee, currency, payment channel and deadline
  *  baked into its own compensation clause — the actor signs the exact text
@@ -40,11 +40,8 @@ const LICENSE_TEXT = `VOICE RECORDING AND AI VOICE LICENSE AGREEMENT
 IN PLAIN ENGLISH — PLEASE READ THIS FIRST:
 
 * You are recording your voice for us.
-* We will use your recordings to train an AI clone of your voice.
-* That AI voice can be made to say things you never actually said, and we
-  can use it — and your original recordings — for ANY purpose, commercial
-  or otherwise, anywhere in the world, forever, without asking you again
-  and without any further payment beyond the one-time fee below.
+* We will use your recordings to train an AI clone of your voice, which we
+  may use for any purpose (full details in sections 2 and 3 below).
 * We will never present the AI voice as your personal statements or
   endorsements, and we won't use it for unlawful content (see section 4).
   Beyond that, there are no restrictions on how it may be used.
