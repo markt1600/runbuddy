@@ -110,6 +110,23 @@ export async function setOverride(
   });
 }
 
+/** Revert a correction: the phrase goes back to its shipped wording. The
+ *  caller must also delete the rendered audio — it was cut from the
+ *  corrected text and would otherwise keep speaking the reverted words. */
+export async function removeOverride(persona: PersonaId, phraseId: string): Promise<void> {
+  const cur = await readOverrides(persona);
+  if (!(phraseId in cur)) return;
+  const next = { ...cur };
+  delete next[phraseId];
+  await put(overridesPath(persona), JSON.stringify(next, null, 1), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+  });
+}
+
 /** Remove a phrase's rendered audio and its bookkeeping — the text changed,
  *  so the old recording says the wrong words; "Render missing" recuts it. */
 export async function deleteRenderedAudio(

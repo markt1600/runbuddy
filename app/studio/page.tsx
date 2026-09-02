@@ -136,6 +136,9 @@ export default function StudioPage() {
   const [editPersona, setEditPersona] = useState<PersonaId>("ahbeng");
   const [editLabel, setEditLabel] = useState("");
   const [openEdit, setOpenEdit] = useState<{ session: EditRow; items: EditItem[] } | null>(null);
+  const [overrides, setOverrides] = useState<
+    { persona: PersonaId; id: string; category: string; shipped: string; corrected: string }[] | null
+  >(null);
 
   const headers = useCallback(
     (): Record<string, string> => ({
@@ -190,6 +193,11 @@ export default function StudioPage() {
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data: { edits: EditRow[] }) => setEdits(data.edits))
       .catch(() => setEdits([]));
+    void fetch("/api/studio/overrides", { headers: headers() })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: { overrides: typeof overrides }) => setOverrides(data.overrides ?? []))
+      .catch(() => setOverrides([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [headers]);
 
   useEffect(() => {
@@ -789,6 +797,57 @@ export default function StudioPage() {
           ))}
           {edits !== null && edits.length === 0 && (
             <p className="studio-sub">No editing links yet.</p>
+          )}
+
+          {(overrides ?? []).length > 0 && (
+            <>
+              <h2 style={{ marginTop: 28 }}>🩹 Live corrections</h2>
+              <p className="studio-sub">
+                Accepted edits currently overriding the shipped wording. Reverting restores
+                the original text and deletes the phrase&apos;s audio so it re-renders — an
+                actor take comes back via re-promote from their session instead.
+              </p>
+              {(overrides ?? []).map((o) => (
+                <div key={`${o.persona}/${o.id}`} className="edit-row">
+                  <div className="edit-row-head">
+                    <span className="edit-id">
+                      {o.persona} · {o.id} · {o.category}
+                    </span>
+                    <button
+                      className="studio-link"
+                      disabled={!!busy}
+                      onClick={() => {
+                        if (
+                          !confirm(
+                            `Revert ${o.persona}/${o.id} to its original wording? The corrected audio is deleted and the phrase re-renders with the shipped text.`
+                          )
+                        )
+                          return;
+                        setBusy("revert");
+                        void fetch(
+                          `/api/studio/overrides?persona=${o.persona}&id=${o.id}`,
+                          { method: "DELETE", headers: headers() }
+                        )
+                          .then((res) => {
+                            if (!res.ok) throw new Error();
+                            setOverrides((prev) =>
+                              (prev ?? []).filter(
+                                (x) => !(x.persona === o.persona && x.id === o.id)
+                              )
+                            );
+                            setNote(`✓ Reverted ${o.persona}/${o.id} — will re-render with original text`);
+                          })
+                          .catch(() => setNote("⚠ Revert failed — try again"))
+                          .finally(() => setBusy(null));
+                      }}
+                    >
+                      ↩ Revert
+                    </button>
+                  </div>
+                  <WordDiff from={o.shipped} to={o.corrected} />
+                </div>
+              ))}
+            </>
           )}
         </>
       ) : (
