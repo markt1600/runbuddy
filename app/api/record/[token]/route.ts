@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { blobConfigured, elevenLabsConfigured, readExtras } from "@/lib/server/library";
+import {
+  blobConfigured,
+  elevenLabsConfigured,
+  readExtras,
+  readOverrides,
+} from "@/lib/server/library";
 import { getSession, listTakes, writeSession } from "@/lib/server/studio";
 import { instantCloneFromSession } from "@/lib/server/studioClone";
 import { CLONE_READS, readsFor, TEST_PHRASES, TEST_READS } from "@/lib/studioReads";
@@ -20,9 +25,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
   const session = await getSession(token);
   if (!session) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const [takes, extras] = await Promise.all([
+  const [takes, extras, overrides] = await Promise.all([
     listTakes(token),
     readExtras(session.persona),
+    readOverrides(session.persona),
   ]);
   const recorded = new Set(takes.map((t) => t.itemId));
   const takeUrls = Object.fromEntries(takes.map((t) => [t.itemId, t.url]));
@@ -50,10 +56,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
         })),
       ]
     : [
+        // Accepted studio corrections apply here too — the actor must record
+        // the words the app will actually speak.
         ...[...PHRASE_LIBRARY[session.persona], ...extras].map((p) => ({
           id: p.id,
           kind: "phrase" as const,
-          text: p.text,
+          text: overrides[p.id] ?? p.text,
         })),
         ...readsFor(session.persona).map((r) => ({
           id: r.id,

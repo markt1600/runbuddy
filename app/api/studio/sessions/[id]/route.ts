@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/server/auth";
 import { checkPinHeader } from "@/lib/server/adminAuth";
-import { blobConfigured, listRendered, readExtras } from "@/lib/server/library";
+import {
+  blobConfigured,
+  listRendered,
+  readExtras,
+  readOverrides,
+} from "@/lib/server/library";
 import {
   deleteSession,
   getSession,
@@ -28,10 +33,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const session = await getSession(id);
   if (!session) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const [takes, rendered, extras] = await Promise.all([
+  const [takes, rendered, extras, overrides] = await Promise.all([
     listTakes(id),
     listRendered(),
     readExtras(session.persona),
+    readOverrides(session.persona),
   ]);
   const takeMap = new Map(takes.map((t) => [t.itemId, t]));
 
@@ -71,10 +77,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     return NextResponse.json({ session, items });
   }
 
+  // Same corrected text the booth showed — takes are reviewed against the
+  // words the actor was actually asked to read.
   const phraseItems = [...PHRASE_LIBRARY[session.persona], ...extras].map((p) => ({
     id: p.id,
     kind: "phrase" as const,
-    text: p.text,
+    text: overrides[p.id] ?? p.text,
     takeUrl: takeMap.get(p.id)?.url ?? null,
     takeAt: takeMap.get(p.id)?.at ?? null,
     libUrl: rendered[`${session.persona}/${p.id}`]?.url ?? null,
