@@ -109,7 +109,33 @@ function spokenDuration(totalSec: number): string {
 export class CoachEngine {
   private persona: Persona;
   private voice: VoiceEngine;
-  private used = new Set<string>();
+  // The no-repeat set persists ACROSS runs. A fresh engine is built per run,
+  // and when this set restarted empty each time, every run re-rolled from the
+  // full pool — so with ~6 lines heard from a ~23-line category, favourites
+  // repeated run after run while others went weeks unplayed. Persisted, each
+  // pool now plays through completely before anything repeats. One global set
+  // works because phrase ids are unique per persona; pick()'s recycle prunes
+  // it per pool, so it never grows past the library.
+  private static USED_KEY = "runbuddy-phrases-used";
+  private used = CoachEngine.loadUsed();
+
+  private static loadUsed(): Set<string> {
+    try {
+      const raw = localStorage.getItem(CoachEngine.USED_KEY);
+      const arr = raw ? (JSON.parse(raw) as unknown) : [];
+      return new Set(Array.isArray(arr) ? (arr as string[]) : []);
+    } catch {
+      return new Set(); // private mode etc. — per-run rotation still works
+    }
+  }
+
+  private saveUsed() {
+    try {
+      localStorage.setItem(CoachEngine.USED_KEY, JSON.stringify([...this.used]));
+    } catch {
+      /* fine */
+    }
+  }
   private nextEncourageAt = 0;
   private nextAnecdoteAt = 0;
   private lastPaceEventAt = 0;
@@ -532,6 +558,7 @@ export class CoachEngine {
     if (fresh.length === 0) pool.forEach((p) => this.used.delete(p.id)); // recycle
     const phrase = source[Math.floor(Math.random() * source.length)];
     this.used.add(phrase.id);
+    this.saveUsed();
     return phrase;
   }
 
