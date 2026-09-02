@@ -199,9 +199,7 @@ export default function EditPage({ params }: { params: Promise<{ token: string }
         </button>
       </div>
 
-      <div className="booth-read-title">
-        📂 {catLabel(phrase.category)} · <span className="edit-id">{phrase.id}</span>
-      </div>
+      <div className="booth-read-title">📂 {catLabel(phrase.category)}</div>
       <div className={`edit-row${isChanged ? " changed" : ""}`}>
         <div className="edit-row-head">
           {isChanged && <span className="edit-tag">edited</span>}
