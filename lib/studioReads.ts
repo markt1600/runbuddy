@@ -50,8 +50,16 @@ const GENERIC_READS: StudioRead[] = [
   { id: "read-12", title: "The finish line speech", text: "One day soon you're going to finish something you once thought was impossible — a distance, a time, a race with your name printed on the bib. And I want you to know now, in advance, what that last hundred metres will hold, so you don't miss it while it's happening. Your legs will be gone. Properly gone. The crowd noise will sound like it's underwater, and the clock will be doing its countdown. And a version of you — the one from months ago, the one who couldn't run to the corner, who signed up half as a joke — will be standing just past the line, waiting to be replaced. Cross it for them. Raise your arms; you will not look silly, everyone does it, it's tradition. And when someone hangs the medal on you, let it be heavy. You didn't get lucky. You built this. Every kilometre — every single one — counted." },
 ];
 
+// Three reads per persona session, not the full set. The Instant Voice Clone
+// needs 1-3 minutes of CONTINUOUS natural speech (the phrase takes are choppy
+// 3-8s clips — poor prosody training on their own), and quality saturates
+// quickly, so three ~90s reads hit the guidance exactly. Nothing else
+// consumes reads; the rest of each list is spare material (restore by
+// widening the slice), and every extra read costs the actor ~4 minutes.
+const READS_PER_SESSION = 3;
+
 export function readsFor(persona: PersonaId): StudioRead[] {
-  return persona === "ahbeng" ? AHBENG_READS : GENERIC_READS;
+  return (persona === "ahbeng" ? AHBENG_READS : GENERIC_READS).slice(0, READS_PER_SESSION);
 }
 
 // ---- test sessions: a <5 minute dry run of the whole pipeline ----
