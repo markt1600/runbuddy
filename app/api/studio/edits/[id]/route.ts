@@ -8,7 +8,11 @@ import {
   readOverrides,
   setOverride,
 } from "@/lib/server/library";
-import { getEditSession, writeEditSession } from "@/lib/server/phraseEdits";
+import {
+  getEditSession,
+  writeEditSession,
+  type PhraseEditSession,
+} from "@/lib/server/phraseEdits";
 import { PHRASE_LIBRARY } from "@/lib/phrases";
 
 // One edit session, hydrated for review: every pending suggestion beside the
@@ -27,17 +31,24 @@ function guard(req: NextRequest): NextResponse | null {
   return null;
 }
 
-async function hydrate(sessionId: string) {
-  const session = await getEditSession(sessionId);
-  if (!session) return null;
+// Hydrates from the session OBJECT, never a fresh blob read — a verdict
+// response built by re-reading the session it just wrote can get the stale
+// pre-write copy from the edge and echo "nothing changed" back to the UI.
+// overridesPatch covers the just-accepted text the overrides blob may not
+// serve yet, for the same reason.
+async function hydrate(
+  session: PhraseEditSession,
+  overridesPatch?: Record<string, string>
+) {
   const [extras, overrides] = await Promise.all([
     readExtras(session.persona),
     readOverrides(session.persona),
   ]);
+  const effective = { ...overrides, ...(overridesPatch ?? {}) };
   const current = new Map(
     [...PHRASE_LIBRARY[session.persona], ...extras].map((p) => [
       p.id,
-      { category: p.category, text: overrides[p.id] ?? p.text },
+      { category: p.category, text: effective[p.id] ?? p.text },
     ])
   );
   const resolved = session.resolved ?? {};
@@ -58,9 +69,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const denied = guard(req);
   if (denied) return denied;
   const { id } = await ctx.params;
-  const data = await hydrate(id);
-  if (!data) return NextResponse.json({ error: "not found" }, { status: 404 });
-  return NextResponse.json(data);
+  const session = await getEditSession(id);
+  if (!session) return NextResponse.json({ error: "not found" }, { status: 404 });
+  return NextResponse.json(await hydrate(session));
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -89,5 +100,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     return NextResponse.json({ error: "bad action" }, { status: 400 });
   }
   await writeEditSession(session);
-  return NextResponse.json(await hydrate(id));
+  return NextResponse.json(
+    await hydrate(session, body.action === "accept" ? { [phraseId]: suggested } : undefined)
+  );
 }

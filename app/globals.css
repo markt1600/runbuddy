@@ -3146,6 +3146,11 @@ input[type="range"]::-moz-range-thumb {
   resize: vertical;
 }
 .edit-row.changed textarea { border-color: var(--accent); }
+.edit-row.accepted {
+  border-left: 3px solid #2c7a3f;
+  padding-left: 10px;
+  border-radius: 3px;
+}
 .edit-row-head {
   display: flex;
   align-items: baseline;

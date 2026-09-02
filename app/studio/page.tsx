@@ -423,8 +423,10 @@ export default function StudioPage() {
             ✏️ {openEdit.session.label} · {openEdit.session.persona} — suggested phrase edits
           </h2>
           {openEdit.items.length === 0 && <p className="studio-sub">No suggestions yet.</p>}
-          {openEdit.items.map((it) => (
-            <div key={it.id} className="edit-row">
+          {openEdit.items
+            .filter((it) => it.verdict !== "rejected")
+            .map((it) => (
+            <div key={it.id} className={`edit-row${it.verdict === "accepted" ? " accepted" : ""}`}>
               <div className="edit-row-head">
                 <span className="edit-id">
                   {it.id} · {it.category}
@@ -432,7 +434,6 @@ export default function StudioPage() {
                 {it.verdict === "accepted" && (
                   <span className="edit-tag ok">✓ accepted — audio deleted for re-render</span>
                 )}
-                {it.verdict === "rejected" && <span className="edit-tag bad">✗ rejected</span>}
               </div>
               <WordDiff from={it.original} to={it.suggested} />
               {!it.verdict && (
@@ -455,6 +456,13 @@ export default function StudioPage() {
               )}
             </div>
           ))}
+          {openEdit.items.some((it) => it.verdict === "rejected") && (
+            <p className="studio-sub">
+              {openEdit.items.filter((it) => it.verdict === "rejected").length} rejected
+              suggestion{openEdit.items.filter((it) => it.verdict === "rejected").length === 1 ? "" : "s"}{" "}
+              hidden.
+            </p>
+          )}
           <p className="studio-sub">
             Accepting replaces the phrase&apos;s text everywhere immediately and deletes its
             audio — the app&apos;s automatic gap-fill (or Admin&apos;s &quot;Render
