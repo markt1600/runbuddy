@@ -13,7 +13,7 @@ interface EditView {
   personaName: string;
   label: string;
   brief: string;
-  vulgar: boolean;
+  singlish: boolean;
   phrases: { id: string; category: string; text: string }[];
   suggestions: Record<string, string>;
   resolved: Record<string, "accepted" | "rejected">;
@@ -132,10 +132,11 @@ export default function EditPage({ params }: { params: Promise<{ token: string }
         <h1>Meet {view.personaName}</h1>
         <p className="booth-sub">{view.label}</p>
         <div className="booth-note">
-          ✏️ <strong>Your job:</strong> fix Singlish that reads off, awkward phrasing, or
-          typos — one phrase per page. Change only what needs changing; a good line left
-          alone is a good edit.
-          {view.vulgar && (
+          ✏️ <strong>Your job:</strong> fix{" "}
+          {view.singlish ? "Singlish that reads off" : "anything that reads off"}, awkward
+          phrasing, or typos — one phrase per page. Change only what needs changing; a good
+          line left alone is a good edit.
+          {view.singlish && (
             <>
               {" "}
               And don&apos;t be shy: if a line can take <strong>more colourful Hokkien

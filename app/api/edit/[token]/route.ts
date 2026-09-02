@@ -32,9 +32,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
   return NextResponse.json({
     personaName: PERSONAS[session.persona].name,
     label: session.label,
-    // Only the 🔞 characters get the "add more vulgarity" nudge — Christine
-    // and Cassie are clean by design.
-    vulgar: ["ahbeng", "posbeng", "ahlian", "loanshark"].includes(session.persona),
+    // The 🔞 characters are also exactly the Singlish ones: this flag gates
+    // both the "add more vulgarity" nudge and the Singlish framing itself —
+    // Christine and Cassie are clean, plain-English personas.
+    singlish: ["ahbeng", "posbeng", "ahlian", "loanshark"].includes(session.persona),
     // The actor brief minus its "Delivery:" paragraph — that's direction for
     // speaking the lines, and this job is only editing them.
     brief: STUDIO_BRIEFS[session.persona]

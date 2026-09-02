@@ -713,7 +713,7 @@ export default function StudioPage() {
 
           <h2 style={{ marginTop: 28 }}>✏️ Phrase edits</h2>
           <p className="studio-sub">
-            A link where a human fixes AI-generated Singlish, one text box per phrase.
+            A link where a human fixes AI-generated phrases, one text box per phrase.
             Review every change as a tracked diff; accepting updates the app and queues
             the audio for re-render.
           </p>
