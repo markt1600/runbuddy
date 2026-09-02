@@ -3116,6 +3116,12 @@ input[type="range"]::-moz-range-thumb {
 
 /* Phrase editing suite (booth chrome, no microphone) + review diffs */
 .booth-wide { max-width: 860px; }
+.edit-greeting {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--label);
+  margin: 0 0 16px;
+}
 .edit-topbar {
   position: sticky;
   top: 0;

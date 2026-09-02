@@ -130,8 +130,8 @@ export default function EditPage({ params }: { params: Promise<{ token: string }
     return (
       <div className="booth">
         <h1>Meet {view.personaName}</h1>
-        <p className="booth-sub">{view.label}</p>
-        <div className="booth-note">
+        <p className="edit-greeting">{view.label},</p>
+        <div className="booth-note" style={{ marginBottom: 20 }}>
           ✏️ <strong>Your job:</strong> fix{" "}
           {view.singlish ? "Singlish that reads off" : "anything that reads off"}, awkward
           phrasing, or typos — one phrase per page. Change only what needs changing; a good
@@ -148,10 +148,9 @@ export default function EditPage({ params }: { params: Promise<{ token: string }
           Everything saves as you go, and if you leave, the same link brings you back to
           the exact phrase you were on.
         </div>
-        <p className="booth-sub">
-          Every fix has to keep this character&apos;s voice — here&apos;s who they are:
-        </p>
-        <div className="booth-brief">{view.brief}</div>
+        <div className="booth-brief">
+          {`Every fix has to keep this character's voice — here's who they are:\n\n${view.brief}`}
+        </div>
         <button
           className="booth-primary"
           onClick={() => {
