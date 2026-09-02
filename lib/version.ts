@@ -3,4 +3,4 @@
 // actually executing" is a real question. The account screen shows it, the
 // /api/version route serves it, and the shell compares the two on foreground
 // to reload itself when a newer deploy has landed.
-export const WEB_BUILD = "2026-09-02m";
+export const WEB_BUILD = "2026-09-02n";
