@@ -129,17 +129,17 @@ export default function EditPage({ params }: { params: Promise<{ token: string }
     return (
       <div className="booth">
         <h1>Meet {view.personaName}</h1>
+        <p className="booth-sub">{view.label}</p>
+        <div className="booth-note">
+          ✏️ <strong>Your job:</strong> fix Singlish that reads off, awkward phrasing, or
+          typos — one phrase per page. Change only what needs changing; a good line left
+          alone is a good edit. Everything saves as you go, and if you leave, the same link
+          brings you back to the exact phrase you were on.
+        </div>
         <p className="booth-sub">
-          {view.label} — you&apos;re about to polish this character&apos;s lines. Read who
-          they are first, so every fix keeps their voice.
+          Every fix has to keep this character&apos;s voice — here&apos;s who they are:
         </p>
         <div className="booth-brief">{view.brief}</div>
-        <div className="booth-note">
-          ✏️ Your job: fix Singlish that reads off, awkward phrasing, or typos — one phrase
-          per page. Change only what needs changing; a good line left alone is a good
-          edit. Everything saves as you go, and if you leave, the same link brings you back
-          to the exact phrase you were on.
-        </div>
         <button
           className="booth-primary"
           onClick={() => {

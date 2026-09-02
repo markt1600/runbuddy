@@ -32,7 +32,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
   return NextResponse.json({
     personaName: PERSONAS[session.persona].name,
     label: session.label,
-    brief: STUDIO_BRIEFS[session.persona],
+    // The actor brief minus its "Delivery:" paragraph — that's direction for
+    // speaking the lines, and this job is only editing them.
+    brief: STUDIO_BRIEFS[session.persona]
+      .split("\n\n")
+      .filter((p) => !p.startsWith("Delivery:"))
+      .join("\n\n"),
     phrases: await currentPhrases(session.persona),
     suggestions: session.suggestions ?? {},
     resolved: session.resolved ?? {},
