@@ -83,10 +83,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const body = (await req.json().catch(() => null)) as {
     action?: string;
     phraseId?: string;
+    text?: string;
   } | null;
   const phraseId = body?.phraseId ?? "";
   const suggested = session.suggestions?.[phraseId];
   if (!suggested) return NextResponse.json({ error: "no such suggestion" }, { status: 400 });
+
+  if (body?.action === "amend") {
+    // The admin polishes the suggestion (typos etc.) — it stays a PENDING
+    // suggestion and still needs an explicit accept to go live.
+    const text = (body?.text ?? "").trim().slice(0, 600);
+    if (text.length < 2) return NextResponse.json({ error: "text too short" }, { status: 400 });
+    session.suggestions = { ...(session.suggestions ?? {}), [phraseId]: text };
+    if (session.resolved?.[phraseId]) {
+      const resolved = { ...session.resolved };
+      delete resolved[phraseId];
+      session.resolved = resolved;
+    }
+    await writeEditSession(session);
+    return NextResponse.json(await hydrate(session));
+  }
 
   if (body?.action === "accept") {
     // Order matters: the override must be live before the audio dies, so a

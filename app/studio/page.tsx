@@ -136,6 +136,8 @@ export default function StudioPage() {
   const [editPersona, setEditPersona] = useState<PersonaId>("ahbeng");
   const [editLabel, setEditLabel] = useState("");
   const [openEdit, setOpenEdit] = useState<{ session: EditRow; items: EditItem[] } | null>(null);
+  const [amendId, setAmendId] = useState<string | null>(null);
+  const [amendText, setAmendText] = useState("");
   const [overrides, setOverrides] = useState<
     { persona: PersonaId; id: string; category: string; shipped: string; corrected: string }[] | null
   >(null);
@@ -413,6 +415,26 @@ export default function StudioPage() {
     }
   };
 
+  const amend = async () => {
+    if (!openEdit || !amendId || busy) return;
+    setBusy("amend");
+    try {
+      const res = await fetch(`/api/studio/edits/${openEdit.session.id}`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({ action: "amend", phraseId: amendId, text: amendText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "failed");
+      setOpenEdit(data as { session: EditRow; items: EditItem[] });
+      setAmendId(null);
+    } catch (err) {
+      setNote(`⚠ ${err instanceof Error ? err.message : "edit failed"}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const flaggedSet = new Set((open?.session.flags ?? []).map((f) => f.itemId));
 
   return (
@@ -443,24 +465,58 @@ export default function StudioPage() {
                   <span className="edit-tag ok">✓ accepted — audio deleted for re-render</span>
                 )}
               </div>
-              <WordDiff from={it.original} to={it.suggested} />
-              {!it.verdict && (
-                <div style={{ marginTop: 6, display: "flex", gap: 14 }}>
-                  <button
-                    className="studio-link"
-                    disabled={!!busy}
-                    onClick={() => void editVerdict(it.id, "accept")}
-                  >
-                    ✓ Accept
-                  </button>
-                  <button
-                    className="studio-link"
-                    disabled={!!busy}
-                    onClick={() => void editVerdict(it.id, "reject")}
-                  >
-                    ✗ Reject
-                  </button>
-                </div>
+              {amendId === it.id ? (
+                <>
+                  <textarea
+                    value={amendText}
+                    rows={Math.max(3, Math.ceil(amendText.length / 70))}
+                    onChange={(e) => setAmendText(e.target.value)}
+                  />
+                  <div style={{ marginTop: 6, display: "flex", gap: 14 }}>
+                    <button
+                      className="studio-link"
+                      disabled={!!busy || amendText.trim().length < 2}
+                      onClick={() => void amend()}
+                    >
+                      💾 Save edit
+                    </button>
+                    <button className="studio-link" onClick={() => setAmendId(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <WordDiff from={it.original} to={it.suggested} />
+                  {!it.verdict && (
+                    <div style={{ marginTop: 6, display: "flex", gap: 14 }}>
+                      <button
+                        className="studio-link"
+                        disabled={!!busy}
+                        onClick={() => void editVerdict(it.id, "accept")}
+                      >
+                        ✓ Accept
+                      </button>
+                      <button
+                        className="studio-link"
+                        disabled={!!busy}
+                        onClick={() => void editVerdict(it.id, "reject")}
+                      >
+                        ✗ Reject
+                      </button>
+                      <button
+                        className="studio-link"
+                        disabled={!!busy}
+                        onClick={() => {
+                          setAmendId(it.id);
+                          setAmendText(it.suggested);
+                        }}
+                      >
+                        ✎ Edit
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}
