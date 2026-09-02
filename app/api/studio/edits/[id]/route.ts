@@ -119,8 +119,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   if (body?.action === "accept") {
     // Order matters: the override must be live before the audio dies, so a
-    // concurrent gap-fill render can only ever cut the NEW text.
-    await setOverride(session.persona, phraseId, suggested);
+    // concurrent gap-fill render can only ever cut the NEW text. The fill
+    // map re-asserts every ALREADY-accepted suggestion's text, so a stale
+    // overrides read during rapid accepting can't drop an earlier one.
+    const fill = Object.fromEntries(
+      Object.entries(session.resolved ?? {})
+        .filter(([k, v]) => v === "accepted" && session.suggestions?.[k])
+        .map(([k]) => [k, session.suggestions![k]])
+    );
+    await setOverride(session.persona, phraseId, suggested, fill);
     await deleteRenderedAudio(session.persona, phraseId);
     session.resolved = { ...(session.resolved ?? {}), [phraseId]: "accepted" };
   } else if (body?.action === "reject") {

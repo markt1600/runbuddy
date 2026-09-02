@@ -98,10 +98,15 @@ export async function readOverrides(persona: PersonaId): Promise<Record<string, 
 export async function setOverride(
   persona: PersonaId,
   phraseId: string,
-  text: string
+  text: string,
+  /** Overrides the caller knows should exist — fills holes when this read
+   *  caught a stale copy missing a moments-ago write (rapid accepts). The
+   *  fresher stored copy wins any conflict. */
+  fill?: Record<string, string>
 ): Promise<void> {
   const cur = await readOverrides(persona);
-  await put(overridesPath(persona), JSON.stringify({ ...cur, [phraseId]: text }, null, 1), {
+  const next = { ...(fill ?? {}), ...cur, [phraseId]: text };
+  await put(overridesPath(persona), JSON.stringify(next, null, 1), {
     access: "public",
     contentType: "application/json",
     addRandomSuffix: false,
