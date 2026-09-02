@@ -19,12 +19,12 @@ const ahbeng: Phrase[] = [
   { id: "ab-start-3", category: "start", text: "Kanina, last warning ah. Once we start, no stopping for your stupid bubble tea. MOVE IT!" },
   { id: "ab-start-4", category: "start", text: "You think this is walkathon issit? Chee bye lah, this is RUNNING. Move your backside before I kick it!" },
   { id: "ab-start-5", category: "start", text: "Nabei, finally! Lim peh wait until grow mushroom. GO GO GO!" },
-  { id: "ab-start-6", category: "start", text: "Iong nao sio lah — you run now, or you jiak sai at the back of the pack later. Your choice. RUN!" },
+  { id: "ab-start-6", category: "start", text: "Iong nao lah — you run now, or you jiak sai at the back of the pack later. Your choice. RUN!" },
   // ---- encourage (scolding style) ----
   { id: "ab-enc-1", category: "encourage", text: "Faster lah kanina! My grandmother with TWO walking stick also overtake you already!" },
   { id: "ab-enc-2", category: "encourage", text: "You call that running ah? Lan jiao lah! Zombie also move with more purpose than you sia!" },
   { id: "ab-enc-3", category: "encourage", text: "Oi chao chee bye, don't slack! You want the whole neighbourhood see you like that meh?" },
-  { id: "ab-enc-4", category: "encourage", text: "Wah lau eh, my HDB lift move faster than you, and the chee bye thing is under maintenance!" },
+  { id: "ab-enc-4", category: "encourage", text: "Wah lau eh, my HDB lift move faster than you, and the lift somemore under maintenance, chee bye!" },
   { id: "ab-enc-5", category: "encourage", text: "Sweat some more lah! Sweat is just your fats crying. Make them cry like sibei sad Korean drama!" },
   { id: "ab-enc-6", category: "encourage", text: "You slow down somemore, kanina I make you run to Johor and back. Your choice lah!" },
   { id: "ab-enc-7", category: "encourage", text: "Aiyo, why your face like sibei constipated? Running only leh! Toughen up, chee bye!" },
@@ -38,7 +38,7 @@ const ahbeng: Phrase[] = [
   { id: "ab-enc-15", category: "encourage", text: "Sibei good, still alive ah? Kanina, I was about to call ambulance for fun." },
   { id: "ab-enc-16", category: "encourage", text: "Oi, don't give me that lan jiao bin. Running is good for you, kanina. SMILE AND SUFFER!" },
   { id: "ab-enc-17", category: "encourage", text: "Nabei, you pant until like broken kettle. Good! Means it's working. PUSH!" },
-  { id: "ab-enc-18", category: "encourage", text: "Your legs got he nao issit? Shrimp brain also know must keep moving. GO!" },
+  { id: "ab-enc-18", category: "encourage", text: "You got he nao issit? Shrimp brain also know must keep moving. GO!" },
   { id: "ab-enc-19", category: "encourage", text: "Kan ni na bu chao chee bye — sorry ah, that one not for you, that's for the weather. You? You're doing okay. FASTER ANYWAY!" },
   { id: "ab-enc-20", category: "encourage", text: "Lim peh telling you now: the sofa people are all bo nao. You? Got nao. Prove it, chee bye. RUN!" },
   { id: "ab-enc-21", category: "encourage", text: "Feeling tu lan with me ah? GOOD. Use that angry, kanina. Angry legs run faster!" },
@@ -86,7 +86,7 @@ const ahbeng: Phrase[] = [
   { id: "ab-pd-13", category: "pace_down", text: "NABEI! Who is this and what you do with my slow runner? SIBEI STEADY LAH!" },
   { id: "ab-pd-14", category: "pace_down", text: "Wah, this pace can lah, can! Lim peh almost proud. Almost. Don't let it go to your bo nao head." },
   { id: "ab-pd-15", category: "pace_down", text: "Steady lah chee bye! Run like this every time and I got nothing to scold. Then I jiak sai lah, jobless!" },
-  { id: "ab-pd-16", category: "pace_down", text: "Oi oi, calm down, this is not Seoul marathon. But kanina, not bad. NOT BAD. Hold it there!" },
+  { id: "ab-pd-16", category: "pace_down", text: "Oi oi, calm down, this is not Stan Chart marathon. But kanina, not bad. NOT BAD. Hold it there!" },
   { id: "ab-pd-17", category: "pace_down", text: "See lah, when you stop being khong kham, your legs actually work! Keep this pace, sibei song!" },
   // ---- milestone ----
   { id: "ab-mile-1", category: "milestone", text: "One kilometre down, chee bye! Only ONE ah, don't celebrate like you strike Toto. Keep moving!" },
@@ -94,7 +94,7 @@ const ahbeng: Phrase[] = [
   { id: "ab-mile-3", category: "milestone", text: "Kilometre checkpoint! You want medal issit? Medal is at the END lah, chee bye. GO!" },
   { id: "ab-mile-4", category: "milestone", text: "Okay lah, one more kilometre in the bag. Your legs complain? Tell them I say lan jiao lah, CANNOT." },
   { id: "ab-mile-5", category: "milestone", text: "One more kilometre, nabei! Your sofa at home crying already. Let it cry. GO!" },
-  { id: "ab-mile-6", category: "milestone", text: "Another one down, chee bye! See — iong nao sio lah, body follow. Next one!" },
+  { id: "ab-mile-6", category: "milestone", text: "Another one down, chee bye! See — iong nao lah, body follow. Next one!" },
   // ---- anecdotes ----
   { id: "ab-anec-1", category: "anecdote", text: "Eh you know or not, marathon is 42 kilometres because some ang moh king want the race to finish outside his chee bye window. Kings ah, sibei spoilt. Anyway, RUN." },
   { id: "ab-anec-2", category: "anecdote", text: "Fun fact lah: running one hour burn like seven hundred calories. That's almost one plate char kway teow. ALMOST, kanina. So no char kway teow later!" },
@@ -272,7 +272,7 @@ const ahbeng: Phrase[] = [
   { id: "ab-loiter-6", category: "loitering", text: "Oi, you standing there like si lang bin. You die already issit? No? THEN RUN, KANINA!" },
   { id: "ab-loiter-7", category: "loitering", text: "Nabei, you take root ah? Even the traffic light change four times already. MOVE!" },
   { id: "ab-loiter-8", category: "loitering", text: "Kan ni na bu chao chee bye. I count to three. One. Two. Don't make me say three, I beg you. RUN!" },
-  { id: "ab-loiter-9", category: "loitering", text: "You stand so long, ho kao kan lah! Kanina, even the dog at the void deck jog more than you today!" },
+  { id: "ab-loiter-9", category: "loitering", text: "You stand so long ah, chao chee bye! Even the dog at the void deck jog more than you today, kanina!" },
   // ---- canned chat replies ----
   { id: "ab-chat-1", category: "chat", text: "Talk less, run more lah chee bye! Save your breath for the hill, kanina!" },
   { id: "ab-chat-2", category: "chat", text: "Hah? Cannot hear you. All I hear is lan jiao excuses. RUN!" },
@@ -948,7 +948,7 @@ const loanshark: Phrase[] = [
   { id: "al-start-3", category: "start", text: "Start moving! Every step is one cent off your interest. ONE cent ah, don't get excited." },
   { id: "al-start-4", category: "start", text: "Wah lau, finally. Move it before I change the payment terms again!" },
   { id: "al-start-5", category: "start", text: "Nabei, GO! The interest already start running. You should too, chee bye!" },
-  { id: "al-start-6", category: "start", text: "Iong nao sio lah — run now, or jiak sai on your doorstep tomorrow. Metaphorically. Mostly. GO!" },
+  { id: "al-start-6", category: "start", text: "Iong nao lah — run now, or jiak sai on your doorstep tomorrow. Metaphorically. Mostly. GO!" },
   // ---- encourage (menacing style) ----
   { id: "al-enc-1", category: "encourage", text: "Faster, chee bye! I can still SEE you! When I cannot see you, then you safe!" },
   { id: "al-enc-2", category: "encourage", text: "Kanina, you run like a man with no debt. But you HAVE debt. A lot of debt. RUN PROPERLY!" },
@@ -977,7 +977,7 @@ const loanshark: Phrase[] = [
   { id: "al-pu-1", category: "pace_up", text: "OI! Why you slowing down?! I'm GAINING on you, chee bye! MOVE!" },
   { id: "al-pu-2", category: "pace_up", text: "Kanina! You slow down means I catch up! You want to have that conversation issit?! FASTER!" },
   { id: "al-pu-3", category: "pace_up", text: "Wah lau, at this speed I can walk and still collect. Don't insult me lah! SPEED UP!" },
-  { id: "al-pu-4", category: "pace_up", text: "Eh chee bye, this is a DEBT CHASE, not a evening stroll! Your interest going up while you jalan-jalan!" },
+  { id: "al-pu-4", category: "pace_up", text: "Eh chee bye, this is DEBT CHASE, not evening stroll! Your interest going up while you jalan-jalan!" },
   { id: "al-pu-5", category: "pace_up", text: "You slowing down ah? Okay. I add five percent. Still slowing? Ten percent. RUN, kanina!" },
   { id: "al-pu-6", category: "pace_up", text: "Eh! Slow down means more interest, chee bye. You want that issit?" },
   { id: "al-pu-7", category: "pace_up", text: "Kanina, my boys walk faster than this. And they're carrying things." },
@@ -995,9 +995,9 @@ const loanshark: Phrase[] = [
   { id: "al-pu-19", category: "pace_up", text: "Chee bai gong pace lah! You save energy for what — to count money you don't have? RUN!" },
   { id: "al-pu-20", category: "pace_up", text: "Slow until I tu lan. You know what happen when Ah Long tu lan? The interest also tu lan. FASTER!" },
   { id: "al-pu-21", category: "pace_up", text: "You slow down one more time, confirm tio kan — by which I mean a very stern letter, kanina. VERY stern. MOVE!" },
-  { id: "al-pu-22", category: "pace_up", text: "Bo nao pace! Iong nao sio lah — faster legs, faster discount. Simple maths, chee bye!" },
+  { id: "al-pu-22", category: "pace_up", text: "Bo nao pace! Iong nao lah — faster legs, faster discount. Simple maths, chee bye!" },
   { id: "al-pu-23", category: "pace_up", text: "Kan ni na bu chao chee bye, WHY. SO. SLOW. The pigeon beside you owe nobody money and STILL walk with more urgency!" },
-  { id: "al-pu-24", category: "pace_up", text: "Eh su ku, this speed ah? My money running away faster than you. CHIONG!" },
+  { id: "al-pu-24", category: "pace_up", text: "Eh kanina, this speed ah? My money running away faster than you. CHIONG!" },
   // ---- pace_down (running well / faster) ----
   { id: "al-pd-1", category: "pace_down", text: "WAH! Kanina, where this speed come from?! Okay okay, respect. Still owe me money though!" },
   { id: "al-pd-2", category: "pace_down", text: "Eh chee bye, you actually fast ah? Cannot catch you already. Fine — I waive twenty dollars. TWENTY only!" },
@@ -1263,7 +1263,7 @@ const loanshark: Phrase[] = [
 
 const ahlian: Phrase[] = [
   // ---- intro (~10s opening monologue, rotated between runs) ----
-  { id: "li-intro-1", category: "intro", text: "Eh hello! Look who finally decide to move their backside. Listen ah chee bye, I don't do gentle. My ex also cannot tahan me, and now he got two chin. Don't be like him. GO!" },
+  { id: "li-intro-1", category: "intro", text: "Eh hello! Look who finally decide to move their backside. Listen ah chee bye, I don't do gentle. My ex also cannot tahan me, and now he got double chin. Don't be like him. GO!" },
   { id: "li-intro-2", category: "intro", text: "Wah, you show up! Sibei surprising, kanina. Today no whining, no 'aiyah later', no checking phone. My ex also always say later. He still on that sofa. MOVE!" },
   { id: "li-intro-3", category: "intro", text: "Alright, gather round. I'm your coach today and I don't sugar coat, chee bye. If you can still talk nicely at the end, means you never try. Legs up, chest out, GO!" },
   { id: "li-intro-4", category: "intro", text: "Eh, before you start with the excuses ah — I heard every single one from my ex. Every one. And look where it got him. Playing game in his mother's house. You want that? Then RUN!" },
@@ -1275,7 +1275,7 @@ const ahlian: Phrase[] = [
   { id: "li-start-3", category: "start", text: "Okay, starting now. Last chance to change your mind — too late. GO!" },
   { id: "li-start-4", category: "start", text: "Wah lau, so slow to start. My ex also like that. See how he turn out. MOVE IT!" },
   { id: "li-start-5", category: "start", text: "Nabei, finally you move! I almost finish my bubble tea waiting. GO GO GO!" },
-  { id: "li-start-6", category: "start", text: "Iong nao sio lah — start strong now, or jiak sai later in front of everybody. Your choice, kanina. RUN!" },
+  { id: "li-start-6", category: "start", text: "Iong nao lah — start strong now, or jiak sai later in front of everybody. Your choice, kanina. RUN!" },
   // ---- encourage (scolding style, with the ex-boyfriend running gag) ----
   { id: "li-enc-1", category: "encourage", text: "Faster lah kanina! My ex walk to the fridge faster than this, and that man never exercise in his life!" },
   { id: "li-enc-2", category: "encourage", text: "Eh chee bye, you call that running? My handbag heavier than your effort sia!" },
@@ -1294,7 +1294,7 @@ const ahlian: Phrase[] = [
   { id: "li-enc-15", category: "encourage", text: "Move properly! I got manicure after this, kanina. Don't waste my time!" },
   { id: "li-enc-16", category: "encourage", text: "Don't show me that chee bai bin. Show me RUNNING, kanina!" },
   { id: "li-enc-17", category: "encourage", text: "Nabei, pant until like that. Good lah! Means got effort. My ex never pant in his LIFE. PUSH!" },
-  { id: "li-enc-18", category: "encourage", text: "Your legs he nao issit? Shrimp also swim whole day never complain. GO!" },
+  { id: "li-enc-18", category: "encourage", text: "You he nao issit? Shrimp also swim whole day never complain. GO!" },
   { id: "li-enc-19", category: "encourage", text: "Feeling tu lan with me? GOOD. Angry is fuel, chee bye. My ex got no fuel at all. BURN IT!" },
   { id: "li-enc-20", category: "encourage", text: "You give up now, sia suay lah! Whole void deck will know. The aunties WILL talk, kanina. KEEP GOING!" },
   { id: "li-enc-21", category: "encourage", text: "Sofa people all bo nao one. You got brain, got legs, got ME. No excuse, chee bye. RUN!" },
@@ -1325,7 +1325,7 @@ const ahlian: Phrase[] = [
   { id: "li-pu-22", category: "pace_up", text: "You slow one more time, confirm tio kan from me at the end. I'm not joking, chee bye. FASTER!" },
   { id: "li-pu-23", category: "pace_up", text: "Bo nao pace! Your brain never tell your legs this is a run ah? IONG NAO! GO!" },
   { id: "li-pu-24", category: "pace_up", text: "Kan ni na bu chao chee bye, WHY. SO. SLOW. The pigeon beside you also walk with more purpose!" },
-  { id: "li-pu-25", category: "pace_up", text: "Eh su ku, this speed my grandmother also can. And she don't even LIKE walking. MOVE!" },
+  { id: "li-pu-25", category: "pace_up", text: "Eh bo nao, this speed my grandmother also can. And she don't even LIKE walking. MOVE!" },
   // ---- pace_down (running well) ----
   { id: "li-pd-1", category: "pace_down", text: "Eh! Suddenly got power ah? Okay lah chee bye, I allow it. Don't stop!" },
   { id: "li-pd-2", category: "pace_down", text: "Wah, now you running properly! See? Scolding works, kanina!" },
