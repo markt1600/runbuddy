@@ -3094,7 +3094,7 @@ input[type="range"]::-moz-range-thumb {
 }
 .booth-agree { flex-direction: row !important; align-items: center; gap: 9px !important; font-weight: 500 !important; }
 .booth-note {
-  font-size: 13px;
+  font-size: inherit;
   color: var(--label-2);
   padding: 10px 13px;
   border-left: 3px solid var(--accent);
@@ -3181,7 +3181,7 @@ input[type="range"]::-moz-range-thumb {
 /* The character brief — direction notes the actor reads before take one */
 .booth-brief {
   white-space: pre-wrap;
-  font-size: 14.5px;
+  font-size: inherit;
   line-height: 1.55;
   color: var(--label);
   padding: 14px 16px;
