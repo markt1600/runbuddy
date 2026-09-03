@@ -133,6 +133,19 @@ export async function saveRun(
     allowOverwrite: true, // re-saving the same run is idempotent
     cacheControlMaxAge: 0,
   });
+  // Same start time = same run, whatever the rest of the basename says. Any
+  // other record for it — an earlier End tap whose stats differed by a few
+  // seconds, a pre-conform copy — is superseded by this write. Runs can't
+  // share a start millisecond, so the prefix can't catch a neighbour.
+  try {
+    const page = await list({ prefix: `${userPrefix(sub)}${startedAt}_` });
+    const superseded = page.blobs
+      .filter((b) => b.pathname !== userPrefix(sub) + basename)
+      .map((b) => b.url);
+    if (superseded.length > 0) await del(superseded);
+  } catch {
+    /* best effort — a leftover duplicate is visible and deletable, not lost data */
+  }
   return { id: basename };
 }
 

@@ -479,9 +479,14 @@ export default function RunScreen({
   // synchronous WebView modal that can hang the JS thread mid-gesture (a
   // sweaty multi-touch on the End button froze the whole UI — taps queued,
   // the run wouldn't end). A React overlay repaints normally and can't block.
-  const endRun = () => setConfirmEnd(true);
+  const endRun = () => {
+    if (!finishedRef.current) setConfirmEnd(true);
+  };
   const doEndRun = () => {
     setConfirmEnd(false);
+    // Idempotent: a second tap (or a queued one) must not finish the run
+    // twice — every finish POSTs a run record.
+    if (finishedRef.current) return;
     const stats = computeStats();
     finishedRef.current = true;
     coachRef.current?.onFinish();
