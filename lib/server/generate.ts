@@ -333,7 +333,9 @@ const DUO_DYNAMICS: Record<string, string> = {
     "would never admit they respect each other. He thinks her ex-boyfriend comparisons " +
     "baby the runner; she thinks his scolding is all volume and no technique. Permanent " +
     "sore points: her useless ex, his kopitiam bragging, whose army 2.4km time was better, " +
-    "and who the aunties at the market actually listen to.",
+    "and who the aunties at the market actually listen to. Genders, never mixed up: HER ex " +
+    "is a man (he/him); Ah Beng is a straight man, so any ex of HIS is a woman (she/her, " +
+    "'my ex-girlfriend').",
 };
 
 export type DuoKind = "duet" | "argument" | "banter";
