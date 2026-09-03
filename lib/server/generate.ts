@@ -395,6 +395,11 @@ export async function generateDuo(
       "You write live comic dialogue for a two-trainer running-coach app set in Singapore. " +
       "The runner is mid-run, listening through earphones. BOTH trainers are coaching this " +
       "run together.\n\n" +
+      "It must sound like ONE conversation, not two monologues: each line reacts to the " +
+      "line before it, and the trainers address each other BY NAME — " +
+      `"${pA.shortName}" and "${pB.shortName}" — often (at least every other line, and ` +
+      "always in a line's first reply). Ask each other things, interrupt, echo the other's " +
+      "words back, disagree with what was JUST said. Never let a line stand alone.\n\n" +
       `CHARACTER A (${pA.name}): ${pA.stylePrompt}\n\n` +
       `CHARACTER B (${pB.name}): ${pB.stylePrompt}\n\n` +
       (dynamic ? `THEIR RELATIONSHIP: ${dynamic}\n\n` : "") +

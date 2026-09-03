@@ -332,16 +332,16 @@ const ahbeng: Phrase[] = [
   { id: "ab-hs-m-10", category: "hs_finish", target: 10, wr: "male", text: "OI! Rudy Chapa — high school boy, NINETEEN SEVENTY-SIX, kanina! Ran ten K in twenty-eight thirty-three, and fifty years later no schoolboy has beaten it. He just finish your ten K... NOW. A teenager from before your mother had a handphone, chee bye. Faster than you TODAY. Where you put your face? RUN!" },
   { id: "ab-hs-f-10", category: "hs_finish", target: 10, wr: "female", text: "Eh chee bye, listen. Mary Shea — American high school girl, nineteen seventy-nine. Ran ten K in thirty-two fifty-three. SCHOOLGIRL, kanina! She just finish your ten K... NOW. Bell-bottom era teenager, still faster than you in your fancy shoes, wah lau. FASTER LAH!" },
   // ---- duo mode: reacting to Ah Lian's line, straight after she says it ----
-  { id: "ab-duo-1", category: "duo_react", text: "Wah, she actually said something useful sia. Don't get used to it, chee bye." },
-  { id: "ab-duo-2", category: "duo_react", text: "Okay okay, what she said. But MY version: FASTER, kanina!" },
-  { id: "ab-duo-3", category: "duo_react", text: "You hear her or not? Even SHE cannot deny you're working, chee bye." },
-  { id: "ab-duo-4", category: "duo_react", text: "Aiyo, she talk so much. Run first, listen later, kanina!" },
-  { id: "ab-duo-5", category: "duo_react", text: "See lah, both trainers agree for once. Confirm plus chop true, chee bye." },
-  { id: "ab-duo-6", category: "duo_react", text: "Don't look at me, she's the one shouting this time, kanina." },
-  { id: "ab-duo-7", category: "duo_react", text: "Kanina, I was going to say that. She steal my line somemore." },
-  { id: "ab-duo-8", category: "duo_react", text: "She say it soft lah. What she MEANS is: move your backside, chee bye!" },
-  { id: "ab-duo-9", category: "duo_react", text: "Hmm, not bad advice. From HER. Wah lau, today got miracle, kanina." },
-  { id: "ab-duo-10", category: "duo_react", text: "Both of us watching you now ah, chee bye. No hiding. GO!" },
+  { id: "ab-duo-1", category: "duo_react", text: "Ah Lian, that one actually useful sia. Don't get used to me agreeing, chee bye." },
+  { id: "ab-duo-2", category: "duo_react", text: "Okay okay Ah Lian, your version fine. MY version: FASTER, kanina!" },
+  { id: "ab-duo-3", category: "duo_react", text: "Ah Lian, you hear that? Even YOU cannot deny they're working, chee bye." },
+  { id: "ab-duo-4", category: "duo_react", text: "Aiyo Ah Lian, you talk so much. Let them run first, talk later, kanina!" },
+  { id: "ab-duo-5", category: "duo_react", text: "See lah Ah Lian, for once we agree. Confirm plus chop true, chee bye." },
+  { id: "ab-duo-6", category: "duo_react", text: "Ah Lian, today YOU shouting and I'm the calm one? Kanina, world upside down." },
+  { id: "ab-duo-7", category: "duo_react", text: "Kanina Ah Lian, I was going to say that. Steal my line somemore." },
+  { id: "ab-duo-8", category: "duo_react", text: "Ah Lian, you say it so soft. Say it my way: move your backside, chee bye!" },
+  { id: "ab-duo-9", category: "duo_react", text: "Hmm Ah Lian, not bad advice. From YOU. Wah lau, today got miracle, kanina." },
+  { id: "ab-duo-10", category: "duo_react", text: "Ah Lian, you watch left, I watch right. Both of us on you now ah, chee bye. No hiding. GO!" },
 ];
 
 const coach: Phrase[] = [
@@ -1588,16 +1588,16 @@ const ahlian: Phrase[] = [
   { id: "li-hs-m-10", category: "hs_finish", target: 10, wr: "male", text: "OI, fact time, chee bye! Rudy Chapa — high school boy from NINETEEN SEVENTY-SIX, kanina! Ten K in twenty-eight thirty-three, fifty years and still no schoolboy can beat. He finish your ten K... NOW. Uncle-age record from a TEENAGER, still faster than you sia. Aiyo yo. RUN LAH!" },
   { id: "li-hs-f-10", category: "hs_finish", target: 10, wr: "female", text: "Eh kanina, listen listen! Mary Shea — American high school girl, nineteen seventy-nine sia! Ten K in thirty-two fifty-three. SCHOOLGIRL from your parents' era, chee bye! She just finish your ten K... NOW. Beaten by a teenager AND by history at the same time. Sibei jialat. FASTER LAH!" },
   // ---- duo mode: reacting to Ah Beng's line, straight after he says it ----
-  { id: "li-duo-1", category: "duo_react", text: "Aiyo, ignore his shouting lah. But this one time... he's right, kanina." },
-  { id: "li-duo-2", category: "duo_react", text: "Wah, he think he damn fierce hor. I say it nicer: keep going, chee bye!" },
-  { id: "li-duo-3", category: "duo_react", text: "See, even Mr Angry agrees. Means confirm true one, kanina." },
-  { id: "li-duo-4", category: "duo_react", text: "Eh Beng, tiam a bit lah, my runner cannot hear themselves breathe, chee bye." },
-  { id: "li-duo-5", category: "duo_react", text: "What he said lah. Minus the spit flying everywhere, kanina." },
-  { id: "li-duo-6", category: "duo_react", text: "Kanina, he talk like his 2.4 was so fast last time. But okay lah, the advice can take." },
-  { id: "li-duo-7", category: "duo_react", text: "Two of us say the same thing already — you better believe it, chee bye!" },
-  { id: "li-duo-8", category: "duo_react", text: "He shout, I sayang, same message: DON'T STOP, kanina!" },
-  { id: "li-duo-9", category: "duo_react", text: "Aiyo, he damn dramatic hor? But the pace part — he's not wrong, chee bye." },
-  { id: "li-duo-10", category: "duo_react", text: "My ex needs his scolding more than you do lah. You? Just keep flying, kanina!" },
+  { id: "li-duo-1", category: "duo_react", text: "Ah Beng, stop shouting lah. But this one time... you're right, kanina." },
+  { id: "li-duo-2", category: "duo_react", text: "Wah Ah Beng, you think you damn fierce hor. Let me say it nicer: keep going, chee bye!" },
+  { id: "li-duo-3", category: "duo_react", text: "See, even Ah Beng agrees. Beng, when you and I agree, confirm true one, kanina." },
+  { id: "li-duo-4", category: "duo_react", text: "Eh Ah Beng, tiam a bit lah, my runner cannot hear themselves breathe, chee bye." },
+  { id: "li-duo-5", category: "duo_react", text: "What Ah Beng said lah. Minus the spit flying everywhere, Beng, kanina." },
+  { id: "li-duo-6", category: "duo_react", text: "Ah Beng, you talk like your 2.4 was so fast last time. But okay lah, the advice can take." },
+  { id: "li-duo-7", category: "duo_react", text: "Ah Beng and I say the same thing already. Beng, tell them again — you better believe it, chee bye!" },
+  { id: "li-duo-8", category: "duo_react", text: "Ah Beng shout, I sayang, same message, Beng ah: DON'T STOP, kanina!" },
+  { id: "li-duo-9", category: "duo_react", text: "Aiyo Ah Beng, you damn dramatic hor? But the pace part — okay lah, you're not wrong, chee bye." },
+  { id: "li-duo-10", category: "duo_react", text: "Ah Beng, save your scolding for my ex lah, he needs it more. You? Just keep flying, kanina!" },
 ];
 
 const posbeng: Phrase[] = [
