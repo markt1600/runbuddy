@@ -551,6 +551,7 @@ export default function RunBuddyApp() {
       {screen === "summary" && finalStats && (
         <SummaryScreen
           persona={persona}
+          duo={duoMode ? PERSONAS.ahlian : null}
           stats={finalStats}
           runId={savedRunId}
           speedUnit={speedUnit}

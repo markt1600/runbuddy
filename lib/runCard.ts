@@ -255,6 +255,9 @@ function drawTimeRing(
 
 export interface RunCardOptions {
   persona: Persona;
+  /** Duo partner, when the run was coached by two trainers — both appear in
+   *  the header. */
+  duo?: Persona | null;
   stats: RunStats;
   unit: SpeedUnit;
   comment: string;
@@ -298,11 +301,20 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   const PAD = 76;
 
   // ---- header ----
+  const duo = opts.duo ?? null;
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
   ctx.font = `600 54px ${fonts.display}`;
   ctx.fillStyle = INK;
   ctx.fillText(persona.emoji, PAD, PAD + 26);
+  // Duo: the partner's emoji sits just after the first, and the name line
+  // slides right to clear both.
+  let nameX = PAD + 76;
+  if (duo) {
+    const firstW = ctx.measureText(persona.emoji).width;
+    ctx.fillText(duo.emoji, PAD + firstW + 12, PAD + 26);
+    nameX = PAD + firstW + 12 + ctx.measureText(duo.emoji).width + 20;
+  }
 
   const date = opts.date ?? new Date();
   const dateText = date.toLocaleDateString(undefined, {
@@ -326,12 +338,12 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   }
 
   // Trim the name if it would run into the date
-  const nameX = PAD + 76;
   const nameMax = S - PAD - dateW - 32 - nameX;
   ctx.font = `600 36px ${fonts.display}`;
   ctx.fillStyle = INK;
   ctx.textAlign = "left";
-  let name = persona.name;
+  // Duo uses short names ("Ah Beng & Ah Lian") so the pair still fits.
+  let name = duo ? `${persona.shortName} & ${duo.shortName}` : persona.name;
   if (ctx.measureText(name).width > nameMax) {
     while (name.length > 1 && ctx.measureText(`${name}…`).width > nameMax) {
       name = name.slice(0, -1);

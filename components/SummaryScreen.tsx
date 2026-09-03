@@ -12,6 +12,8 @@ import type { Persona, RunStats } from "@/lib/types";
 
 interface Props {
   persona: Persona;
+  /** Duo partner when the run had two trainers — both go on the card. */
+  duo?: Persona | null;
   stats: RunStats;
   /** The saved run's id — null for guests or while the save is in flight. */
   runId: string | null;
@@ -69,6 +71,7 @@ function RouteMap({ route, accent }: { route: RunStats["route"]; accent: string 
 
 export default function SummaryScreen({
   persona,
+  duo,
   stats: initialStats,
   runId: initialRunId,
   speedUnit,
@@ -202,6 +205,7 @@ export default function SummaryScreen({
       if (!canvas || cancelled) return;
       drawRunCard(canvas, {
         persona,
+        duo,
         stats,
         unit: speedUnit,
         comment: comment ?? fallbackSub,
@@ -230,7 +234,7 @@ export default function SummaryScreen({
     return () => {
       cancelled = true;
     };
-  }, [comment, persona, stats, speedUnit, fallbackSub]);
+  }, [comment, persona, duo, stats, speedUnit, fallbackSub]);
 
   const saveCard = useCallback(async () => {
     const canvas = canvasRef.current;
