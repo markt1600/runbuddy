@@ -1075,6 +1075,40 @@ input[type="range"]::-moz-range-thumb {
 
 /* ---------- Always-on display ---------- */
 
+.end-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.end-confirm {
+  background: var(--bg-elevated);
+  border-radius: 18px;
+  padding: 24px 22px;
+  width: 100%;
+  max-width: 340px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+.end-confirm-title {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--label);
+  text-align: center;
+  margin-bottom: 20px;
+}
+.end-confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+.end-confirm-actions .cta {
+  flex: 1;
+  margin: 0;
+}
+
 .aod {
   position: fixed;
   inset: 0;

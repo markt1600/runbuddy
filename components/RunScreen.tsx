@@ -130,6 +130,7 @@ export default function RunScreen({
   const [gpsNote, setGpsNote] = useState<string | null>(null);
   const [gpsSignal, setGpsSignal] = useState<GpsSignal>("acquiring");
   const [locked, setLocked] = useState(startDelaySec > 0);
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const [holdPct, setHoldPct] = useState(0);
   const holdRef = useRef<{ raf: number; start: number } | null>(null);
   const holdDoneRef = useRef(false);
@@ -474,8 +475,13 @@ export default function RunScreen({
     geoRef.current.armResume();
   };
 
-  const endRun = () => {
-    if (!window.confirm("End this run?")) return;
+  // In-app confirmation, NOT window.confirm: the native confirm() is a
+  // synchronous WebView modal that can hang the JS thread mid-gesture (a
+  // sweaty multi-touch on the End button froze the whole UI — taps queued,
+  // the run wouldn't end). A React overlay repaints normally and can't block.
+  const endRun = () => setConfirmEnd(true);
+  const doEndRun = () => {
+    setConfirmEnd(false);
     const stats = computeStats();
     finishedRef.current = true;
     coachRef.current?.onFinish();
@@ -960,6 +966,22 @@ export default function RunScreen({
                   : "Hold to unlock"}
             </span>
           </button>
+        </div>
+      )}
+
+      {confirmEnd && (
+        <div className="end-confirm-overlay" onClick={() => setConfirmEnd(false)}>
+          <div className="end-confirm" onClick={(e) => e.stopPropagation()}>
+            <div className="end-confirm-title">End this run?</div>
+            <div className="end-confirm-actions">
+              <button className="cta secondary" onClick={() => setConfirmEnd(false)}>
+                Keep running
+              </button>
+              <button className="cta" onClick={doEndRun}>
+                End run
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

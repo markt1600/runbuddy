@@ -78,6 +78,10 @@ export default function SummaryScreen({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [cardUrl, setCardUrl] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
+  // A native save/share can take a second or two with no visible response;
+  // without immediate feedback + a guard, tapping again saves the card twice.
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   // Local because confirming against the Watch amends them in place — the
   // stat grid and the card both redraw from whatever is here.
   const [stats, setStats] = useState(initialStats);
@@ -230,18 +234,26 @@ export default function SummaryScreen({
 
   const saveCard = useCallback(async () => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const stamp = new Date().toISOString().slice(0, 10);
-    const result = await shareOrDownloadCard(canvas, `run-buddy-${stamp}.png`);
-    setSaveNote(
-      result === "shared"
-        ? null
-        : result === "photos"
-          ? "✓ Saved to your Photos"
-          : result === "downloaded"
-            ? "Saved to your downloads"
-            : "Couldn't save — long-press the image to save it instead"
-    );
+    if (!canvas || savingRef.current) return; // guard re-taps while a save is in flight
+    savingRef.current = true;
+    setSaving(true);
+    setSaveNote(null);
+    try {
+      const stamp = new Date().toISOString().slice(0, 10);
+      const result = await shareOrDownloadCard(canvas, `run-buddy-${stamp}.png`);
+      setSaveNote(
+        result === "shared"
+          ? null
+          : result === "photos"
+            ? "✓ Saved to your Photos"
+            : result === "downloaded"
+              ? "Saved to your downloads"
+              : "Couldn't save — long-press the image to save it instead"
+      );
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   }, []);
 
   return (
@@ -262,8 +274,12 @@ export default function SummaryScreen({
         </div>
       )}
 
-      <button className="cta secondary save-card-btn" onClick={saveCard}>
-        ⬇︎ Save run card
+      <button
+        className="cta secondary save-card-btn"
+        onClick={saveCard}
+        disabled={saving}
+      >
+        {saving ? "Saving…" : "⬇︎ Save run card"}
       </button>
       {saveNote && <div className="save-note">{saveNote}</div>}
 
