@@ -504,7 +504,15 @@ export class CoachEngine {
         ...past,
         ...tune,
         elapsedMin: Math.round(stats.elapsedMs / 60000),
-        localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        // Weekday, date AND zone — so "yesterday"/"back to back" arithmetic in
+        // the model has the runner's calendar to work from, not the server's.
+        localTime: `${new Date().toLocaleString([], {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        })} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
         treadmill: true,
         targetMinutes: this.targetMin,
         ...extra,

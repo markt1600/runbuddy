@@ -1,13 +1,28 @@
 // The coach's memory: run summaries → history digest. The edges that matter:
 // treadmill runs (0 km) count for recency but never for distance/pace figures,
-// short dashes never set a pace PB, and day math is floor-of-elapsed, not
-// calendar-date arithmetic.
+// short dashes never set a pace PB, and day math is CALENDAR days in local
+// time, not floor-of-elapsed-hours (47.5 hours across two midnights is two
+// days ago, never "yesterday").
 import assert from "node:assert";
 
 const { buildHistoryDigest } = await import("../lib/history.ts");
 
 const DAY = 86_400_000;
 const NOW = 1_755_600_000_000;
+
+// The field bug: Tue 07:05 run, now Thu 06:36 — 47.5h elapsed, 2 calendar days.
+{
+  const thu0636 = new Date(2026, 8, 3, 6, 36).getTime(); // local time
+  const tue0705 = new Date(2026, 8, 1, 7, 5).getTime();
+  const d = buildHistoryDigest([{ startedAt: tue0705, distanceKm: 10.26, movingSec: 3820 }], thu0636);
+  assert.strictEqual(d.daysSinceLast, 2, `47.5h must be 2 days, got ${d.daysSinceLast}`);
+  // And a late-night run followed by an early-morning one IS yesterday.
+  const d2 = buildHistoryDigest(
+    [{ startedAt: new Date(2026, 8, 2, 23, 30).getTime(), distanceKm: 5, movingSec: 1500 }],
+    thu0636
+  );
+  assert.strictEqual(d2.daysSinceLast, 1, `7h across midnight must be 1 day, got ${d2.daysSinceLast}`);
+}
 
 // Empty history → no digest at all (the prompt block must not render).
 assert.strictEqual(buildHistoryDigest([], NOW), null);

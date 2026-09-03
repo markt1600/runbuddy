@@ -21,6 +21,12 @@ export interface RunHistoryDigest {
   runsLast30Days: number;
 }
 
+/** Whole days since the epoch, counted on the local calendar. */
+const localDayIndex = (t: number): number => {
+  const d = new Date(t);
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000);
+};
+
 const paceStr = (secPerKm: number): string => {
   const m = Math.floor(secPerKm / 60);
   const s = Math.round(secPerKm % 60);
@@ -39,7 +45,11 @@ export function buildHistoryDigest(
   };
 
   const last = sorted[0];
-  digest.daysSinceLast = Math.floor((now - last.startedAt) / 86_400_000);
+  // Calendar days in the runner's OWN timezone, not elapsed hours: a Tuesday
+  // 07:05 run seen from Thursday 06:36 is 47.5 hours — "yesterday" by the
+  // floor-of-hours maths, but two days ago on any calendar the runner uses.
+  // This runs on the device, so local Date getters are the runner's zone.
+  digest.daysSinceLast = localDayIndex(now) - localDayIndex(last.startedAt);
   // Treadmill runs store zero distance — recency still counts, figures don't.
   if (last.distanceKm > 0) {
     digest.lastRunKm = Number(last.distanceKm.toFixed(2));
