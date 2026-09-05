@@ -26,6 +26,12 @@ interface Props {
   onConfirm?: (w: { distanceKm: number; source: string }) => Promise<boolean>;
 }
 
+/**
+ * Below this the Watch and the app are reading the same run: conforming would
+ * only shuffle the second decimal, so the button gives way to a note saying so.
+ */
+const CONFORM_MIN_DELTA_KM = 0.015;
+
 const clock = (ms: number) =>
   new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -157,12 +163,24 @@ export default function HealthPanel({
                 ✓ Run conformed — the stats and the share card now use the Watch
                 distance.
               </div>
+            ) : onConfirm &&
+              health.workout?.distanceKm !== undefined &&
+              appDistanceKm !== null &&
+              appDistanceKm !== undefined &&
+              Math.abs(health.workout.distanceKm - appDistanceKm) <= CONFORM_MIN_DELTA_KM ? (
+              // Within GPS noise of each other: a conform would change the
+              // second decimal at most, so say why the button isn't here
+              // rather than leave the runner hunting for it.
+              <div className="health-line">
+                Watch and app agree within {Math.round(CONFORM_MIN_DELTA_KM * 1000)} m (
+                {health.workout.distanceKm.toFixed(2)} vs {appDistanceKm.toFixed(2)} km) —
+                nothing to conform.
+              </div>
             ) : (
               onConfirm &&
               health.workout?.distanceKm !== undefined &&
               appDistanceKm !== null &&
-              appDistanceKm !== undefined &&
-              Math.abs(health.workout.distanceKm - appDistanceKm) > 0.015 && (
+              appDistanceKm !== undefined && (
                 <>
                   <button
                     className="cta secondary health-refresh"

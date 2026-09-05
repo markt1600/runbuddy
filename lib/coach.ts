@@ -151,6 +151,14 @@ export class CoachEngine {
   private pausedSince = 0;
   private nextLoiterAt = 0;
   private loiterLevel = 0;
+  /**
+   * True from a deliberate pause until the runner (or their armed resume) ends
+   * it. The tracker never auto-pauses or auto-resumes during a manual hold, so
+   * these hooks should not be reachable then — but a stop-start announcement
+   * over a pause the runner chose is exactly the thing they complained about,
+   * so the coach refuses to voice one regardless of how it arrived.
+   */
+  private manualHold = false;
   private runner: RunnerInfo | null = null;
   private history: RunHistoryDigest | null = null;
   private recordTold = new Set<"wr" | "hs">();
@@ -767,11 +775,13 @@ export class CoachEngine {
   }
 
   onPause() {
+    this.manualHold = true;
     this.beginPause();
     this.sayFromLibrary("paused");
   }
 
   onResume() {
+    this.manualHold = false;
     this.endPause();
     this.sayFromLibrary("resumed");
   }
@@ -779,13 +789,16 @@ export class CoachEngine {
   /**
    * The app paused itself because the runner stopped moving. Announce it —
    * the phone is in an arm sleeve and the frozen clock is invisible from there.
+   * Never over a manual pause: the runner already knows they've stopped.
    */
   onAutoPause() {
+    if (this.manualHold) return;
     this.beginPause();
     this.sayFromLibrary("auto_paused");
   }
 
   onAutoResume() {
+    if (this.manualHold) return;
     this.endPause();
     this.sayFromLibrary("auto_resumed");
   }

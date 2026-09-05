@@ -57,6 +57,15 @@ const STALL_MIN_SAMPLES = 5;
 const ARM_MOVE_M = 15;
 const ARM_SETTLE_MS = 3000;
 const ARM_WINDOW_MS = 6000;
+// With Doppler, the armed resume waits for RUNNING speed, not just movement.
+// The button promises "resumes when I run": a runner who pauses, stows the
+// phone and then wanders to a tap or a kerb is still paused in their own mind,
+// and the old any-movement gate (0.6 m/s — a shuffle) restarted the clock on
+// that stroll, after which every stop and step drew an auto-pause/auto-resume
+// announcement they never asked for. A brisk walk is ~1.5 m/s; an easy jog is
+// 2 m/s and up. Three fixes rather than two: a false start here costs more.
+const ARM_RUN_MPS = 1.7;
+const ARM_RESUME_FIXES = 3;
 
 // Distance crediting has two engines:
 //
@@ -481,9 +490,10 @@ export class GeoTracker {
 
   /**
    * Armed resume: the runner paused by hand, put the phone away, and the clock
-   * should start itself the moment they run again. Distance is frozen while we
-   * wait, so the stall detector has nothing to read — we measure displacement
-   * from a reference fix instead, and lean on Doppler where it exists.
+   * should start itself the moment they RUN again — walking about while paused
+   * must not count. Distance is frozen while we wait, so the stall detector has
+   * nothing to read — we measure displacement from a reference fix instead, and
+   * lean on Doppler where it exists.
    */
   private watchForArmedResume(s: GeoSample, now: number) {
     this.stillRun = 0;
@@ -494,7 +504,7 @@ export class GeoTracker {
 
     let moving: boolean;
     if (s.speed !== null) {
-      moving = !this.stationary;
+      moving = s.speed >= ARM_RUN_MPS;
     } else {
       // Smoothed positions over a trailing window. Raw fixes at 25 m accuracy
       // wander far enough on their own to clear any gate worth having.
@@ -522,7 +532,7 @@ export class GeoTracker {
     } else {
       this.moveRun = 0;
     }
-    if (this.moveRun >= AUTO_RESUME_FIXES) {
+    if (this.moveRun >= ARM_RESUME_FIXES) {
       this.disarmResume();
       this.lastAutoResumeAt = now;
       this.onArmedResume?.(this.firstMoveAt);

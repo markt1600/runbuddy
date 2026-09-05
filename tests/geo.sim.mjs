@@ -191,6 +191,30 @@ scenario("armed resume: standing noise never fires it, walking off does", () => 
   assert.ok(fired !== null, "armed resume never fired after 30s of walking away");
 });
 
+scenario("armed resume (Doppler): a stroll while paused never fires it, a jog does", () => {
+  // The field bug: pause, stow the phone, wander to a tap — the clock restarted
+  // on the walk, and every stop and step after that got an announcement.
+  const t = new GeoTracker();
+  const w = makeWorld(t, mulberry32(11), { accuracy: 8, doppler: true });
+  let fired = null;
+  t.onArmedResume = (at) => { fired = at; };
+  w.speedMps = 2.8;
+  w.advance(60);
+  w.speedMps = 0;
+  w.advance(5);
+  t.paused = true;
+  t.armResume();
+  w.speedMps = 1.3; // an amble — well past the 0.6 m/s "stationary" line
+  w.advance(60);
+  assert.strictEqual(fired, null, "armed resume fired on a walk");
+  w.speedMps = 0;
+  w.advance(20);
+  assert.strictEqual(fired, null, "armed resume fired while standing after the walk");
+  w.speedMps = 2.3; // an easy jog
+  w.advance(15);
+  assert.ok(fired !== null, "armed resume never fired after 15s of jogging");
+});
+
 scenario("corrected engine survives sparse fixes; legacy is why it exists", () => {
   // A locked phone in a sleeve: fixes every 2–6s. The legacy trapezoid caps
   // each interval at 5s, so it reads ~3% short; chords span the gaps whole.
