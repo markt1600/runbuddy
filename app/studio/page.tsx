@@ -554,6 +554,26 @@ export default function StudioPage() {
                       </button>
                     </div>
                   )}
+                  {/* Accepted is not final: the admin can keep polishing a
+                      phrase that is already live. Amending re-opens it as a
+                      pending suggestion (diffed against the text now in
+                      force) and the next accept writes the newer wording
+                      and deletes the audio again. */}
+                  {it.verdict === "accepted" && (
+                    <div style={{ marginTop: 6, display: "flex", gap: 14 }}>
+                      <button
+                        className="studio-link"
+                        disabled={!!busy}
+                        title="Re-open this phrase for a further edit — it'll need accepting again"
+                        onClick={() => {
+                          setAmendId(it.id);
+                          setAmendText(it.suggested);
+                        }}
+                      >
+                        ✎ Edit again
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -568,7 +588,9 @@ export default function StudioPage() {
           <p className="studio-sub">
             Accepting replaces the phrase&apos;s text everywhere immediately and deletes its
             audio — the app&apos;s automatic gap-fill (or Admin&apos;s &quot;Render
-            missing&quot;) re-cuts it with the corrected words.
+            missing&quot;) re-cuts it with the corrected words. &quot;Edit again&quot; on an
+            accepted phrase re-opens it for another pass; the earlier wording stays live
+            until you accept the new one.
           </p>
         </>
       ) : !open ? (
