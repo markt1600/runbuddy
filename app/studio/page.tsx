@@ -473,6 +473,96 @@ export default function StudioPage() {
     }
   };
 
+  /**
+   * One suggestion, whatever its state. Pending rows get the full verdict
+   * strip; accepted rows can be re-opened ("Edit again"); rejected rows keep
+   * an accept and an edit so a second look can still rescue them.
+   */
+  const renderEditRow = (it: EditItem) => (
+    <div
+      key={it.id}
+      className={`edit-row${
+        it.verdict === "accepted" ? " accepted" : it.verdict === "rejected" ? " rejected" : ""
+      }`}
+    >
+      <div className="edit-row-head">
+        <span className="edit-id">
+          {it.id} · {it.category}
+        </span>
+        {it.verdict === "accepted" && (
+          <span className="edit-tag ok">✓ accepted — audio deleted for re-render</span>
+        )}
+        {it.verdict === "rejected" && (
+          <span className="edit-tag bad">✗ rejected — current text unchanged</span>
+        )}
+      </div>
+      {amendId === it.id ? (
+        <>
+          <textarea
+            value={amendText}
+            rows={Math.max(3, Math.ceil(amendText.length / 70))}
+            onChange={(e) => setAmendText(e.target.value)}
+          />
+          <div style={{ marginTop: 6, display: "flex", gap: 14 }}>
+            <button
+              className="studio-link"
+              disabled={!!busy || amendText.trim().length < 2}
+              onClick={() => void amend()}
+            >
+              💾 Save edit
+            </button>
+            <button className="studio-link" onClick={() => setAmendId(null)}>
+              Cancel
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <WordDiff from={it.original} to={it.suggested} />
+          <div style={{ marginTop: 6, display: "flex", gap: 14 }}>
+            {it.verdict !== "accepted" && (
+              <button
+                className="studio-link"
+                disabled={!!busy}
+                onClick={() => void editVerdict(it.id, "accept")}
+              >
+                ✓ Accept
+              </button>
+            )}
+            {!it.verdict && (
+              <button
+                className="studio-link"
+                disabled={!!busy}
+                onClick={() => void editVerdict(it.id, "reject")}
+              >
+                ✗ Reject
+              </button>
+            )}
+            {/* Neither verdict is final. Amending re-opens the phrase as a
+                pending suggestion (diffed against the text now in force);
+                for an accepted one the next accept writes the newer wording
+                and deletes the audio again. */}
+            <button
+              className="studio-link"
+              disabled={!!busy}
+              title={
+                it.verdict
+                  ? "Re-open this phrase for a further edit — it'll need accepting again"
+                  : undefined
+              }
+              onClick={() => {
+                setAmendId(it.id);
+                setAmendText(it.suggested);
+              }}
+            >
+              {it.verdict === "accepted" ? "✎ Edit again" : "✎ Edit"}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   const flaggedSet = new Set((open?.session.flags ?? []).map((f) => f.itemId));
 
   return (
@@ -493,104 +583,27 @@ export default function StudioPage() {
           {openEdit.items.length === 0 && <p className="studio-sub">No suggestions yet.</p>}
           {openEdit.items
             .filter((it) => it.verdict !== "rejected")
-            .map((it) => (
-            <div key={it.id} className={`edit-row${it.verdict === "accepted" ? " accepted" : ""}`}>
-              <div className="edit-row-head">
-                <span className="edit-id">
-                  {it.id} · {it.category}
-                </span>
-                {it.verdict === "accepted" && (
-                  <span className="edit-tag ok">✓ accepted — audio deleted for re-render</span>
-                )}
-              </div>
-              {amendId === it.id ? (
-                <>
-                  <textarea
-                    value={amendText}
-                    rows={Math.max(3, Math.ceil(amendText.length / 70))}
-                    onChange={(e) => setAmendText(e.target.value)}
-                  />
-                  <div style={{ marginTop: 6, display: "flex", gap: 14 }}>
-                    <button
-                      className="studio-link"
-                      disabled={!!busy || amendText.trim().length < 2}
-                      onClick={() => void amend()}
-                    >
-                      💾 Save edit
-                    </button>
-                    <button className="studio-link" onClick={() => setAmendId(null)}>
-                      Cancel
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <WordDiff from={it.original} to={it.suggested} />
-                  {!it.verdict && (
-                    <div style={{ marginTop: 6, display: "flex", gap: 14 }}>
-                      <button
-                        className="studio-link"
-                        disabled={!!busy}
-                        onClick={() => void editVerdict(it.id, "accept")}
-                      >
-                        ✓ Accept
-                      </button>
-                      <button
-                        className="studio-link"
-                        disabled={!!busy}
-                        onClick={() => void editVerdict(it.id, "reject")}
-                      >
-                        ✗ Reject
-                      </button>
-                      <button
-                        className="studio-link"
-                        disabled={!!busy}
-                        onClick={() => {
-                          setAmendId(it.id);
-                          setAmendText(it.suggested);
-                        }}
-                      >
-                        ✎ Edit
-                      </button>
-                    </div>
-                  )}
-                  {/* Accepted is not final: the admin can keep polishing a
-                      phrase that is already live. Amending re-opens it as a
-                      pending suggestion (diffed against the text now in
-                      force) and the next accept writes the newer wording
-                      and deletes the audio again. */}
-                  {it.verdict === "accepted" && (
-                    <div style={{ marginTop: 6, display: "flex", gap: 14 }}>
-                      <button
-                        className="studio-link"
-                        disabled={!!busy}
-                        title="Re-open this phrase for a further edit — it'll need accepting again"
-                        onClick={() => {
-                          setAmendId(it.id);
-                          setAmendText(it.suggested);
-                        }}
-                      >
-                        ✎ Edit again
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          ))}
+            .map((it) => renderEditRow(it))}
           {openEdit.items.some((it) => it.verdict === "rejected") && (
-            <p className="studio-sub">
-              {openEdit.items.filter((it) => it.verdict === "rejected").length} rejected
-              suggestion{openEdit.items.filter((it) => it.verdict === "rejected").length === 1 ? "" : "s"}{" "}
-              hidden.
-            </p>
+            <>
+              {/* Rejected is not final either: the suggestions sit here,
+                  dimmed, so a second look can still accept one outright or
+                  re-open it for an edit. */}
+              <h3 className="studio-subhead">
+                ✗ Rejected ({openEdit.items.filter((it) => it.verdict === "rejected").length})
+              </h3>
+              {openEdit.items
+                .filter((it) => it.verdict === "rejected")
+                .map((it) => renderEditRow(it))}
+            </>
           )}
           <p className="studio-sub">
             Accepting replaces the phrase&apos;s text everywhere immediately and deletes its
             audio — the app&apos;s automatic gap-fill (or Admin&apos;s &quot;Render
             missing&quot;) re-cuts it with the corrected words. &quot;Edit again&quot; on an
             accepted phrase re-opens it for another pass; the earlier wording stays live
-            until you accept the new one.
+            until you accept the new one. Rejected suggestions stay listed below and can
+            still be accepted or edited.
           </p>
         </>
       ) : !open ? (
