@@ -416,10 +416,21 @@ export default function StudioPage() {
         body: JSON.stringify({
           action,
           phraseId,
+          // The exact wording being accepted. Without it an accept that lands
+          // seconds after an amend can read the pre-amend session from the
+          // blob edge cache and write the OLD suggestion live — which is
+          // exactly what happened in the field ("sibek" came back after it
+          // had been corrected). The client's text is the one on screen.
+          text: openEdit.items.find((i) => i.id === phraseId)?.suggested,
           // Every verdict this screen already knows — the server merges them
           // in case its own read of the session was a stale copy.
           knownResolved: Object.fromEntries(
             openEdit.items.filter((i) => i.verdict).map((i) => [i.id, i.verdict])
+          ),
+          // …and the wording of everything already accepted, for the same
+          // reason: the server re-asserts those overrides on every accept.
+          knownSuggestions: Object.fromEntries(
+            openEdit.items.filter((i) => i.verdict === "accepted").map((i) => [i.id, i.suggested])
           ),
         }),
       });

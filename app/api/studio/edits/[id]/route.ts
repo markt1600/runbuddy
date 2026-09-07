@@ -85,8 +85,31 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     phraseId?: string;
     text?: string;
     knownResolved?: Record<string, string>;
+    knownSuggestions?: Record<string, string>;
   } | null;
   const phraseId = body?.phraseId ?? "";
+  if (!session.suggestions?.[phraseId] && !(body?.text ?? "").trim()) {
+    return NextResponse.json({ error: "no such suggestion" }, { status: 400 });
+  }
+
+  // Same anti-lost-update idea for the WORDING: the blob edge can still serve
+  // the pre-amend session a few seconds after an amend was written, so an
+  // accept that trusted that copy would put the old text live again. The
+  // client sends the wording it is looking at for the phrase in hand and for
+  // every phrase it already accepted; those win over whatever we read.
+  const clean = (s: unknown) => (typeof s === "string" ? s.trim().slice(0, 600) : "");
+  if (body?.knownSuggestions && typeof body.knownSuggestions === "object") {
+    const known: Record<string, string> = {};
+    for (const [k, v] of Object.entries(body.knownSuggestions)) {
+      const t = clean(v);
+      if (t.length >= 2 && session.suggestions?.[k]) known[k] = t;
+    }
+    session.suggestions = { ...(session.suggestions ?? {}), ...known };
+  }
+  const explicit = body?.action === "accept" ? clean(body?.text) : "";
+  if (explicit.length >= 2 && explicit !== session.suggestions?.[phraseId]) {
+    session.suggestions = { ...(session.suggestions ?? {}), [phraseId]: explicit };
+  }
   const suggested = session.suggestions?.[phraseId];
   if (!suggested) return NextResponse.json({ error: "no such suggestion" }, { status: 400 });
 
