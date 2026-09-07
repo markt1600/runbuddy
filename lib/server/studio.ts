@@ -45,8 +45,13 @@ export interface StudioSession {
   submittedAt?: number;
   license?: {
     typedName: string;
+    /** Contact address. Empty for platform-paid sessions, which are reached
+     *  through the platform instead — see platformId. */
     email: string;
     paynowId: string;
+    /** The performer's account name on the payment platform (Fiverr etc.),
+     *  collected instead of an email when payVia is set. */
+    platformId?: string;
     /** Snapshot of the fee, currency, channel and deadline the signed text contained. */
     feeSgd?: number;
     currency?: "SGD" | "USD";

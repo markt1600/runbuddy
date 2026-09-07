@@ -121,6 +121,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     typedName?: string;
     email?: string;
     paynowId?: string;
+    platformId?: string;
   } | null;
 
   if (body?.action === "submit") {
@@ -169,24 +170,33 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
   const typedName = (body?.typedName ?? "").trim();
   const email = (body?.email ?? "").trim();
   const paynowId = (body?.paynowId ?? "").trim();
+  const platformId = (body?.platformId ?? "").trim();
   if (typedName.length < 3 || typedName.length > 120) {
     return NextResponse.json({ error: "type your full legal name" }, { status: 400 });
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
+  // Platform-paid sessions (Fiverr etc.) identify the performer by their
+  // account on that platform and are contacted through it — no email. Every
+  // other session needs an address to send re-take requests to.
+  const viaPlatform = !!session.payVia;
+  if (viaPlatform) {
+    if (platformId.length < 2 || platformId.length > 100) {
+      return NextResponse.json({ error: `${session.payVia} ID required` }, { status: 400 });
+    }
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
     return NextResponse.json({ error: "valid email required" }, { status: 400 });
   }
   // PayNow details are only collected when PayNow is actually the channel:
-  // zero-fee sessions and platform payments (Fiverr etc.) sign with just
-  // name and email.
-  const wantsPaynow = (session.feeSgd ?? 0) > 0 && !session.payVia;
+  // zero-fee sessions and platform payments sign without them.
+  const wantsPaynow = (session.feeSgd ?? 0) > 0 && !viaPlatform;
   if (wantsPaynow && (paynowId.length < 4 || paynowId.length > 60)) {
     return NextResponse.json({ error: "PayNow ID required" }, { status: 400 });
   }
   if (!session.license) {
     session.license = {
       typedName,
-      email,
+      email: viaPlatform ? "" : email,
       paynowId,
+      platformId: viaPlatform ? platformId : undefined,
       feeSgd: session.feeSgd ?? 0,
       currency: session.currency ?? "SGD",
       payVia: session.payVia,

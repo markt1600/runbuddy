@@ -30,6 +30,7 @@ interface SessionRow {
     typedName: string;
     email: string;
     paynowId: string;
+    platformId?: string;
     feeSgd?: number;
     currency?: "SGD" | "USD";
     payVia?: string;
@@ -1029,13 +1030,19 @@ export default function StudioPage() {
           </h2>
           {open.session.license && (
             <p className="studio-license">
-              Signed: {open.session.license.typedName} · {open.session.license.email} ·{" "}
+              Signed: {open.session.license.typedName} ·{" "}
               {open.session.license.payVia
-                ? `via ${open.session.license.payVia}`
-                : `PayNow ${open.session.license.paynowId || "—"}`}{" "}
+                ? `${open.session.license.payVia} ID ${open.session.license.platformId || "—"}${
+                    open.session.license.email ? ` · ${open.session.license.email}` : ""
+                  }`
+                : `${open.session.license.email} · PayNow ${open.session.license.paynowId || "—"}`}{" "}
               · {open.session.license.currency ?? "SGD"}{" "}
               {(open.session.license.feeSgd ?? 0).toFixed(2)} ·{" "}
               {new Date(open.session.license.at).toLocaleString()} ({open.session.license.version})
+              {/* Platform-paid performers have no address on file — reach
+                  them through the platform's own messaging instead. */}
+              {open.session.license.email && (
+              <>
               {" · "}
               <a
                 className="studio-link"
@@ -1056,6 +1063,8 @@ export default function StudioPage() {
               >
                 ✉ Email actor
               </a>
+              </>
+              )}
             </p>
           )}
           <div className="studio-actions">

@@ -105,6 +105,7 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
   // license form
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [platformId, setPlatformId] = useState("");
   const [paynow, setPaynow] = useState("");
   const [paynow2, setPaynow2] = useState("");
   const [agree, setAgree] = useState(false);
@@ -245,12 +246,15 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
   // ---- stage 1: license ----
   if (!view.licensed) {
     const paid = view.feeSgd > 0;
-    // PayNow details only when PayNow is the channel — platform payments
-    // (Fiverr etc.) settle outside the booth.
-    const wantsPaynow = paid && !view.payVia;
+    // Platform payments (Fiverr etc.) settle and communicate outside the
+    // booth: the performer is identified by their platform account, so no
+    // email and no PayNow details. PayNow sessions need an address and, when
+    // there's a fee, the PayNow ID.
+    const viaPlatform = !!view.payVia;
+    const wantsPaynow = paid && !viaPlatform;
     const canSign =
       name.trim().length >= 3 &&
-      /@.+\./.test(email) &&
+      (viaPlatform ? platformId.trim().length >= 2 : /@.+\./.test(email)) &&
       (!wantsPaynow || (paynow.trim().length >= 4 && paynow.trim() === paynow2.trim())) &&
       agree;
     const sign = async () => {
@@ -261,7 +265,8 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             typedName: name.trim(),
-            email: email.trim(),
+            email: viaPlatform ? "" : email.trim(),
+            platformId: viaPlatform ? platformId.trim() : "",
             paynowId: paynow.trim(),
           }),
         });
@@ -298,10 +303,21 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
             Full legal name
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="As on your ID" />
           </label>
-          <label>
-            Email
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-          </label>
+          {viaPlatform ? (
+            <label>
+              {view.payVia} username / ID
+              <input
+                value={platformId}
+                onChange={(e) => setPlatformId(e.target.value)}
+                placeholder={`Your ${view.payVia} account name`}
+              />
+            </label>
+          ) : (
+            <label>
+              Email
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+            </label>
+          )}
           {wantsPaynow && (
             <>
               <label>
@@ -325,17 +341,19 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
             {paid ? (
               <>
                 Once you finish recording, your work will be reviewed within 2 business days.
-                If anything needs another take, we&apos;ll contact you at the email above; if
-                all is well, you&apos;ll receive payment of{" "}
+                If anything needs another take, we&apos;ll contact you{" "}
+                {viaPlatform ? `through ${view.payVia}` : "at the email above"}; if all is
+                well, you&apos;ll receive payment of{" "}
                 <strong>
                   {view.currency} {view.feeSgd.toFixed(2)}
                 </strong>{" "}
-                {view.payVia ? `through ${view.payVia}` : "to your PayNow ID"}.
+                {viaPlatform ? `through ${view.payVia}` : "to your PayNow ID"}.
               </>
             ) : (
               <>
                 Once you finish recording, we&apos;ll review the takes within 2 business days
-                and contact you at the email above if anything needs another pass.
+                and contact you {viaPlatform ? `through ${view.payVia}` : "at the email above"}{" "}
+                if anything needs another pass.
               </>
             )}
           </div>
@@ -390,8 +408,8 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
         </p>
         <div className="booth-note">
           Your work will be reviewed within <strong>2 business days</strong>. If any takes need
-          re-recording, we&apos;ll email you and they&apos;ll appear here marked 🔁 when you
-          reopen this link.{" "}
+          re-recording, we&apos;ll {view.payVia ? `message you on ${view.payVia}` : "email you"}{" "}
+          and they&apos;ll appear here marked 🔁 when you reopen this link.{" "}
           {view.feeSgd > 0 ? (
             <>
               If everything checks out, you&apos;ll receive your payment of{" "}
