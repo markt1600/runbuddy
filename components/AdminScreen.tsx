@@ -116,6 +116,10 @@ export default function AdminScreen({ onBack }: Props) {
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [expanding, setExpanding] = useState<PhraseCategory | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // "Re-render these": a pasted id list for the cases the stale check cannot
+  // see — audio cut before hash tracking has no provenance, so a reworded
+  // phrase from that era is reported current and only a named list reaches it.
+  const [idList, setIdList] = useState("");
   const [speeds, setSpeeds] = useState<Record<PersonaId, number>>(
     () =>
       Object.fromEntries(
@@ -353,6 +357,51 @@ export default function AdminScreen({ onBack }: Props) {
       setProgress(p);
       refresh();
     }, only);
+    refresh();
+  };
+
+  const onRenderList = async () => {
+    const known = new Set(allPhrasesFor(personaId).map((p) => p.id));
+    const ids = [...new Set(idList.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean))];
+    const unknown = ids.filter((id) => !known.has(id));
+    const list = ids.filter((id) => known.has(id));
+    if (list.length === 0) {
+      setNotice(`⚠ No ${persona.shortName} phrase ids recognised in that list.`);
+      return;
+    }
+    const promotedHit = list.filter((id) => isPromoted(personaId, id));
+    if (
+      !window.confirm(
+        `Re-render ${list.length} ${persona.shortName} phrase${list.length === 1 ? "" : "s"} by id?` +
+          (unknown.length > 0 ? ` (${unknown.length} unrecognised id${unknown.length === 1 ? "" : "s"} skipped.)` : "") +
+          (promotedHit.length > 0
+            ? ` WARNING: ${promotedHit.length} of these are REAL actor recordings and will be replaced by synthesized audio.`
+            : "") +
+          " This spends ElevenLabs credits."
+      )
+    )
+      return;
+    setNotice(null);
+    let done = 0;
+    let failed = 0;
+    setProgress({ state: "generating", done, total: list.length });
+    for (const id of list) {
+      try {
+        await reRenderPhrase(personaId, id);
+        done++;
+      } catch {
+        failed++;
+      }
+      setProgress({ state: "generating", done, total: list.length });
+      refresh();
+    }
+    setProgress({ state: "done", done, total: list.length });
+    setNotice(
+      `✓ Re-rendered ${done} of ${list.length}` +
+        (failed > 0 ? ` — ${failed} failed` : "") +
+        (unknown.length > 0 ? ` — skipped unknown: ${unknown.join(", ")}` : "")
+    );
+    if (failed === 0) setIdList("");
     refresh();
   };
 
@@ -643,6 +692,29 @@ export default function AdminScreen({ onBack }: Props) {
         >
           Re-render ALL {persona.shortName} phrases (voice changed)
         </button>
+        <details className="render-list" style={{ marginTop: 12 }}>
+          <summary>Re-render specific {persona.shortName} phrases by id…</summary>
+          <div className="stale-sub" style={{ marginTop: 6 }}>
+            For audio the “old” check can’t see — phrases voiced before hash tracking carry no
+            provenance, so a rewording of one never shows as outdated. Paste ids separated by
+            spaces, commas or new lines.
+          </div>
+          <textarea
+            value={idList}
+            onChange={(e) => setIdList(e.target.value)}
+            placeholder="al-enc-4 al-pu-1 al-km-2 …"
+            rows={3}
+            style={{ width: "100%", marginTop: 8, font: "inherit", fontSize: 13 }}
+          />
+          <button
+            className="cta secondary"
+            style={{ marginTop: 8 }}
+            disabled={busy || idList.trim().length === 0}
+            onClick={() => void onRenderList()}
+          >
+            Re-render listed phrases
+          </button>
+        </details>
         {progress?.state === "generating" && (
           <div className="gen-bar" style={{ marginTop: 12 }}>
             <div
