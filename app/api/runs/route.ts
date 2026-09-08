@@ -47,6 +47,12 @@ export async function POST(req: NextRequest) {
   ) {
     return NextResponse.json({ error: "bad stats" }, { status: 400 });
   }
+  // A duo partner must be a real trainer other than the lead; anything else
+  // is dropped rather than failing the save.
+  if (stats.duoWith !== undefined) {
+    const d = stats.duoWith as string;
+    if (!(d in PERSONAS) || d === personaId) delete stats.duoWith;
+  }
   // The route can be long; the card and chart never need more than a shape.
   if (Array.isArray(stats.route) && stats.route.length > 2000) {
     const step = stats.route.length / 2000;

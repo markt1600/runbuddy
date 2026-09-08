@@ -536,7 +536,12 @@ export default function RunBuddyApp() {
               void fetch("/api/runs", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ personaId, stats }),
+                // The partner rides along in the record: without it, the
+                // history card was rebuilt with the lead trainer alone.
+                body: JSON.stringify({
+                  personaId,
+                  stats: duoMode ? { ...stats, duoWith: "ahlian" as PersonaId } : stats,
+                }),
               })
                 .then((res) => (res.ok ? res.json() : null))
                 .then((data: { id?: string } | null) => {

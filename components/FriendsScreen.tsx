@@ -267,6 +267,10 @@ function FeedCard({ run, onOpen }: { run: FeedRun; onOpen: () => void }) {
           if (!canvas || cancelled) return;
           drawRunCard(canvas, {
             persona,
+            duo:
+              data.stats.duoWith && PERSONAS[data.stats.duoWith]
+                ? PERSONAS[data.stats.duoWith]
+                : null,
             stats: data.stats,
             unit: loadSpeedUnit(),
             comment: persona.positive

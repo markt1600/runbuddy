@@ -127,4 +127,12 @@ export interface RunStats {
   };
   /** Set when the runner adopted a device's distance over the app's. */
   confirmed?: { source: string; appDistanceKm: number; at: number };
+  /**
+   * The second trainer when the run was coached in duo mode. Lives in the
+   * stats rather than beside personaId so every card drawn from a saved run
+   * (history detail, a friend's feed, admin) shows both trainers without
+   * each reader learning a new field — and so a re-save (Watch conform)
+   * carries it along untouched.
+   */
+  duoWith?: PersonaId;
 }

@@ -224,6 +224,8 @@ export default function RunDetailScreen({
       if (!canvas || cancelled) return;
       drawRunCard(canvas, {
         persona,
+        // Both trainers on a duo run's card, same as the summary showed.
+        duo: stats.duoWith && PERSONAS[stats.duoWith] ? PERSONAS[stats.duoWith] : null,
         stats,
         unit: loadSpeedUnit(),
         comment,
