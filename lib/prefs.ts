@@ -114,7 +114,7 @@ export function formatTargetPace(sec: number): string {
 // One distinct name per slider stop (0.5 → 2.0 in 0.25 steps = 7 positions),
 // with "Non-stop" reserved for the very top.
 export function chattinessLabel(v: number): string {
-  if (v <= 0.5) return "Rare";
+  if (v <= 0.5) return "Essentials only";
   if (v <= 0.75) return "Quiet";
   if (v <= 1.0) return "Normal";
   if (v <= 1.25) return "Talkative";

@@ -496,8 +496,10 @@ export default function SetupScreen({
         </div>
         <div className="chatter-label">
           {chattinessLabel(chattiness)}
-          {chattiness === 1 ? " (default)" : ""} — km markers and pace reactions always
-          fire; this tunes how often the in-between talking happens
+          {chattiness === 1 ? " (default)" : ""}
+          {chattiness <= CHATTINESS_MIN
+            ? " — start, finish, pause and resume, target hit and each kilometre with its split. Nothing else, so your music or podcast plays through."
+            : " — km markers and pace reactions always fire; this tunes how often the in-between talking happens. All the way left is essentials only."}
         </div>
       </div>
 

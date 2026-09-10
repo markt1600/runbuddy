@@ -35,6 +35,14 @@ const PACE_TARGET_MIN_ELAPSED_MS = 120_000;
 // Fractions of the target distance that earn a callout. The requested
 // checkpoints, then a tighter run-in over the last stretch.
 const PROGRESS_MARKS = [0.1, 0.25, 1 / 3, 0.5, 2 / 3, 0.75, 0.9, 0.94, 0.97, 0.99, 1];
+/**
+ * The chatter dial's bottom stop is not "rarely" but "essentials only": the
+ * trainer marks the start, the finish, pauses and resumes, the target being
+ * hit, and each kilometre with its split — and nothing else, so music or a
+ * podcast can play through the run without being talked over. Friends'
+ * shout-outs still get through: those are a person, not the trainer.
+ */
+const ESSENTIALS_AT = 0.5;
 
 const FRESH_ANECDOTE_CHANCE = 0.5; // odds an anecdote slot asks the API for new material
 const FRESH_ENCOURAGE_CHANCE = 0.25; // odds regular encouragement is freshly generated
@@ -278,6 +286,11 @@ export class CoachEngine {
     return true;
   }
 
+  /** Bottom of the chatter dial: essentials only, see ESSENTIALS_AT. */
+  private get essentials(): boolean {
+    return this.chattiness <= ESSENTIALS_AT;
+  }
+
   /** Gap until the next scheduled interjection, scaled by the chatter setting. */
   private gap(range: [number, number]): number {
     return between(range) / this.chattiness;
@@ -401,6 +414,7 @@ export class CoachEngine {
    * the pair feel like they're in the same room, not taking turns at a mic.
    */
   private maybeDuoReact(chance = 0.5) {
+    if (this.essentials) return; // the km line alone, no quip on top
     if (!this.duo || !this.lastLibSpeaker || Math.random() >= chance) return;
     const reactor =
       this.lastLibSpeaker.id === this.persona.id ? this.duo : this.persona;
@@ -431,7 +445,7 @@ export class CoachEngine {
    * clear second" filters float jitter at the boundary.
    */
   checkPersonalRecords(efforts: { targetKm: number; sec: number }[], stats: RunStats) {
-    if (!this.prs || this.disposed) return;
+    if (!this.prs || this.disposed || this.essentials) return;
     for (const e of efforts) {
       if (this.prTold.has(e.targetKm)) continue;
       const pr = this.prs.find((p) => p.targetKm === e.targetKm);
@@ -823,6 +837,7 @@ export class CoachEngine {
    */
   tickPaused(stats: RunStats) {
     if (this.disposed || this.voice.busy || this.pausedSince === 0) return;
+    if (this.essentials) return; // paused was announced; no nagging after it
     const now = Date.now();
     if (now < this.nextLoiterAt) return;
 
@@ -865,6 +880,22 @@ export class CoachEngine {
     // so scheduled interjections wait their turn instead of stacking up.
     if (this.disposed || this.voice.busy) return;
     const now = Date.now();
+    const runFrac =
+      this.targetKm > 0
+        ? stats.distanceKm / this.targetKm
+        : this.targetMin > 0
+          ? stats.elapsedMs / (this.targetMin * 60_000)
+          : null;
+
+    // Essentials only: a friend's shout-out, the target being hit, and the
+    // kilometre lines. Everything below this block stays silent, and checking
+    // the dial every tick means turning it up mid-run re-opens the floodgates
+    // at once while turning it down closes them just as fast.
+    if (this.essentials) {
+      if (this.playDueShoutout(now, runFrac)) return;
+      this.tickEssentials(stats);
+      return;
+    }
 
     // 0a. The condition-keyed opener, once, as soon as the intro has finished
     // speaking. Waits briefly for the weather to land, then goes with the time
@@ -889,12 +920,6 @@ export class CoachEngine {
 
     // 0a¾. Duo set pieces — duets and the argument — fire the same way:
     // background round-trip, spoken only when the finished script lands.
-    const runFrac =
-      this.targetKm > 0
-        ? stats.distanceKm / this.targetKm
-        : this.targetMin > 0
-          ? stats.elapsedMs / (this.targetMin * 60_000)
-          : null;
     if (this.duoPieces.length > 0) {
       const due = this.duoPieces.findIndex(
         (p) =>
@@ -909,18 +934,7 @@ export class CoachEngine {
 
     // 0a⅞. A friend's shoutout whose slot has arrived beats everything except
     // what's already speaking — it's the most human thing the run can say.
-    if (this.shoutoutQueue.length > 0) {
-      const due = this.shoutoutQueue.findIndex(
-        (q) =>
-          (q.at !== undefined && now >= q.at) ||
-          (q.frac !== undefined && runFrac !== null && runFrac >= q.frac)
-      );
-      if (due >= 0) {
-        const [item] = this.shoutoutQueue.splice(due, 1);
-        this.playShoutout(item.s);
-        return;
-      }
-    }
+    if (this.playDueShoutout(now, runFrac)) return;
 
     // 0b. Target progress takes priority over everything else.
     if (this.targetMin > 0) {
@@ -1041,6 +1055,60 @@ export class CoachEngine {
     }
 
     this.tickAmbient(stats, now);
+  }
+
+  /** Plays the first shout-out whose slot has arrived. True when one did. */
+  private playDueShoutout(now: number, runFrac: number | null): boolean {
+    if (this.shoutoutQueue.length === 0) return false;
+    const due = this.shoutoutQueue.findIndex(
+      (q) =>
+        (q.at !== undefined && now >= q.at) ||
+        (q.frac !== undefined && runFrac !== null && runFrac >= q.frac)
+    );
+    if (due < 0) return false;
+    const [item] = this.shoutoutQueue.splice(due, 1);
+    this.playShoutout(item.s);
+    return true;
+  }
+
+  /**
+   * The essentials-only tick: the target being hit (once), and each completed
+   * kilometre with its split. No checkpoints on the way, no colour line, no
+   * pace reactions, no ambient talk. Bookkeeping is kept in step with the
+   * full tick (progress marks, last km) so turning the dial back up mid-run
+   * doesn't replay a checkpoint already passed.
+   */
+  private tickEssentials(stats: RunStats) {
+    if (this.targetMin > 0) {
+      const frac = stats.elapsedMs / (this.targetMin * 60_000);
+      const passed = PROGRESS_MARKS.filter((m) => frac >= m);
+      const hit = passed.includes(1) && !this.progressDone.has(1);
+      passed.forEach((m) => this.progressDone.add(m));
+      if (hit) this.sayFromLibrary("target_hit");
+      return; // treadmill: no kilometres to mark
+    }
+    if (this.targetKm > 0) {
+      const frac = stats.distanceKm / this.targetKm;
+      const passed = PROGRESS_MARKS.filter((m) => frac >= m);
+      const hit = passed.includes(1) && !this.progressDone.has(1);
+      passed.forEach((m) => this.progressDone.add(m));
+      if (hit) {
+        // The target landing on a whole kilometre would otherwise be announced twice.
+        this.lastKmAnnounced = Math.max(this.lastKmAnnounced, Math.floor(stats.distanceKm));
+        this.sayFromLibrary("target_hit");
+        return;
+      }
+    }
+    const km = Math.floor(stats.distanceKm);
+    if (km > this.lastKmAnnounced) {
+      this.lastKmAnnounced = km;
+      this.sayKmMarker(km);
+      const lastKmSec = this.lastKmPaceSec(stats, km);
+      if (lastKmSec !== null) {
+        this.sayFromLibrary("pace_lead");
+        this.voice.say(spokenDuration(lastKmSec));
+      }
+    }
   }
 
   /** A pace deviation: solo call-out, fresh line, or — in duo — the pair
