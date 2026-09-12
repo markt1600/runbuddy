@@ -222,7 +222,7 @@ export default function StudioPage() {
   if (!me.user || me.isAdmin === false) {
     return (
       <div className="studio">
-        <h1>Run Buddy Studio</h1>
+        <h1>Tekan Buddy Studio</h1>
         <p>
           Admin sign-in required.{" "}
           <a href="/api/auth/login">Sign in with Google</a> (then come back to /studio).
@@ -233,7 +233,7 @@ export default function StudioPage() {
   if (!pinOk) {
     return (
       <div className="studio">
-        <h1>Run Buddy Studio</h1>
+        <h1>Tekan Buddy Studio</h1>
         <p>Enter the admin PIN.</p>
         <form
           onSubmit={(e) => {
@@ -578,7 +578,7 @@ export default function StudioPage() {
 
   return (
     <div className="studio">
-      <h1>Run Buddy Studio</h1>
+      <h1>Tekan Buddy Studio</h1>
       <p className="studio-sub">Voice sessions, take review, library promotion, clone pipeline.</p>
       {note && <div className="studio-note">{note}</div>}
       {busy && <div className="studio-note">⏳ {busy}</div>}

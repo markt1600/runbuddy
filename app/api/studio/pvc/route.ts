@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       }
       case "create": {
         const voiceId = await pvcCreate(
-          `RunBuddy ${PERSONAS[session.persona].shortName} — ${session.label}`
+          `TekanBuddy ${PERSONAS[session.persona].shortName} — ${session.label}`
         );
         session.pvc = { voiceId, state: "created", attempts: 0 };
         await writeSession(session);
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
         const bank = PHRASE_LIBRARY[session.persona];
         const line =
           bank[Math.floor(Math.random() * bank.length)]?.text ??
-          "Oi, steady lah! This is your new voice speaking. Run Buddy, checking in.";
+          "Oi, steady lah! This is your new voice speaking. Tekan Buddy, checking in.";
         const audio = await ttsPreview(session.pvc.voiceId, line);
         return NextResponse.json({
           session,

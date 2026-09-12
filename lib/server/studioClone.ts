@@ -56,7 +56,7 @@ export async function instantCloneFromSession(session: StudioSession): Promise<s
   const voiceId = await ivcCreate(
     session.cloneOnly
       ? `${session.label} (clone)`
-      : `RunBuddy ${PERSONAS[session.persona].shortName} — ${session.label}`,
+      : `TekanBuddy ${PERSONAS[session.persona].shortName} — ${session.label}`,
     picked
   );
   session.pvc = { voiceId, state: "ready" };

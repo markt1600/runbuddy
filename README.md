@@ -1,4 +1,4 @@
-# Run Buddy 🏃
+# Tekan Buddy 🏃
 
 An AI running trainer for your iPhone, built as a mobile web app. Pick a persona —
 **Angry Ah Beng** and **Ah Lian** (scold you in Singlish), **Coach Christine**

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 const ACTIONS: SpotifyControlAction[] = ["play", "pause", "next", "previous"];
 
 // The run screen's transport buttons: drive the runner's own Spotify app
-// through the Web API, so the phone can stay in Run Buddy (or in a sleeve).
+// through the Web API, so the phone can stay in Tekan Buddy (or in a sleeve).
 export async function POST(req: NextRequest) {
   const session = readSession(req);
   if (!session) return NextResponse.json({ ok: false, reason: "notConnected" });

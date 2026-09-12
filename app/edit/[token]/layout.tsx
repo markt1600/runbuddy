@@ -4,10 +4,10 @@ import type { Metadata } from "next";
 // same treatment as booth and audition links.
 
 export const metadata: Metadata = {
-  title: "Phrase Editing — Run Buddy Studio",
+  title: "Phrase Editing — Tekan Buddy Studio",
   description: "Polish the lines, keep the voice. One phrase per page, saved as you go.",
   openGraph: {
-    title: "Phrase Editing — Run Buddy Studio",
+    title: "Phrase Editing — Tekan Buddy Studio",
     description: "Polish the lines, keep the voice. One phrase per page, saved as you go.",
     images: [{ url: "/og-edit.jpg", width: 1200, height: 630 }],
   },

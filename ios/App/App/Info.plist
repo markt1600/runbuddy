@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Run Buddy</string>
+        <string>Tekan Buddy</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -68,17 +68,17 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<!-- Run Buddy: GPS while running, screen locked included -->
+	<!-- Tekan Buddy: GPS while running, screen locked included -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Run Buddy uses your location to measure your run — distance, pace and your route.</string>
+	<string>Tekan Buddy uses your location to measure your run — distance, pace and your route.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Allowing background location keeps your run tracking while the screen is locked or the phone is in an armband.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Recording a voice shoutout for a friend uses the microphone. Nothing records without you tapping Record.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>After a run, Run Buddy reads your workout, heart rate and distance from Apple Health so you can compare it with what the app measured.</string>
+	<string>After a run, Tekan Buddy reads your workout, heart rate and distance from Apple Health so you can compare it with what the app measured.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Run Buddy does not write to Apple Health today; this permission is only requested if a future feature saves your runs to Health, and you can decline it.</string>
+	<string>Tekan Buddy does not write to Apple Health today; this permission is only requested if a future feature saves your runs to Health, and you can decline it.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Saving your run card adds the picture to your photo library.</string>
 	<key>UIBackgroundModes</key>

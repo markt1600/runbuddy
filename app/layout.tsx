@@ -36,13 +36,13 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://run.marktan.ai"),
-  title: "Run Buddy",
+  title: "Tekan Buddy",
   description: "Your AI running trainer — pick a persona, press start, get coached.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Run Buddy",
+    title: "Tekan Buddy",
   },
   icons: {
     icon: [

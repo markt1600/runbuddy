@@ -74,7 +74,7 @@ export default function HomeScreen({ user, historyAvailable, onOpenRun, onStart 
 
   return (
     <div className="fade-in home">
-      <h1 className="large-title">Run Buddy</h1>
+      <h1 className="large-title">Tekan Buddy</h1>
       <p className="subtitle">Welcome back, {firstName}.</p>
 
       {/* Best rolling 1/5/10km efforts across every saved run — mined from

@@ -5,10 +5,10 @@ import type { Metadata } from "next";
 // image URL absolute.
 
 export const metadata: Metadata = {
-  title: "Voice Audition — Run Buddy Studio",
+  title: "Voice Audition — Tekan Buddy Studio",
   description: "One line, in character, full commitment. Record your audition right in the browser.",
   openGraph: {
-    title: "Voice Audition — Run Buddy Studio",
+    title: "Voice Audition — Tekan Buddy Studio",
     description: "One line, in character, full commitment. Record your audition right in the browser.",
     images: [{ url: "/og-audition.jpg", width: 1200, height: 630 }],
   },

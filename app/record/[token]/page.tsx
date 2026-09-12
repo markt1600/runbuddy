@@ -40,7 +40,7 @@ const CLIP_PEAK = 0.99;
 // Calibration targets, from ElevenLabs' PVC guidance: speech around
 // −23…−18 dB RMS with true peaks below −3 dB, over a quiet noise floor.
 const CAL_TEXT =
-  "This is my microphone check for the Run Buddy voice session. I am speaking at the same " +
+  "This is my microphone check for the Tekan Buddy voice session. I am speaking at the same " +
   "volume and energy I will use for every recording today. One, two, three, four, five. " +
   "The quick brown fox jumps over the lazy dog, and the race starts at six in the morning " +
   "by the sea. If my levels look good, I will keep everything exactly like this.";
@@ -278,7 +278,7 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
     };
     return (
       <div className="booth">
-        <h1>{view.cloneOnly ? "Voice Clone Session" : "Run Buddy Voice Session"}</h1>
+        <h1>{view.cloneOnly ? "Voice Clone Session" : "Tekan Buddy Voice Session"}</h1>
         <p className="booth-sub">
           {view.cloneOnly ? (
             <>Recording your natural voice · {view.label}</>

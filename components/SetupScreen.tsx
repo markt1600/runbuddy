@@ -165,10 +165,10 @@ export default function SetupScreen({
 
   return (
     <div className="fade-in">
-      <h1 className="large-title">Run Buddy</h1>
+      <h1 className="large-title">Tekan Buddy</h1>
       <p className="subtitle">Pick your trainer. Press start. Get talked at.</p>
 
-      <div className="section-header">Your Run Buddy</div>
+      <div className="section-header">Your Tekan Buddy</div>
       {PERSONA_LIST.map((p) => (
         <button
           key={p.id}
@@ -266,7 +266,7 @@ export default function SetupScreen({
             </div>
           );
           // Spotify connected: the transport replaces the open-the-app card —
-          // start the playlist and set the volume without leaving Run Buddy.
+          // start the playlist and set the volume without leaving Tekan Buddy.
           // Everyone else (guests, no link, other apps) sees the card as before.
           return music === "spotify" ? (
             <SpotifyTransport firstPollMs={400} intervalMs={30_000} openLink fallback={openCard} />

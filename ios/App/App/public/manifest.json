@@ -1,6 +1,6 @@
 {
-  "name": "Run Buddy",
-  "short_name": "Run Buddy",
+  "name": "Tekan Buddy",
+  "short_name": "Tekan Buddy",
   "description": "Your AI running trainer — pick a persona, press start, get coached.",
   "start_url": "/",
   "display": "standalone",

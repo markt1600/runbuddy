@@ -703,7 +703,7 @@ export default function RunScreen({
               </>
             ) : (
               <>
-                <strong>Don&apos;t press the side button.</strong> Run Buddy locks the screen
+                <strong>Don&apos;t press the side button.</strong> Tekan Buddy locks the screen
                 for you — it&apos;s already locked. If you lock the phone yourself, iOS mutes
                 your buddy until you unlock it again.
               </>
@@ -731,7 +731,7 @@ export default function RunScreen({
                 </>
               ) : (
                 <>
-                  <strong>Don&apos;t press the side button.</strong> Run Buddy locks the screen
+                  <strong>Don&apos;t press the side button.</strong> Tekan Buddy locks the screen
                   for you — it&apos;s already locked. If you lock the phone yourself, iOS mutes
                   your buddy until you unlock it again.
                 </>

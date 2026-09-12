@@ -4,10 +4,10 @@ import type { Metadata } from "next";
 // the actor's first impression of the studio starts in the chat preview.
 
 export const metadata: Metadata = {
-  title: "Voice Session — Run Buddy Studio",
+  title: "Voice Session — Tekan Buddy Studio",
   description: "Your recording booth is ready. Progress saves as you go — come back anytime with this link.",
   openGraph: {
-    title: "Voice Session — Run Buddy Studio",
+    title: "Voice Session — Tekan Buddy Studio",
     description: "Your recording booth is ready. Progress saves as you go — come back anytime with this link.",
     images: [{ url: "/og-studio.jpg", width: 1200, height: 630 }],
   },

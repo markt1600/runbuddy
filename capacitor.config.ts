@@ -7,7 +7,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // to copy.
 const config: CapacitorConfig = {
   appId: "ai.marktan.runbuddy",
-  appName: "Run Buddy",
+  appName: "Tekan Buddy",
   webDir: "public",
   server: {
     url: "https://run.marktan.ai",

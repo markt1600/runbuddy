@@ -15,7 +15,7 @@ export default function LandingScreen({ onGuest }: Props) {
     <div className="fade-in landing">
       <div className="landing-hero">
         <div className="landing-emoji">🏃</div>
-        <h1 className="large-title">Run Buddy</h1>
+        <h1 className="large-title">Tekan Buddy</h1>
         <p className="subtitle">Pick your trainer. Press start. Get talked at.</p>
       </div>
 
