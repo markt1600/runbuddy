@@ -243,12 +243,18 @@ export function stalePhrases(only?: PersonaId): { persona: PersonaId; id: string
 /**
  * Re-cut every out-of-date phrase. Sequential and force-rendering, same shape
  * as the gap-filling pass — this spends ElevenLabs credits, one call per phrase.
+ * `skipPromoted` leaves real actor recordings alone even when their wording
+ * has moved on: a take that says the old words wants a new take, not a
+ * synthesized stand-in quietly swapped in by a bulk button.
  */
 export async function reRenderStale(
   onProgress: (p: GenerationProgress) => void,
-  only?: PersonaId
+  only?: PersonaId,
+  opts?: { skipPromoted?: boolean }
 ): Promise<void> {
-  const stale = stalePhrases(only);
+  const stale = stalePhrases(only).filter(
+    (s) => !(opts?.skipPromoted && promoted.has(key(s.persona, s.id)))
+  );
   const total = stale.length;
   let done = 0;
   const report = (state: GenerationProgress["state"], message?: string) =>

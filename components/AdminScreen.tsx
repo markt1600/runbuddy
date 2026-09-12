@@ -342,21 +342,54 @@ export default function AdminScreen({ onBack }: Props) {
   const staleHere = stalePhrases(personaId);
   const staleAll = stalePhrases();
 
+  // Bulk re-render never touches a real actor recording: an outdated take is
+  // told about and left in place. Replacing one with synthesized audio is a
+  // deliberate per-phrase act (the ↻ button, which asks first).
   const onRenderStale = async (only?: PersonaId) => {
     const list = stalePhrases(only);
+    const recorded = list.filter((s) => isPromoted(s.persona, s.id));
+    const count = list.length - recorded.length;
+    const keptNote =
+      recorded.length > 0
+        ? `\n\n🎙 ${recorded.length} of the outdated phrase${recorded.length === 1 ? " is a" : "s are"} ` +
+          "REAL actor recording" + (recorded.length === 1 ? "" : "s") + " — " +
+          (recorded.length === 1 ? "it stays" : "they stay") +
+          " as recorded and will NOT be re-rendered. A recording that says the old " +
+          "words needs a new take from the studio; to replace one with synthesized " +
+          "audio instead, use its own ↻ button."
+        : "";
+    if (count === 0) {
+      setNotice(
+        `🎙 All ${recorded.length} outdated ${only ? persona.shortName + " " : ""}phrases are real ` +
+          "actor recordings — nothing re-rendered. Re-record them in the studio, or replace one " +
+          "with synthesized audio via its own ↻ button."
+      );
+      return;
+    }
     if (
       !window.confirm(
-        `Re-render ${list.length} outdated phrase${list.length === 1 ? "" : "s"}` +
+        `Re-render ${count} outdated phrase${count === 1 ? "" : "s"}` +
           `${only ? ` for ${persona.name}` : " across all trainers"}? ` +
-          "This spends ElevenLabs credits."
+          "This spends ElevenLabs credits." +
+          keptNote
       )
     )
       return;
     setNotice(null);
-    await reRenderStale((p) => {
-      setProgress(p);
-      refresh();
-    }, only);
+    await reRenderStale(
+      (p) => {
+        setProgress(p);
+        refresh();
+      },
+      only,
+      { skipPromoted: true }
+    );
+    if (recorded.length > 0) {
+      setNotice(
+        `✓ Re-rendered ${count}. ${recorded.length} recorded take${recorded.length === 1 ? "" : "s"} ` +
+          "left as is — still marked outdated until re-recorded."
+      );
+    }
     refresh();
   };
 
