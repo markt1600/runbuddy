@@ -9,6 +9,8 @@ import type { PersonaId } from "./types";
 
 /** A friend's shoutout as the deliver endpoint hands it over, ready to play. */
 export interface DeliveredShoutout {
+  /** The queued message's id — reported back the moment it starts playing. */
+  id?: string;
   fromName: string;
   kind: "voice" | "trainer";
   slot: "now" | "start" | "middle" | "end";
@@ -188,6 +190,8 @@ export class CoachEngine {
   private duoPieces: { at?: number; frac?: number; kind: "duet" | "argument" }[] = [];
   /** Friends' shoutouts waiting for their slot in this run. */
   private shoutoutQueue: { at?: number; frac?: number; s: DeliveredShoutout }[] = [];
+  /** Set by the run screen: a message just started playing — tell the sender. */
+  onShoutoutPlayed: ((id: string) => void) | null = null;
 
   constructor(
     persona: Persona,
@@ -384,25 +388,38 @@ export class CoachEngine {
 
   private playShoutout(s: DeliveredShoutout) {
     vibrate([60, 80, 60]); // incoming-message buzz — worth a glance at the wrist
-    const items: { text: string; audioUrl?: string; speaker?: Persona; volume?: number }[] = [];
+    const items: {
+      text: string;
+      audioUrl?: string;
+      speaker?: Persona;
+      volume?: number;
+      onStart?: () => void;
+    }[] = [];
+    // The receipt fires when the FIRST piece starts — the intro for a voice
+    // message, the line itself for a trainer-spoken one — which is the moment
+    // the runner hears that a message has arrived.
+    const onStart = s.id ? () => this.onShoutoutPlayed?.(s.id!) : undefined;
     if (s.kind === "voice") {
       if (s.introBase64) {
         items.push({
           text: `Message from ${s.fromName}!`,
           audioUrl: `data:audio/mpeg;base64,${s.introBase64}`,
           speaker: this.persona,
+          onStart,
         });
       }
       items.push({
         text: `${s.fromName}'s message`,
         audioUrl: `data:${s.mime ?? "audio/mpeg"};base64,${s.audioBase64}`,
         volume: 1, // the sender's real voice plays at full level
+        onStart: s.introBase64 ? undefined : onStart,
       });
     } else {
       items.push({
         text: s.text ?? `Message from ${s.fromName}`,
         audioUrl: `data:audio/mpeg;base64,${s.audioBase64}`,
         speaker: this.persona,
+        onStart,
       });
     }
     this.voice.sayBatch(items);

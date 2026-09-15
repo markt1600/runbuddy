@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { readSession, uidHash } from "@/lib/server/auth";
 import { blobConfigured } from "@/lib/server/library";
 import { generateShoutoutLine, renderVoice } from "@/lib/server/generate";
-import { deleteShoutout, listShoutouts, type ShoutoutSlot } from "@/lib/server/shoutouts";
+import {
+  deleteShoutout,
+  listShoutouts,
+  putReceipt,
+  type ShoutoutSlot,
+} from "@/lib/server/shoutouts";
 import { PERSONAS } from "@/lib/personas";
 import type { PersonaId } from "@/lib/types";
 
@@ -37,6 +42,7 @@ export async function POST(req: NextRequest) {
   const queued = (await listShoutouts(self)).filter((s) => slots.includes(s.slot)).slice(0, 3);
 
   const delivered: {
+    id: string;
     fromName: string;
     kind: "voice" | "trainer";
     slot: ShoutoutSlot;
@@ -55,6 +61,7 @@ export async function POST(req: NextRequest) {
         const audio = await renderVoice(persona, line);
         if (!audio) continue; // voices down — leave it queued
         delivered.push({
+          id: s.id,
           fromName: s.fromName,
           kind: "trainer",
           slot: s.slot,
@@ -68,6 +75,7 @@ export async function POST(req: NextRequest) {
           `${s.fromName} sent you a message. Listen up.`
         );
         delivered.push({
+          id: s.id,
           fromName: s.fromName,
           kind: "voice",
           slot: s.slot,
@@ -80,6 +88,20 @@ export async function POST(req: NextRequest) {
         continue;
       }
       await deleteShoutout(self, s.id);
+      // Park the played-receipt so the run screen can complete it the moment
+      // the message is actually heard. Best effort: a missing receipt only
+      // costs the sender their confirmation, never the delivery.
+      await putReceipt(self, {
+        id: s.id,
+        fromUid: s.fromUid,
+        fromName: s.fromName,
+        kind: s.kind,
+        text: s.kind === "trainer" ? s.text : undefined,
+        embellish: s.embellish,
+        persona,
+        slot: s.slot,
+        deliveredAt: Date.now(),
+      }).catch(() => {});
     } catch {
       /* generation hiccup — stays queued for the next fetch */
     }

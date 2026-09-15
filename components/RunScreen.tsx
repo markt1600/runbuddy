@@ -260,6 +260,23 @@ export default function RunScreen({
     coach.setPersonalRecords(personalRecords ?? null);
     if (duoWith && PERSONAS[duoWith]) coach.setDuo(PERSONAS[duoWith]);
     coachRef.current = coach;
+    // Played receipts: the sender's What's-new gets "✅ Played at 07:42 in
+    // Mark's run" the moment their message starts. Clock time from this
+    // phone — it's this run, in this timezone. Fire-and-forget; guests have
+    // no friends layer, so nothing is ever queued for them.
+    if (runner) {
+      coach.onShoutoutPlayed = (id) => {
+        const localTime = new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        void fetch("/api/shoutouts/played", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, localTime }),
+        }).catch(() => {});
+      };
+    }
 
     // Offline armour (shell only): warm this persona's whole rendered
     // library into the native disk cache while there's still signal, so a

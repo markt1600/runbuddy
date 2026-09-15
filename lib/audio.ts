@@ -143,6 +143,8 @@ export class VoiceEngine {
     volume?: number;
     /** Whose line this is, when not the run persona — sets the synth fallback voice. */
     speaker?: Persona;
+    /** Fires the moment this item starts to play — for "it was actually heard" receipts. */
+    onStart?: () => void;
   }[] = [];
   private playing = false;
   private persona: Persona;
@@ -322,13 +324,22 @@ export class VoiceEngine {
    * backlog cap. Only for scripted exchanges queued at a quiet moment —
    * everything still plays strictly one line at a time.
    */
-  sayBatch(items: { text: string; audioUrl?: string; speaker?: Persona; volume?: number }[]) {
+  sayBatch(
+    items: {
+      text: string;
+      audioUrl?: string;
+      speaker?: Persona;
+      volume?: number;
+      onStart?: () => void;
+    }[]
+  ) {
     for (const it of items) {
       this.queue.push({
         text: it.text,
         audioUrl: it.audioUrl,
         volume: it.volume ?? (it.speaker ? getVoiceVolume(it.speaker.id) : undefined),
         speaker: it.speaker,
+        onStart: it.onStart,
       });
     }
     void this.drain();
@@ -395,6 +406,11 @@ export class VoiceEngine {
       while (this.queue.length > 0) {
         const item = this.queue.shift()!;
         this.setSpeaking(true, item.text);
+        try {
+          item.onStart?.();
+        } catch {
+          /* a receipt hook must never break playback */
+        }
         let served: keyof typeof this.counts = !item.audioUrl
           ? "synth"
           : item.audioUrl.startsWith("data:")

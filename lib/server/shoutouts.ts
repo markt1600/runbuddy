@@ -68,3 +68,66 @@ export async function deleteShoutout(toUid: string, id: string): Promise<void> {
   const hit = page.blobs.find((b) => b.pathname === pathname);
   if (hit) await del(hit.url);
 }
+
+// ---- Played receipts ----
+// A delivered message is consumed from the queue, but "delivered to the
+// phone" is not "heard": the start/middle/end slots play minutes later, and
+// a run can end first. So delivery parks a receipt under the RECIPIENT, and
+// the run screen reports the moment the message actually starts playing.
+// The sender learns about it then, in their What's-new strip. Keeping the
+// receipt on the recipient's side means only the recipient's own report can
+// complete it, and the sender's identity comes from our record, never from
+// the request.
+
+export interface ShoutoutReceipt {
+  id: string;
+  fromUid: string;
+  fromName: string;
+  kind: "voice" | "trainer";
+  /** trainer kind: the sender's own words (not the trainer's rendering). */
+  text?: string;
+  embellish?: boolean;
+  /** Which trainer voiced it (trainer kind) or introduced it (voice kind). */
+  persona: string;
+  slot: ShoutoutSlot;
+  deliveredAt: number;
+}
+
+const receiptPrefix = (toUid: string) => `shoutout-receipts/${toUid}/`;
+const receiptPath = (toUid: string, id: string) => `${receiptPrefix(toUid)}${id}.json`;
+const RECEIPT_TTL_MS = 2 * 86_400_000;
+
+export async function putReceipt(toUid: string, r: ShoutoutReceipt): Promise<void> {
+  if (!UID_RE.test(toUid)) return;
+  await put(receiptPath(toUid, r.id), JSON.stringify(r), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+  });
+}
+
+/** Reads and removes one receipt. Sweeps expired siblings while it's there. */
+export async function takeReceipt(toUid: string, id: string): Promise<ShoutoutReceipt | null> {
+  if (!UID_RE.test(toUid) || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) return null;
+  const page = await list({ prefix: receiptPrefix(toUid) });
+  const want = receiptPath(toUid, id);
+  let found: ShoutoutReceipt | null = null;
+  const stale: string[] = [];
+  for (const b of page.blobs) {
+    if (b.pathname === want) {
+      try {
+        const res = await fetch(`${b.url}?nocache=${Date.now()}`, { cache: "no-store" });
+        if (res.ok) found = (await res.json()) as ShoutoutReceipt;
+      } catch {
+        /* treat as missing */
+      }
+      stale.push(b.url);
+    } else if (Date.now() - b.uploadedAt.getTime() > RECEIPT_TTL_MS) {
+      stale.push(b.url);
+    }
+  }
+  if (stale.length > 0) await del(stale).catch(() => {});
+  return found?.id ? found : null;
+}
