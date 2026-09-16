@@ -1288,6 +1288,37 @@ input[type="range"]::-moz-range-thumb {
   cursor: default;
 }
 
+/* Measured loudness + suggested level, beside each playback slider. On a
+   phone the row wraps and the reading drops to its own line. */
+.speed-row { flex-wrap: wrap; }
+.level-measured {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+  padding-left: 106px;
+}
+.level-measured em { font-style: normal; color: var(--label-3); }
+.level-measured strong { color: var(--label); }
+.level-use {
+  margin-left: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--blue);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.level-tools {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 6px 0 4px;
+}
+.level-tools .gen-hint { padding: 4px 0 0; }
+
 .admin-lib-stats {
   display: flex;
   justify-content: space-around;

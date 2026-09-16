@@ -11,6 +11,8 @@ export interface PhraseContext {
   distanceKm?: number;
   elapsedMin?: number;
   localTime?: string;
+  /** dawn | morning | midday | evening | night, from the runner's device clock. */
+  timeOfDay?: string;
   kmMarker?: number; // whole kilometres completed
   paceMinPerKm?: string; // current pace, e.g. "6:24"
   avgPaceMinPerKm?: string;
@@ -144,6 +146,20 @@ function travelLines(context: PhraseContext): string {
   );
 }
 
+/**
+ * The daypart, stated outright and made binding. "Local time: 07:42" alone
+ * was not enough for a persona whose whole act is night-time collection
+ * rounds — he kept saying "tonight" to a morning runner.
+ */
+function timeOfDayLine(context: PhraseContext): string | null {
+  if (!context.timeOfDay) return null;
+  return (
+    `It is ${context.timeOfDay} for the runner right now. Every reference you make to the ` +
+    "time of day must match that — no \"tonight\", \"this evening\" or \"good evening\" " +
+    "unless it is actually evening or night, and no \"this morning\" unless it is morning."
+  );
+}
+
 function contextLines(context: PhraseContext): string {
   if (context.treadmill) {
     const lines = [
@@ -161,6 +177,7 @@ function contextLines(context: PhraseContext): string {
         ? `They have been stopped, not moving, for ${context.pausedSeconds} seconds`
         : null,
       context.localTime ? `Local time: ${context.localTime}` : null,
+      timeOfDayLine(context),
       context.nowPlaying
         ? `Playing in their ears right now: ${context.nowPlaying} — react to the music ` +
           "only occasionally, when it's genuinely funny or apt"
@@ -190,6 +207,7 @@ function contextLines(context: PhraseContext): string {
       ? `They have been stopped, not moving, for ${context.pausedSeconds} seconds`
       : null,
     context.localTime ? `Local time: ${context.localTime}` : null,
+    timeOfDayLine(context),
     context.nowPlaying
       ? `Playing in their ears right now: ${context.nowPlaying} — react to the music ` +
         "only occasionally, when it's genuinely funny or apt"

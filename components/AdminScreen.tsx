@@ -19,6 +19,7 @@ import {
   reRenderPhrase,
   reRenderStale,
   renderedCount,
+  renderedUrlsFor,
   isPhraseStale,
   isPromoted,
   promotedPhrases,
@@ -28,6 +29,12 @@ import {
   storeAdminPin,
   type GenerationProgress,
 } from "@/lib/voiceLibrary";
+import {
+  measureLoudness,
+  sampleUrls,
+  suggestedVolume,
+  type LoudnessReading,
+} from "@/lib/loudness";
 import { EXPANDABLE_CATEGORIES, FIXED_CATEGORY_REASON } from "@/lib/phraseCategories";
 import { formatElapsed, formatPace } from "@/lib/geo";
 import RunDetailScreen from "./RunDetailScreen";
@@ -135,6 +142,14 @@ export default function AdminScreen({ onBack }: Props) {
       >
   );
   const [savingVolume, setSavingVolume] = useState<PersonaId | null>(null);
+  // Measured loudness of each trainer's rendered audio (a sample per trainer),
+  // and the reference every suggestion is normalised against.
+  const [loud, setLoud] = useState<Partial<Record<PersonaId, LoudnessReading>>>({});
+  const [measuring, setMeasuring] = useState<{ persona: PersonaId; done: number; total: number } | null>(
+    null
+  );
+  const LEVEL_REFERENCE: PersonaId = "ahbeng";
+  const LEVEL_SAMPLE = 12;
   const [redoing, setRedoing] = useState<string | null>(null);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [usersNote, setUsersNote] = useState<string | null>(null);
@@ -223,6 +238,37 @@ export default function AdminScreen({ onBack }: Props) {
     } finally {
       setSavingVolume(null);
     }
+  };
+
+  // Decode a spread of each trainer's rendered files and take their speech
+  // loudness, so the level sliders can be set from evidence: the suggestion
+  // for every other trainer is the level that lands their average where the
+  // reference's average sits at ITS current slider position — so moving the
+  // reference slider moves every suggestion with it.
+  const onMeasureLevels = async () => {
+    setNotice(null);
+    const next: Partial<Record<PersonaId, LoudnessReading>> = {};
+    for (const p of PERSONA_LIST) {
+      const urls = sampleUrls(renderedUrlsFor(p.id), LEVEL_SAMPLE);
+      if (urls.length === 0) continue;
+      setMeasuring({ persona: p.id, done: 0, total: urls.length });
+      try {
+        next[p.id] = await measureLoudness(urls, (done, total) =>
+          setMeasuring({ persona: p.id, done, total })
+        );
+      } catch {
+        /* this trainer stays unmeasured */
+      }
+      setLoud({ ...next });
+    }
+    setMeasuring(null);
+    const n = Object.keys(next).length;
+    setNotice(
+      n === 0
+        ? "⚠ Couldn't decode any rendered audio — is anything rendered?"
+        : `✓ Measured ${n} trainer${n === 1 ? "" : "s"}, ${LEVEL_SAMPLE} files each. ` +
+          `Suggestions are relative to ${PERSONAS[LEVEL_REFERENCE].shortName}'s slider.`
+    );
   };
 
   // Re-render a single phrase, for wording that changed after it was voiced.
@@ -804,7 +850,31 @@ export default function AdminScreen({ onBack }: Props) {
         <div className="section-header" style={{ marginTop: 6 }}>
           Playback level
         </div>
-        {PERSONA_LIST.map((p) => (
+        <div className="level-tools">
+          <button
+            className="open-pill"
+            disabled={measuring !== null || busy}
+            onClick={() => void onMeasureLevels()}
+          >
+            {measuring
+              ? `Measuring ${PERSONAS[measuring.persona].shortName}… ${measuring.done}/${measuring.total}`
+              : Object.keys(loud).length > 0
+                ? "🔊 Measure again"
+                : "🔊 Measure levels"}
+          </button>
+          <span className="gen-hint">
+            Decodes {LEVEL_SAMPLE} rendered files per trainer and reads their speech loudness.
+            Suggestions match everyone to {PERSONAS[LEVEL_REFERENCE].shortName} at his current
+            slider — move his slider and the suggestions follow.
+          </span>
+        </div>
+        {PERSONA_LIST.map((p) => {
+          const reading = loud[p.id];
+          const suggest =
+            p.id === LEVEL_REFERENCE
+              ? null
+              : suggestedVolume(loud, LEVEL_REFERENCE, volumes[LEVEL_REFERENCE], p.id, 0.4, 2);
+          return (
           <div className="speed-row" key={p.id}>
             <span className="speed-name">
               {p.emoji} {p.shortName}
@@ -827,12 +897,35 @@ export default function AdminScreen({ onBack }: Props) {
             >
               {savingVolume === p.id ? "…" : "Save"}
             </button>
+            {reading && (
+              <span className="level-measured" title={`${reading.files} files decoded${reading.failed ? `, ${reading.failed} failed` : ""}`}>
+                {isFinite(reading.dbfs) ? `${reading.dbfs.toFixed(1)} dB` : "—"}
+                {p.id === LEVEL_REFERENCE ? (
+                  <em> · reference</em>
+                ) : suggest !== null ? (
+                  <>
+                    {" · suggest "}
+                    <strong>{Math.round(suggest * 100)}%</strong>
+                    {Math.abs(suggest - volumes[p.id]) >= 0.05 && (
+                      <button
+                        className="level-use"
+                        onClick={() => setVolumes((v) => ({ ...v, [p.id]: suggest }))}
+                      >
+                        use
+                      </button>
+                    )}
+                  </>
+                ) : null}
+              </span>
+            )}
           </div>
-        ))}
+          );
+        })}
         <div className="gen-hint" style={{ padding: "2px 0 10px" }}>
           Every voice ships at 100%. Above 100% the native app amplifies the audio itself —
           use it to lift a voice that renders quiet (Cassie). Browser playback still caps at
-          100%. Applies on your next run, no re-render needed.
+          100%. Applies on your next run, no re-render needed. &quot;use&quot; only moves the
+          slider — press Save to keep it.
         </div>
       </div>
 

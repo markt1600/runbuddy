@@ -552,6 +552,7 @@ export class CoachEngine {
           hour: "2-digit",
           minute: "2-digit",
         })} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
+        timeOfDay: this.daypart(),
         treadmill: true,
         targetMinutes: this.targetMin,
         ...extra,
@@ -563,7 +564,17 @@ export class CoachEngine {
       ...tune,
       distanceKm: Number(stats.distanceKm.toFixed(2)),
       elapsedMin: Math.round(stats.elapsedMs / 60000),
-      localTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      // Same full stamp as the treadmill branch (this one had been time-only),
+      // plus the daypart spelled out: "07:42" alone let a loan shark who lives
+      // on night imagery say "tonight" to a morning runner.
+      localTime: `${new Date().toLocaleString([], {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`,
+      timeOfDay: this.daypart(),
       paceMinPerKm: formatPaceShort(pace),
       avgPaceMinPerKm: formatPaceShort(stats.avgPaceSecPerKm),
       targetKm: this.targetKm > 0 ? this.targetKm : undefined,
@@ -741,6 +752,12 @@ export class CoachEngine {
   }
 
   /** Everything true about right now that a pre-rendered line could key off. */
+  /** The device clock's part of the day — the same bands the library conditions use. */
+  private daypart(): "dawn" | "morning" | "midday" | "evening" | "night" {
+    const h = new Date().getHours();
+    return h < 7 ? "dawn" : h < 11 ? "morning" : h < 15 ? "midday" : h < 19 ? "evening" : "night";
+  }
+
   private currentConditions(): PhraseCondition[] {
     const out: PhraseCondition[] = [];
     const desc = this.env?.weatherDesc?.toLowerCase() ?? "";
@@ -748,10 +765,7 @@ export class CoachEngine {
     const feels = this.env?.feelsLikeC ?? this.env?.tempC ?? null;
     if (feels !== null && feels >= 31) out.push("hot");
     if (feels !== null && feels <= 20) out.push("cool");
-    const h = new Date().getHours();
-    out.push(
-      h < 7 ? "dawn" : h < 11 ? "morning" : h < 15 ? "midday" : h < 19 ? "evening" : "night"
-    );
+    out.push(this.daypart());
     return out;
   }
 
