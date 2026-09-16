@@ -85,9 +85,20 @@ export async function measureLoudness(
   return { dbfs: 10 * Math.log10(meanPower), files: readings.length, failed };
 }
 
+export interface VolumeSuggestion {
+  /** The slider value to use — the ideal, clamped to the slider's range. */
+  volume: number;
+  /** What the maths actually asked for before clamping. */
+  ideal: number;
+  /** True when the ideal is outside the slider and `volume` is the cap. */
+  capped: boolean;
+}
+
 /**
  * The level that makes `persona` sit where the reference sits at its current
- * level: reference level scaled by the loudness gap. Clamped to the slider.
+ * level: reference level scaled by the loudness gap. The ideal is reported
+ * alongside the clamped value, so "200%" can be told apart from "200% because
+ * that's the top of the slider and it really wanted 260%".
  */
 export function suggestedVolume(
   readings: Partial<Record<PersonaId, LoudnessReading>>,
@@ -96,11 +107,33 @@ export function suggestedVolume(
   persona: PersonaId,
   min: number,
   max: number
-): number | null {
+): VolumeSuggestion | null {
   const ref = readings[reference];
   const me = readings[persona];
   if (!ref || !me || !isFinite(ref.dbfs) || !isFinite(me.dbfs)) return null;
   const gain = 10 ** ((ref.dbfs - me.dbfs) / 20);
-  const v = referenceVolume * gain;
-  return Math.round(Math.min(max, Math.max(min, v)) * 20) / 20; // slider step 0.05
+  const ideal = referenceVolume * gain;
+  const volume = Math.round(Math.min(max, Math.max(min, ideal)) * 20) / 20; // slider step 0.05
+  return { volume, ideal, capped: ideal > max + 0.025 || ideal < min - 0.025 };
+}
+
+/**
+ * The highest reference level at which EVERY measured trainer's suggestion
+ * fits under the slider cap — the honest fix when several voices want more
+ * than the cap: bring the reference down instead of pinning the others.
+ */
+export function referenceLevelToFitAll(
+  readings: Partial<Record<PersonaId, LoudnessReading>>,
+  reference: PersonaId,
+  max: number
+): number | null {
+  const ref = readings[reference];
+  if (!ref || !isFinite(ref.dbfs)) return null;
+  let level = Infinity;
+  for (const [id, r] of Object.entries(readings) as [PersonaId, LoudnessReading][]) {
+    if (id === reference || !r || !isFinite(r.dbfs)) continue;
+    const gain = 10 ** ((ref.dbfs - r.dbfs) / 20);
+    level = Math.min(level, max / gain);
+  }
+  return isFinite(level) ? Math.floor(level * 20) / 20 : null;
 }

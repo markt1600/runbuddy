@@ -31,6 +31,7 @@ import {
 } from "@/lib/voiceLibrary";
 import {
   measureLoudness,
+  referenceLevelToFitAll,
   sampleUrls,
   suggestedVolume,
   type LoudnessReading,
@@ -868,6 +869,42 @@ export default function AdminScreen({ onBack }: Props) {
             slider — move his slider and the suggestions follow.
           </span>
         </div>
+        {(() => {
+          // When some voices want more than the slider allows, say so once,
+          // with the reference level that would let everyone fit.
+          const cappedNames = PERSONA_LIST.filter((p) => {
+            if (p.id === LEVEL_REFERENCE) return false;
+            const s = suggestedVolume(loud, LEVEL_REFERENCE, volumes[LEVEL_REFERENCE], p.id, 0.4, 2);
+            return s !== null && s.capped && s.ideal > 2;
+          }).map((p) => p.shortName);
+          if (cappedNames.length === 0) return null;
+          const fit = referenceLevelToFitAll(loud, LEVEL_REFERENCE, 2);
+          return (
+            <div className="stale-banner" style={{ marginTop: 8 }}>
+              <div className="stale-head">
+                ⚠ {cappedNames.join(", ")} {cappedNames.length === 1 ? "wants" : "want"} more than
+                200% to match {PERSONAS[LEVEL_REFERENCE].shortName}
+              </div>
+              <div className="stale-sub">
+                200% is the slider&apos;s cap, not the right level — at 200% they will still be
+                softer than {PERSONAS[LEVEL_REFERENCE].shortName}. Either bring{" "}
+                {PERSONAS[LEVEL_REFERENCE].shortName} down
+                {fit !== null ? ` to ${Math.round(fit * 100)}% or below` : ""} so everyone fits,
+                or leave it and accept the gap. The &quot;wants&quot; figure on each row is the
+                uncapped number.
+              </div>
+              {fit !== null && fit < volumes[LEVEL_REFERENCE] && (
+                <button
+                  className="level-use"
+                  style={{ marginTop: 8, marginLeft: 0 }}
+                  onClick={() => setVolumes((v) => ({ ...v, [LEVEL_REFERENCE]: fit }))}
+                >
+                  set {PERSONAS[LEVEL_REFERENCE].shortName} to {Math.round(fit * 100)}%
+                </button>
+              )}
+            </div>
+          );
+        })()}
         {PERSONA_LIST.map((p) => {
           const reading = loud[p.id];
           const suggest =
@@ -905,11 +942,18 @@ export default function AdminScreen({ onBack }: Props) {
                 ) : suggest !== null ? (
                   <>
                     {" · suggest "}
-                    <strong>{Math.round(suggest * 100)}%</strong>
-                    {Math.abs(suggest - volumes[p.id]) >= 0.05 && (
+                    <strong>{Math.round(suggest.volume * 100)}%</strong>
+                    {suggest.capped && (
+                      <em className="level-capped">
+                        {" "}
+                        (capped — wants {Math.round(suggest.ideal * 100)}%
+                        {suggest.ideal > 2 ? ", still softer than " + PERSONAS[LEVEL_REFERENCE].shortName : ""})
+                      </em>
+                    )}
+                    {Math.abs(suggest.volume - volumes[p.id]) >= 0.05 && (
                       <button
                         className="level-use"
-                        onClick={() => setVolumes((v) => ({ ...v, [p.id]: suggest }))}
+                        onClick={() => setVolumes((v) => ({ ...v, [p.id]: suggest.volume }))}
                       >
                         use
                       </button>

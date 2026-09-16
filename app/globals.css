@@ -1299,6 +1299,7 @@ input[type="range"]::-moz-range-thumb {
   padding-left: 106px;
 }
 .level-measured em { font-style: normal; color: var(--label-3); }
+.level-measured em.level-capped { color: var(--orange); }
 .level-measured strong { color: var(--label); }
 .level-use {
   margin-left: 8px;
