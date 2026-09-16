@@ -752,10 +752,16 @@ export class CoachEngine {
   }
 
   /** Everything true about right now that a pre-rendered line could key off. */
-  /** The device clock's part of the day — the same bands the library conditions use. */
+  /**
+   * The device clock's part of the day — the same bands the library conditions
+   * use. Bands follow what the lines actually say, on a Singapore clock: the
+   * "evening" openers talk about the sun going down and golden hour, which is
+   * 5–8pm here, not 3pm; "night" lines talk about the dark, so they start
+   * once it is.
+   */
   private daypart(): "dawn" | "morning" | "midday" | "evening" | "night" {
     const h = new Date().getHours();
-    return h < 7 ? "dawn" : h < 11 ? "morning" : h < 15 ? "midday" : h < 19 ? "evening" : "night";
+    return h < 7 ? "dawn" : h < 12 ? "morning" : h < 17 ? "midday" : h < 20 ? "evening" : "night";
   }
 
   private currentConditions(): PhraseCondition[] {

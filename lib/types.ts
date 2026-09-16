@@ -36,10 +36,10 @@ export type PhraseCategory =
  */
 export type PhraseCondition =
   | "dawn" // before 07:00
-  | "morning" // 07:00–11:00
-  | "midday" // 11:00–15:00
-  | "evening" // 15:00–19:00
-  | "night" // after 19:00
+  | "morning" // 07:00–12:00
+  | "midday" // 12:00–17:00 — the "afternoon heat" lines
+  | "evening" // 17:00–20:00 — "sun going down", golden hour
+  | "night" // after 20:00 — it is actually dark
   | "rain"
   | "hot" // feels like 31°C or above
   | "cool"; // feels like 20°C or below
