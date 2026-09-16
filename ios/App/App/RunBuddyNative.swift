@@ -233,10 +233,12 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
 
     /**
      * Real gain for quiet voices: AVAudioPlayer.volume tops out at 1.0, so a
-     * level above 1 is applied to the decoded samples instead (hard-clamped to
-     * full scale). Some ElevenLabs voices render much quieter than others, and
-     * this is the only way to lift one at play time. Returns CAF data ready
-     * for AVAudioPlayer, or nil to fall back to unamplified playback.
+     * level above 1 is applied to the decoded samples instead. Some ElevenLabs
+     * voices render much quieter than others, and this is the only way to
+     * lift one at play time. Peaks are soft-limited rather than hard-clamped:
+     * at 3x a hard clamp turns every plosive into a crackle, while a knee at
+     * 0.8 full scale lets the loud parts round off instead. Returns CAF data
+     * ready for AVAudioPlayer, or nil to fall back to unamplified playback.
      */
     private func amplified(_ data: Data, gain: Float) -> Data? {
         let tmp = FileManager.default.temporaryDirectory
@@ -258,10 +260,21 @@ public class RunBuddyNativePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManage
             else { return nil }
             try file.read(into: buf)
             guard let channels = buf.floatChannelData else { return nil }
+            let knee: Float = 0.8
+            let room: Float = 1.0 - knee
             for ch in 0..<Int(format.channelCount) {
                 let samples = channels[ch]
                 for i in 0..<Int(buf.frameLength) {
-                    samples[i] = max(-1, min(1, samples[i] * gain))
+                    let y = samples[i] * gain
+                    let mag = abs(y)
+                    if mag <= knee {
+                        samples[i] = y
+                    } else {
+                        // Above the knee, compress the overshoot with tanh so the
+                        // waveform approaches full scale but never slams into it.
+                        let limited = knee + room * tanh((mag - knee) / room)
+                        samples[i] = y < 0 ? -limited : limited
+                    }
                 }
             }
             // Scoped so the writer deinits (flushing the file) before read-back.

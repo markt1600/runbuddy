@@ -364,7 +364,7 @@ export function getVoiceSpeed(persona: PersonaId): number {
   return voiceSpeeds[persona];
 }
 
-/** Playback level for this persona, 0.4–2. Above 1 the native player amplifies. */
+/** Playback level for this persona, 0.4–3. Above 1 the native player amplifies. */
 export function getVoiceVolume(persona: PersonaId): number {
   return voiceVolumes[persona];
 }

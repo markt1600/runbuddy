@@ -9,11 +9,11 @@ import type { PersonaId } from "../types";
 export interface VoiceSettings {
   speed: number; // ElevenLabs voice_settings.speed, valid ~0.7–1.2
   /**
-   * Playback level for this persona, 0.4–2. Applied at play time, so it needs
+   * Playback level for this persona, 0.4–3. Applied at play time, so it needs
    * no re-render. Below 1 attenuates; above 1 the native player amplifies the
-   * decoded samples (some ElevenLabs voices render noticeably quieter than
-   * others — Cassie vs Ah Beng). Web audio elements can't go above 1, so the
-   * browser fallback clamps there.
+   * decoded samples through a soft limiter (some ElevenLabs voices render
+   * noticeably quieter than others — Cassie vs Ah Beng). Web audio elements
+   * can't go above 1, so the browser fallback clamps there.
    */
   volume: number;
 }
@@ -23,7 +23,7 @@ const PATH = "library/voice-settings.json";
 export const SPEED_MIN = 0.7;
 export const SPEED_MAX = 1.2;
 export const VOLUME_MIN = 0.4;
-export const VOLUME_MAX = 2;
+export const VOLUME_MAX = 3;
 
 function defaults(): Record<PersonaId, VoiceSettings> {
   const out = {} as Record<PersonaId, VoiceSettings>;

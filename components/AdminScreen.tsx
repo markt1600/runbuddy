@@ -874,19 +874,19 @@ export default function AdminScreen({ onBack }: Props) {
           // with the reference level that would let everyone fit.
           const cappedNames = PERSONA_LIST.filter((p) => {
             if (p.id === LEVEL_REFERENCE) return false;
-            const s = suggestedVolume(loud, LEVEL_REFERENCE, volumes[LEVEL_REFERENCE], p.id, 0.4, 2);
-            return s !== null && s.capped && s.ideal > 2;
+            const s = suggestedVolume(loud, LEVEL_REFERENCE, volumes[LEVEL_REFERENCE], p.id, 0.4, 3);
+            return s !== null && s.capped && s.ideal > 3;
           }).map((p) => p.shortName);
           if (cappedNames.length === 0) return null;
-          const fit = referenceLevelToFitAll(loud, LEVEL_REFERENCE, 2);
+          const fit = referenceLevelToFitAll(loud, LEVEL_REFERENCE, 3);
           return (
             <div className="stale-banner" style={{ marginTop: 8 }}>
               <div className="stale-head">
                 ⚠ {cappedNames.join(", ")} {cappedNames.length === 1 ? "wants" : "want"} more than
-                200% to match {PERSONAS[LEVEL_REFERENCE].shortName}
+                300% to match {PERSONAS[LEVEL_REFERENCE].shortName}
               </div>
               <div className="stale-sub">
-                200% is the slider&apos;s cap, not the right level — at 200% they will still be
+                300% is the slider&apos;s cap, not the right level — at 300% they will still be
                 softer than {PERSONAS[LEVEL_REFERENCE].shortName}. Either bring{" "}
                 {PERSONAS[LEVEL_REFERENCE].shortName} down
                 {fit !== null ? ` to ${Math.round(fit * 100)}% or below` : ""} so everyone fits,
@@ -910,7 +910,7 @@ export default function AdminScreen({ onBack }: Props) {
           const suggest =
             p.id === LEVEL_REFERENCE
               ? null
-              : suggestedVolume(loud, LEVEL_REFERENCE, volumes[LEVEL_REFERENCE], p.id, 0.4, 2);
+              : suggestedVolume(loud, LEVEL_REFERENCE, volumes[LEVEL_REFERENCE], p.id, 0.4, 3);
           return (
           <div className="speed-row" key={p.id}>
             <span className="speed-name">
@@ -919,7 +919,7 @@ export default function AdminScreen({ onBack }: Props) {
             <input
               type="range"
               min={0.4}
-              max={2}
+              max={3}
               step={0.05}
               value={volumes[p.id]}
               onChange={(e) =>
@@ -947,7 +947,7 @@ export default function AdminScreen({ onBack }: Props) {
                       <em className="level-capped">
                         {" "}
                         (capped — wants {Math.round(suggest.ideal * 100)}%
-                        {suggest.ideal > 2 ? ", still softer than " + PERSONAS[LEVEL_REFERENCE].shortName : ""})
+                        {suggest.ideal > 3 ? ", still softer than " + PERSONAS[LEVEL_REFERENCE].shortName : ""})
                       </em>
                     )}
                     {Math.abs(suggest.volume - volumes[p.id]) >= 0.05 && (
@@ -966,9 +966,9 @@ export default function AdminScreen({ onBack }: Props) {
           );
         })}
         <div className="gen-hint" style={{ padding: "2px 0 10px" }}>
-          Every voice ships at 100%. Above 100% the native app amplifies the audio itself —
-          use it to lift a voice that renders quiet (Cassie). Browser playback still caps at
-          100%. Applies on your next run, no re-render needed. &quot;use&quot; only moves the
+          Every voice ships at 100%. Above 100% the native app amplifies the audio itself,
+          up to 300% through a soft limiter — use it to lift a voice that renders quiet
+          (Cassie). Browser playback still caps at 100%. Applies on your next run, no re-render needed. &quot;use&quot; only moves the
           slider — press Save to keep it.
         </div>
       </div>
