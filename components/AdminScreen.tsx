@@ -170,7 +170,14 @@ export default function AdminScreen({ onBack }: Props) {
     measured: number;
     avgDb: number;
     thresholdDb: number;
-    results: { id: string; category: string; before: number; after: number | null }[];
+    results: {
+      id: string;
+      category: string;
+      before: number;
+      after: number | null;
+      /** Why `after` is missing: the store kept serving the old bytes. */
+      stale?: boolean;
+    }[];
   } | null>(null);
   const [redoing, setRedoing] = useState<string | null>(null);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
@@ -290,20 +297,26 @@ export default function AdminScreen({ onBack }: Props) {
       thresholdDb: NaN,
       results: [],
     });
-    let levels: Record<string, number>;
+    let levels: Record<string, { db: number; sha: string }>;
     try {
-      levels = await measureFiles(items, (done, total) =>
-        setCheck((c) => (c ? { ...c, done, total } : c))
+      // Always fresh bytes for the "before" pass: a browser-cached copy from
+      // before an earlier re-render would make the report lie twice.
+      levels = await measureFiles(
+        items,
+        (done, total) => setCheck((c) => (c ? { ...c, done, total } : c)),
+        { bust: true }
       );
     } catch (err) {
       setCheck(null);
       setNotice(`⚠ ${err instanceof Error ? err.message : "couldn't measure"}`);
       return;
     }
-    const finite = Object.values(levels).filter((d) => isFinite(d));
+    const finite = Object.values(levels)
+      .map((r) => r.db)
+      .filter((d) => isFinite(d));
     const avgDb = meanDb(finite);
     const thresholdDb = quietThresholdDb(avgDb, checkPct);
-    const quiet = items.filter((x) => isFinite(levels[x.id]) && levels[x.id] <= thresholdDb);
+    const quiet = items.filter((x) => isFinite(levels[x.id]?.db) && levels[x.id].db <= thresholdDb);
     const base = {
       persona: pid,
       done: 0,
@@ -326,23 +339,38 @@ export default function AdminScreen({ onBack }: Props) {
       setCheck({
         ...base,
         phase: "done",
-        results: quiet.map((x) => ({ id: x.id, category: x.category, before: levels[x.id], after: null })),
+        results: quiet.map((x) => ({ id: x.id, category: x.category, before: levels[x.id].db, after: null })),
       });
       return;
     }
-    const results: { id: string; category: string; before: number; after: number | null }[] = [];
+    const results: NonNullable<typeof check>["results"] = [];
     setCheck({ ...base, phase: "rendering", results });
     for (const x of quiet) {
       let after: number | null = null;
+      let stale = false;
       try {
         await reRenderPhrase(pid, x.id);
         const url = getPhraseUrl(pid, x.id) ?? x.url;
-        const re = await measureFiles([{ id: x.id, url }], undefined, { bust: true });
-        after = isFinite(re[x.id]) ? re[x.id] : null;
+        // The store overwrites in place and can go on serving the previous
+        // bytes for a short while after the put returns. Measuring those
+        // would report the OLD level as "after" — the exact same number,
+        // which is what happened in the field. Poll until the digest
+        // changes, and give up honestly rather than report a stale figure.
+        const before = levels[x.id].sha;
+        for (let attempt = 0; attempt < 15; attempt++) {
+          const re = await measureFiles([{ id: x.id, url }], undefined, { bust: true });
+          const r = re[x.id];
+          if (r && r.sha && r.sha !== before) {
+            after = isFinite(r.db) ? r.db : null;
+            break;
+          }
+          await new Promise((res) => setTimeout(res, 3000));
+        }
+        if (after === null) stale = true;
       } catch {
         after = null;
       }
-      results.push({ id: x.id, category: x.category, before: levels[x.id], after });
+      results.push({ id: x.id, category: x.category, before: levels[x.id].db, after, stale });
       setCheck({ ...base, phase: "rendering", done: results.length, results: [...results] });
       refresh();
     }
@@ -949,7 +977,9 @@ export default function AdminScreen({ onBack }: Props) {
                           <td>{r.after === null ? "—" : `${r.after.toFixed(1)} dB`}</td>
                           <td>
                             {r.after === null
-                              ? "not re-rendered"
+                              ? r.stale
+                                ? "re-rendered, but the store kept serving the old bytes for 45 s — run the check again later to see the new level"
+                                : "not re-rendered"
                               : `${r.after - r.before >= 0 ? "+" : ""}${(r.after - r.before).toFixed(1)} dB` +
                                 (stillQuiet ? " · still quiet" : "")}
                           </td>

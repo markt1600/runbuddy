@@ -57,7 +57,9 @@ export async function measureLoudness(
     urls.map((url, i) => ({ id: String(i), url })),
     onProgress
   );
-  const readings = Object.values(per).filter((db) => isFinite(db));
+  const readings = Object.values(per)
+    .map((r) => r.db)
+    .filter((db) => isFinite(db));
   const failed = urls.length - readings.length;
   if (readings.length === 0) return { dbfs: NaN, files: 0, failed };
   return { dbfs: meanDb(readings), files: readings.length, failed };
@@ -71,22 +73,39 @@ export function meanDb(dbs: number[]): number {
   return 10 * Math.log10(meanPower);
 }
 
+export interface FileReading {
+  /** Speech-gated RMS in dBFS; NaN when the file failed to fetch or decode. */
+  db: number;
+  /** SHA-256 of the bytes actually measured — so "did the re-render land?"
+   *  is answered by comparing digests, not by trusting a URL. */
+  sha: string;
+}
+
+async function digest(buf: ArrayBuffer): Promise<string> {
+  try {
+    const h = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(h).slice(0, 12), (b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return `len:${buf.byteLength}`;
+  }
+}
+
 /**
- * Speech loudness of each file, keyed by id; NaN where a file failed to
- * fetch or decode. `bust` defeats the blob edge cache — needed right after a
- * re-render, when the same URL may still serve the old bytes for a while.
+ * Speech loudness of each file, keyed by id. `bust` defeats every cache
+ * between here and the store — needed right after a re-render, when the same
+ * URL can go on serving the old bytes for a while.
  */
 export async function measureFiles(
   items: { id: string; url: string }[],
   onProgress?: (done: number, total: number) => void,
   opts?: { bust?: boolean }
-): Promise<Record<string, number>> {
+): Promise<Record<string, FileReading>> {
   const Ctx =
     window.AudioContext ??
     (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Ctx) throw new Error("Web Audio unavailable");
   const ctx = new Ctx();
-  const out: Record<string, number> = {};
+  const out: Record<string, FileReading> = {};
   let done = 0;
   try {
     for (const { id, url } of items) {
@@ -94,10 +113,12 @@ export async function measureFiles(
         const target = opts?.bust ? `${url}${url.includes("?") ? "&" : "?"}nocache=${Date.now()}` : url;
         const res = await fetch(target, { cache: opts?.bust ? "no-store" : "force-cache" });
         if (!res.ok) throw new Error(String(res.status));
-        const buf = await ctx.decodeAudioData(await res.arrayBuffer());
-        out[id] = clipLoudness(buf) ?? NaN;
+        const bytes = await res.arrayBuffer();
+        const sha = await digest(bytes);
+        const buf = await ctx.decodeAudioData(bytes);
+        out[id] = { db: clipLoudness(buf) ?? NaN, sha };
       } catch {
-        out[id] = NaN;
+        out[id] = { db: NaN, sha: "" };
       }
       done++;
       onProgress?.(done, items.length);
