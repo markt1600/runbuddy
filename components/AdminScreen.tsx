@@ -156,7 +156,12 @@ export default function AdminScreen({ onBack }: Props) {
   const LEVEL_SAMPLE = 12;
   // Per-trainer level check: every synthesized file measured, the quiet
   // outliers re-rendered, before/after reported.
-  const [checkPct, setCheckPct] = useState(20);
+  // Kept as typed: clamping on every keystroke turned "30" into 5 then 50
+  // (clearing the field read as 0 and snapped to the default; the first digit
+  // snapped to the minimum). The number is tidied when the field is left or
+  // the check runs.
+  const [checkPctText, setCheckPctText] = useState("20");
+  const checkPct = Math.min(80, Math.max(5, Number(checkPctText) || 20));
   const [check, setCheck] = useState<{
     persona: PersonaId;
     phase: "measuring" | "rendering" | "done";
@@ -889,11 +894,13 @@ export default function AdminScreen({ onBack }: Props) {
               Quieter than average by
               <input
                 type="number"
+                inputMode="numeric"
                 min={5}
                 max={80}
                 step={5}
-                value={checkPct}
-                onChange={(e) => setCheckPct(Math.min(80, Math.max(5, Number(e.target.value) || 20)))}
+                value={checkPctText}
+                onChange={(e) => setCheckPctText(e.target.value)}
+                onBlur={() => setCheckPctText(String(checkPct))}
               />
               % <em>({quietThresholdDb(0, checkPct).toFixed(1)} dB)</em>
             </label>
