@@ -1320,6 +1320,46 @@ input[type="range"]::-moz-range-thumb {
 }
 .level-tools .gen-hint { padding: 4px 0 0; }
 
+/* Per-trainer level check: threshold picker, then the before/after table. */
+.level-check-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+.level-check-row label {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.level-check-row input[type="number"] {
+  width: 58px;
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+}
+.level-check-row em { font-style: normal; color: var(--label-3); }
+.level-report { margin-top: 10px; }
+.level-report table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.level-report th,
+.level-report td {
+  text-align: left;
+  padding: 5px 6px;
+  border-bottom: 0.5px solid var(--separator);
+  vertical-align: top;
+}
+.level-report th { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--label-3); }
+.level-report td code { font-size: 12px; }
+.level-report tr.still-quiet td { color: var(--orange); }
+
 .admin-lib-stats {
   display: flex;
   justify-content: space-around;

@@ -30,7 +30,10 @@ import {
   type GenerationProgress,
 } from "@/lib/voiceLibrary";
 import {
+  measureFiles,
   measureLoudness,
+  meanDb,
+  quietThresholdDb,
   referenceLevelToFitAll,
   sampleUrls,
   suggestedVolume,
@@ -151,6 +154,19 @@ export default function AdminScreen({ onBack }: Props) {
   );
   const LEVEL_REFERENCE: PersonaId = "ahbeng";
   const LEVEL_SAMPLE = 12;
+  // Per-trainer level check: every synthesized file measured, the quiet
+  // outliers re-rendered, before/after reported.
+  const [checkPct, setCheckPct] = useState(20);
+  const [check, setCheck] = useState<{
+    persona: PersonaId;
+    phase: "measuring" | "rendering" | "done";
+    done: number;
+    total: number;
+    measured: number;
+    avgDb: number;
+    thresholdDb: number;
+    results: { id: string; category: string; before: number; after: number | null }[];
+  } | null>(null);
   const [redoing, setRedoing] = useState<string | null>(null);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [usersNote, setUsersNote] = useState<string | null>(null);
@@ -239,6 +255,94 @@ export default function AdminScreen({ onBack }: Props) {
     } finally {
       setSavingVolume(null);
     }
+  };
+
+  // Level check for ONE trainer: measure every synthesized file (real actor
+  // recordings are never touched), find the ones at least `checkPct` percent
+  // quieter than the trainer's average, re-render those, and measure the new
+  // files so the report shows what the re-render actually did. A voice that
+  // renders a soft line softly will come back soft — the report says so
+  // rather than hiding it.
+  const onLevelCheck = async () => {
+    const pid = personaId;
+    const items = allPhrasesFor(pid)
+      .map((p) => ({ id: p.id, category: p.category, url: getPhraseUrl(pid, p.id) }))
+      .filter((x): x is { id: string; category: PhraseCategory; url: string } =>
+        !!x.url && !isPromoted(pid, x.id)
+      );
+    if (items.length === 0) {
+      setNotice(`⚠ ${persona.shortName} has no synthesized audio to check.`);
+      return;
+    }
+    setNotice(null);
+    setCheck({
+      persona: pid,
+      phase: "measuring",
+      done: 0,
+      total: items.length,
+      measured: 0,
+      avgDb: NaN,
+      thresholdDb: NaN,
+      results: [],
+    });
+    let levels: Record<string, number>;
+    try {
+      levels = await measureFiles(items, (done, total) =>
+        setCheck((c) => (c ? { ...c, done, total } : c))
+      );
+    } catch (err) {
+      setCheck(null);
+      setNotice(`⚠ ${err instanceof Error ? err.message : "couldn't measure"}`);
+      return;
+    }
+    const finite = Object.values(levels).filter((d) => isFinite(d));
+    const avgDb = meanDb(finite);
+    const thresholdDb = quietThresholdDb(avgDb, checkPct);
+    const quiet = items.filter((x) => isFinite(levels[x.id]) && levels[x.id] <= thresholdDb);
+    const base = {
+      persona: pid,
+      done: 0,
+      total: quiet.length,
+      measured: finite.length,
+      avgDb,
+      thresholdDb,
+    };
+    if (quiet.length === 0) {
+      setCheck({ ...base, phase: "done", results: [] });
+      return;
+    }
+    if (
+      !window.confirm(
+        `${quiet.length} of ${finite.length} ${persona.shortName} phrases are ${checkPct}% or more ` +
+          `quieter than the average (${avgDb.toFixed(1)} dB; cut-off ${thresholdDb.toFixed(1)} dB). ` +
+          "Re-render them now? This spends ElevenLabs credits. Real recordings are excluded."
+      )
+    ) {
+      setCheck({
+        ...base,
+        phase: "done",
+        results: quiet.map((x) => ({ id: x.id, category: x.category, before: levels[x.id], after: null })),
+      });
+      return;
+    }
+    const results: { id: string; category: string; before: number; after: number | null }[] = [];
+    setCheck({ ...base, phase: "rendering", results });
+    for (const x of quiet) {
+      let after: number | null = null;
+      try {
+        await reRenderPhrase(pid, x.id);
+        const url = getPhraseUrl(pid, x.id) ?? x.url;
+        const re = await measureFiles([{ id: x.id, url }], undefined, { bust: true });
+        after = isFinite(re[x.id]) ? re[x.id] : null;
+      } catch {
+        after = null;
+      }
+      results.push({ id: x.id, category: x.category, before: levels[x.id], after });
+      setCheck({ ...base, phase: "rendering", done: results.length, results: [...results] });
+      refresh();
+    }
+    setCheck({ ...base, phase: "done", done: results.length, results: [...results] });
+    refresh();
   };
 
   // Decode a spread of each trainer's rendered files and take their speech
@@ -772,6 +876,92 @@ export default function AdminScreen({ onBack }: Props) {
         >
           Re-render ALL {persona.shortName} phrases (voice changed)
         </button>
+        <details className="render-list" style={{ marginTop: 12 }}>
+          <summary>Level check — find and re-render {persona.shortName}&apos;s quiet phrases…</summary>
+          <div className="stale-sub" style={{ marginTop: 6 }}>
+            Measures every synthesized {persona.shortName} file (real recordings are never touched),
+            finds the ones at least this much quieter than the trainer&apos;s average, re-renders
+            them, and reports the level before and after. A line that reads softly by nature
+            may come back soft — the report will show it.
+          </div>
+          <div className="level-check-row">
+            <label>
+              Quieter than average by
+              <input
+                type="number"
+                min={5}
+                max={80}
+                step={5}
+                value={checkPct}
+                onChange={(e) => setCheckPct(Math.min(80, Math.max(5, Number(e.target.value) || 20)))}
+              />
+              % <em>({quietThresholdDb(0, checkPct).toFixed(1)} dB)</em>
+            </label>
+            <button
+              className="cta secondary"
+              disabled={busy || (check !== null && check.phase !== "done")}
+              onClick={() => void onLevelCheck()}
+            >
+              {check && check.phase === "measuring"
+                ? `Measuring… ${check.done}/${check.total}`
+                : check && check.phase === "rendering"
+                  ? `Re-rendering… ${check.done}/${check.total}`
+                  : `🔍 Check ${persona.shortName}'s levels`}
+            </button>
+          </div>
+          {check && check.phase === "done" && check.persona === personaId && (
+            <div className="level-report">
+              <div className="stale-sub">
+                {check.measured} files measured · average {check.avgDb.toFixed(1)} dB · cut-off{" "}
+                {check.thresholdDb.toFixed(1)} dB ·{" "}
+                {check.results.length === 0
+                  ? "nothing under the cut-off 🎉"
+                  : check.results.some((r) => r.after !== null)
+                    ? `${check.results.filter((r) => r.after !== null).length} re-rendered`
+                    : `${check.results.length} under the cut-off, not re-rendered`}
+              </div>
+              {check.results.length > 0 && (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Phrase</th>
+                      <th>Before</th>
+                      <th>After</th>
+                      <th>Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {check.results.map((r) => {
+                      const stillQuiet = r.after !== null && r.after <= check.thresholdDb;
+                      return (
+                        <tr key={r.id} className={stillQuiet ? "still-quiet" : ""}>
+                          <td>
+                            <code>{r.id}</code> <span className="gen-hint">{r.category}</span>
+                          </td>
+                          <td>{r.before.toFixed(1)} dB</td>
+                          <td>{r.after === null ? "—" : `${r.after.toFixed(1)} dB`}</td>
+                          <td>
+                            {r.after === null
+                              ? "not re-rendered"
+                              : `${r.after - r.before >= 0 ? "+" : ""}${(r.after - r.before).toFixed(1)} dB` +
+                                (stillQuiet ? " · still quiet" : "")}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+              {check.results.some((r) => r.after !== null && r.after <= check.thresholdDb) && (
+                <div className="stale-sub" style={{ marginTop: 6 }}>
+                  &quot;Still quiet&quot; means the fresh render came back under the cut-off too —
+                  the voice reads that line softly by nature. Rewording it, or a different take of
+                  the emotion in the text, changes that; re-rendering again usually doesn&apos;t.
+                </div>
+              )}
+            </div>
+          )}
+        </details>
         <details className="render-list" style={{ marginTop: 12 }}>
           <summary>Re-render specific {persona.shortName} phrases by id…</summary>
           <div className="stale-sub" style={{ marginTop: 6 }}>

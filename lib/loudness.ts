@@ -53,36 +53,65 @@ export async function measureLoudness(
   urls: string[],
   onProgress?: (done: number, total: number) => void
 ): Promise<LoudnessReading> {
+  const per = await measureFiles(
+    urls.map((url, i) => ({ id: String(i), url })),
+    onProgress
+  );
+  const readings = Object.values(per).filter((db) => isFinite(db));
+  const failed = urls.length - readings.length;
+  if (readings.length === 0) return { dbfs: NaN, files: 0, failed };
+  return { dbfs: meanDb(readings), files: readings.length, failed };
+}
+
+/** Mean in the power domain, so one loud clip doesn't dominate the dB average. */
+export function meanDb(dbs: number[]): number {
+  const finite = dbs.filter((d) => isFinite(d));
+  if (finite.length === 0) return NaN;
+  const meanPower = finite.reduce((a, db) => a + 10 ** (db / 10), 0) / finite.length;
+  return 10 * Math.log10(meanPower);
+}
+
+/**
+ * Speech loudness of each file, keyed by id; NaN where a file failed to
+ * fetch or decode. `bust` defeats the blob edge cache — needed right after a
+ * re-render, when the same URL may still serve the old bytes for a while.
+ */
+export async function measureFiles(
+  items: { id: string; url: string }[],
+  onProgress?: (done: number, total: number) => void,
+  opts?: { bust?: boolean }
+): Promise<Record<string, number>> {
   const Ctx =
     window.AudioContext ??
     (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Ctx) throw new Error("Web Audio unavailable");
   const ctx = new Ctx();
-  const readings: number[] = [];
-  let failed = 0;
+  const out: Record<string, number> = {};
   let done = 0;
   try {
-    for (const url of urls) {
+    for (const { id, url } of items) {
       try {
-        const res = await fetch(url, { cache: "force-cache" });
+        const target = opts?.bust ? `${url}${url.includes("?") ? "&" : "?"}nocache=${Date.now()}` : url;
+        const res = await fetch(target, { cache: opts?.bust ? "no-store" : "force-cache" });
         if (!res.ok) throw new Error(String(res.status));
         const buf = await ctx.decodeAudioData(await res.arrayBuffer());
-        const db = clipLoudness(buf);
-        if (db === null) failed++;
-        else readings.push(db);
+        out[id] = clipLoudness(buf) ?? NaN;
       } catch {
-        failed++;
+        out[id] = NaN;
       }
       done++;
-      onProgress?.(done, urls.length);
+      onProgress?.(done, items.length);
     }
   } finally {
     void ctx.close().catch(() => {});
   }
-  if (readings.length === 0) return { dbfs: NaN, files: 0, failed };
-  // Mean in the power domain, so one loud clip doesn't dominate the dB average.
-  const meanPower = readings.reduce((a, db) => a + 10 ** (db / 10), 0) / readings.length;
-  return { dbfs: 10 * Math.log10(meanPower), files: readings.length, failed };
+  return out;
+}
+
+/** The dB below which a file counts as `pct` percent quieter than `avgDb`. */
+export function quietThresholdDb(avgDb: number, pct: number): number {
+  const frac = Math.min(0.99, Math.max(0.01, pct / 100));
+  return avgDb + 20 * Math.log10(1 - frac);
 }
 
 export interface VolumeSuggestion {
