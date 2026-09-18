@@ -95,6 +95,58 @@ export async function readOverrides(persona: PersonaId): Promise<Record<string, 
   }
 }
 
+// ---- Per-clip loudness, measured by Admin's level check ----
+// { avgDb, files: { <id>: dBFS } } per persona. The client boosts any clip
+// that sits far below its trainer's average at play time. An entry dies with
+// the audio it described: a re-render or a promotion drops it, and the next
+// level check measures the new file.
+
+export interface LoudnessMap {
+  avgDb: number;
+  files: Record<string, number>;
+  measuredAt: number;
+}
+
+const loudnessPath = (persona: PersonaId) => `library/${persona}/loudness.json`;
+
+export async function readLoudness(persona: PersonaId): Promise<LoudnessMap | null> {
+  if (!blobConfigured()) return null;
+  try {
+    const page = await list({ prefix: loudnessPath(persona), limit: 1 });
+    const hit = page.blobs.find((b) => b.pathname === loudnessPath(persona));
+    if (!hit) return null;
+    const res = await fetch(bustUrl(hit.url), { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as LoudnessMap;
+    return data && typeof data === "object" && data.files ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeLoudness(persona: PersonaId, map: LoudnessMap): Promise<void> {
+  await put(loudnessPath(persona), JSON.stringify(map), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+  });
+}
+
+/** Forget one clip's reading — its audio just changed. Best effort. */
+async function dropLoudness(persona: PersonaId, phraseId: string): Promise<void> {
+  try {
+    const map = await readLoudness(persona);
+    if (!map || !(phraseId in map.files)) return;
+    const files = { ...map.files };
+    delete files[phraseId];
+    await writeLoudness(persona, { ...map, files });
+  } catch {
+    /* the next level check measures it afresh anyway */
+  }
+}
+
 export async function setOverride(
   persona: PersonaId,
   phraseId: string,
@@ -320,6 +372,7 @@ export async function promoteAudio(
   });
   await recordRenderHash(persona, phraseId, phraseHash(phrase.text));
   await markPromoted(persona, phraseId).catch(() => {});
+  await dropLoudness(persona, phraseId); // a real take is never per-clip boosted
   return blob.url;
 }
 
@@ -366,5 +419,6 @@ export async function renderPhraseToBlob(
   // A forced render may have just replaced a promoted actor take with TTS —
   // the actor-take mark must not outlive the audio it described.
   if (force) await clearPromoted(persona, phraseId);
+  await dropLoudness(persona, phraseId); // measured against the old bytes
   return { url: blob.url, existed: false };
 }

@@ -1,5 +1,5 @@
 import type { Persona } from "./types";
-import { getVoiceVolume, recordLifetimePlay } from "./voiceLibrary";
+import { boostedVolume, getVoiceVolume, recordLifetimePlay } from "./voiceLibrary";
 import { runBuddyNative } from "./native";
 
 // VoiceEngine — plays coach phrases on top of background music.
@@ -418,10 +418,15 @@ export class VoiceEngine {
             : "prerendered";
         try {
           if (item.audioUrl) {
+            // Resolved here, not at enqueue: a pre-rendered clip measured as
+            // far too soft gets its per-clip lift on top of the trainer's level.
+            const base =
+              item.volume ?? getVoiceVolume((item.speaker ?? this.persona).id);
+            const level = item.cue ? base : boostedVolume(item.audioUrl, base);
             if (native) {
-              await this.playNative(native, item.audioUrl, item.volume);
+              await this.playNative(native, item.audioUrl, level);
             } else {
-              await this.playFile(item.audioUrl, item.volume);
+              await this.playFile(item.audioUrl, level);
             }
           } else {
             await this.speakSynth(item.text, item.speaker);

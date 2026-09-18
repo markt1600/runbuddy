@@ -6,6 +6,7 @@ import {
   listRendered,
   readExtras,
   readOverrides,
+  readLoudness,
   readRenderHashes,
 } from "@/lib/server/library";
 import { readVoiceSettings } from "@/lib/server/voiceSettings";
@@ -29,12 +30,13 @@ export async function GET() {
       Object.entries(renderedFull).map(([k, v]) => [k, v.at])
     );
     const personaIds = Object.keys(PERSONAS) as PersonaId[];
-    const [voiceSettings, extrasList, hashList, promoted, overridesList] = await Promise.all([
+    const [voiceSettings, extrasList, hashList, promoted, overridesList, loudnessList] = await Promise.all([
       readVoiceSettings(),
       Promise.all(personaIds.map((p) => readExtras(p))),
       Promise.all(personaIds.map((p) => readRenderHashes(p))),
       listPromoted(),
       Promise.all(personaIds.map((p) => readOverrides(p))),
+      Promise.all(personaIds.map((p) => readLoudness(p))),
     ]);
     const extras = Object.fromEntries(
       personaIds.map((p, i) => [p, extrasList[i]])
@@ -54,6 +56,8 @@ export async function GET() {
       overrides: Object.fromEntries(personaIds.map((p, i) => [p, overridesList[i]])),
       extras,
       voiceSettings,
+      // { <persona>: { avgDb, files: { <id>: dBFS } } | null } — per-clip levels
+      loudness: Object.fromEntries(personaIds.map((p, i) => [p, loudnessList[i]])),
     });
   } catch {
     return NextResponse.json({ error: "status unavailable" }, { status: 503 });

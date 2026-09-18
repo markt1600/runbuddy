@@ -11,6 +11,10 @@ import type { Persona, Phrase, PersonaId, PhraseCategory } from "./types";
 const urls = new Map<string, string>(); // "<persona>/<id>" → audio url
 const renderedAt = new Map<string, string>(); // "<persona>/<id>" → ISO recording time
 const promoted = new Set<string>(); // "<persona>/<id>" — a real actor's take, not TTS
+// Per-clip speech level from Admin's level check, and each trainer's average —
+// the input to the play-time boost for clips that render far too soft.
+const clipDb = new Map<string, number>(); // "<persona>/<id>" → dBFS
+const trainerAvgDb = new Map<PersonaId, number>();
 const PERSONA_IDS = Object.keys(PERSONAS) as PersonaId[];
 
 const extras = Object.fromEntries(PERSONA_IDS.map((p) => [p, [] as Phrase[]])) as Record<
@@ -158,6 +162,10 @@ export async function loadLibraryState(force = false): Promise<void> {
         overrides?: Record<string, Record<string, string>>;
         extras: Record<string, Phrase[]>;
         voiceSettings?: Record<PersonaId, { speed: number; volume: number }>;
+        loudness?: Record<
+          PersonaId,
+          { avgDb: number; files: Record<string, number> } | null
+        >;
       } = await res.json();
       flags = { ...data, statusReached: true };
       for (const [k, url] of Object.entries(data.rendered)) {
@@ -185,6 +193,13 @@ export async function loadLibraryState(force = false): Promise<void> {
         if (typeof speed === "number") voiceSpeeds[persona] = speed;
         const volume = data.voiceSettings?.[persona]?.volume;
         if (typeof volume === "number") voiceVolumes[persona] = volume;
+        const loud = data.loudness?.[persona];
+        if (loud && isFinite(loud.avgDb)) {
+          trainerAvgDb.set(persona, loud.avgDb);
+          for (const [id, db] of Object.entries(loud.files ?? {})) {
+            if (isFinite(db)) clipDb.set(key(persona, id), db);
+          }
+        }
       }
     }
   } catch {
@@ -364,9 +379,59 @@ export function getVoiceSpeed(persona: PersonaId): number {
   return voiceSpeeds[persona];
 }
 
-/** Playback level for this persona, 0.4–3. Above 1 the native player amplifies. */
+/** Playback level for this persona, 0.4–4. Above 1 the native player amplifies. */
 export function getVoiceVolume(persona: PersonaId): number {
   return voiceVolumes[persona];
+}
+
+// ---- Per-clip boost for soft renders ----
+// A clip more than QUIET_FRACTION below its trainer's measured average gets a
+// lift at play time: the trainer's level times BOOST_FACTOR, never above
+// BOOST_CEILING (whichever is lower). Real actor takes are never touched, and
+// a clip with no reading (never measured, or re-rendered since) plays at the
+// trainer's level. Readings come from Admin's level check via /status.
+const QUIET_FRACTION = 0.5; // "more than 50% below average" = under avg − 6 dB
+const BOOST_FACTOR = 1.5;
+const BOOST_CEILING = 5;
+
+/** Admin's level check just measured these — apply without a status refetch. */
+export function setClipLoudness(persona: PersonaId, avgDb: number, files: Record<string, number>) {
+  if (isFinite(avgDb)) trainerAvgDb.set(persona, avgDb);
+  for (const [id, db] of Object.entries(files)) {
+    if (isFinite(db)) clipDb.set(key(persona, id), db);
+    else clipDb.delete(key(persona, id));
+  }
+}
+
+/** A re-render or promotion invalidates the clip's reading. */
+export function forgetClipLoudness(persona: PersonaId, id: string) {
+  clipDb.delete(key(persona, id));
+}
+
+const stripQuery = (u: string) => u.split("?")[0];
+
+/**
+ * The level a queued line should actually play at: the base (trainer level or
+ * an explicit override), lifted for a pre-rendered clip known to be far below
+ * its trainer's average. Only library URLs qualify — live lines carry no
+ * reading and cues aren't speech.
+ */
+export function boostedVolume(audioUrl: string | undefined, base: number): number {
+  if (!audioUrl || audioUrl.startsWith("data:") || audioUrl.startsWith("blob:")) return base;
+  const bare = stripQuery(audioUrl);
+  let hit: string | null = null;
+  for (const [k, u] of urls) {
+    if (stripQuery(u) === bare) {
+      hit = k;
+      break;
+    }
+  }
+  if (!hit || promoted.has(hit)) return base;
+  const db = clipDb.get(hit);
+  const avg = trainerAvgDb.get(hit.split("/")[0] as PersonaId);
+  if (db === undefined || avg === undefined) return base;
+  if (db > avg + 20 * Math.log10(1 - QUIET_FRACTION)) return base;
+  return Math.min(BOOST_CEILING, base * BOOST_FACTOR);
 }
 
 /** Admin: persist a new voice speed server-side. Takes effect on future renders. */
@@ -477,6 +542,7 @@ export async function reRenderPhrase(persona: PersonaId, id: string): Promise<vo
   urls.set(key(persona, id), `${data.url}?v=${Date.now()}`);
   renderedAt.set(key(persona, id), new Date().toISOString());
   promoted.delete(key(persona, id)); // now TTS again
+  clipDb.delete(key(persona, id)); // the reading described the old bytes
   // Mirror the hash the server just recorded, so the row stops reading as
   // stale without waiting for a status refetch.
   const text = allPhrasesFor(persona).find((p) => p.id === id)?.text;

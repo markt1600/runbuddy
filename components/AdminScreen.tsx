@@ -26,6 +26,7 @@ import {
   stalePhrases,
   saveVoiceSpeed,
   saveVoiceVolume,
+  setClipLoudness,
   storeAdminPin,
   type GenerationProgress,
 } from "@/lib/voiceLibrary";
@@ -316,6 +317,28 @@ export default function AdminScreen({ onBack }: Props) {
       .filter((d) => isFinite(d));
     const avgDb = meanDb(finite);
     const thresholdDb = quietThresholdDb(avgDb, checkPct);
+    // Persist every reading: the run screen lifts the far-too-soft clips at
+    // play time from exactly this map, so a check that ends without a
+    // re-render still improves the next run.
+    const saveReadings = async (files: Record<string, number>, merge: boolean) => {
+      const clean = Object.fromEntries(
+        Object.entries(files).filter(([, db]) => isFinite(db))
+      );
+      setClipLoudness(pid, avgDb, clean);
+      try {
+        await fetch("/api/library/loudness", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...adminPinHeaders() },
+          body: JSON.stringify({ persona: pid, avgDb, files: clean, merge }),
+        });
+      } catch {
+        /* the next check writes it again */
+      }
+    };
+    await saveReadings(
+      Object.fromEntries(Object.entries(levels).map(([id, r]) => [id, r.db])),
+      false
+    );
     const quiet = items.filter((x) => isFinite(levels[x.id]?.db) && levels[x.id].db <= thresholdDb);
     const base = {
       persona: pid,
@@ -371,6 +394,9 @@ export default function AdminScreen({ onBack }: Props) {
         after = null;
       }
       results.push({ id: x.id, category: x.category, before: levels[x.id].db, after, stale });
+      // The server dropped this clip's reading when it re-rendered; put the
+      // new one back (or leave it absent if the bytes never showed up).
+      if (after !== null) await saveReadings({ [x.id]: after }, true);
       setCheck({ ...base, phase: "rendering", done: results.length, results: [...results] });
       refresh();
     }
@@ -1101,19 +1127,19 @@ export default function AdminScreen({ onBack }: Props) {
           // with the reference level that would let everyone fit.
           const cappedNames = PERSONA_LIST.filter((p) => {
             if (p.id === LEVEL_REFERENCE) return false;
-            const s = suggestedVolume(loud, LEVEL_REFERENCE, volumes[LEVEL_REFERENCE], p.id, 0.4, 3);
-            return s !== null && s.capped && s.ideal > 3;
+            const s = suggestedVolume(loud, LEVEL_REFERENCE, volumes[LEVEL_REFERENCE], p.id, 0.4, 4);
+            return s !== null && s.capped && s.ideal > 4;
           }).map((p) => p.shortName);
           if (cappedNames.length === 0) return null;
-          const fit = referenceLevelToFitAll(loud, LEVEL_REFERENCE, 3);
+          const fit = referenceLevelToFitAll(loud, LEVEL_REFERENCE, 4);
           return (
             <div className="stale-banner" style={{ marginTop: 8 }}>
               <div className="stale-head">
                 ⚠ {cappedNames.join(", ")} {cappedNames.length === 1 ? "wants" : "want"} more than
-                300% to match {PERSONAS[LEVEL_REFERENCE].shortName}
+                400% to match {PERSONAS[LEVEL_REFERENCE].shortName}
               </div>
               <div className="stale-sub">
-                300% is the slider&apos;s cap, not the right level — at 300% they will still be
+                400% is the slider&apos;s cap, not the right level — at 400% they will still be
                 softer than {PERSONAS[LEVEL_REFERENCE].shortName}. Either bring{" "}
                 {PERSONAS[LEVEL_REFERENCE].shortName} down
                 {fit !== null ? ` to ${Math.round(fit * 100)}% or below` : ""} so everyone fits,
@@ -1137,7 +1163,7 @@ export default function AdminScreen({ onBack }: Props) {
           const suggest =
             p.id === LEVEL_REFERENCE
               ? null
-              : suggestedVolume(loud, LEVEL_REFERENCE, volumes[LEVEL_REFERENCE], p.id, 0.4, 3);
+              : suggestedVolume(loud, LEVEL_REFERENCE, volumes[LEVEL_REFERENCE], p.id, 0.4, 4);
           return (
           <div className="speed-row" key={p.id}>
             <span className="speed-name">
@@ -1146,7 +1172,7 @@ export default function AdminScreen({ onBack }: Props) {
             <input
               type="range"
               min={0.4}
-              max={3}
+              max={4}
               step={0.05}
               value={volumes[p.id]}
               onChange={(e) =>
@@ -1174,7 +1200,7 @@ export default function AdminScreen({ onBack }: Props) {
                       <em className="level-capped">
                         {" "}
                         (capped — wants {Math.round(suggest.ideal * 100)}%
-                        {suggest.ideal > 3 ? ", still softer than " + PERSONAS[LEVEL_REFERENCE].shortName : ""})
+                        {suggest.ideal > 4 ? ", still softer than " + PERSONAS[LEVEL_REFERENCE].shortName : ""})
                       </em>
                     )}
                     {Math.abs(suggest.volume - volumes[p.id]) >= 0.05 && (
@@ -1194,8 +1220,10 @@ export default function AdminScreen({ onBack }: Props) {
         })}
         <div className="gen-hint" style={{ padding: "2px 0 10px" }}>
           Every voice ships at 100%. Above 100% the native app amplifies the audio itself,
-          up to 300% through a soft limiter — use it to lift a voice that renders quiet
-          (Cassie). Browser playback still caps at 100%. Applies on your next run, no re-render needed. &quot;use&quot; only moves the
+          up to 400% through a soft limiter — use it to lift a voice that renders quiet
+          (Cassie). On top of that, any clip the level check found more than 50% below its
+          trainer&apos;s average is lifted on its own at play time (1.5× the trainer&apos;s level,
+          up to 500%). Browser playback still caps at 100%. Applies on your next run, no re-render needed. &quot;use&quot; only moves the
           slider — press Save to keep it.
         </div>
       </div>
