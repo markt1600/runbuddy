@@ -501,7 +501,6 @@ export default function RunBuddyApp() {
           onAutoPauseChange={setAutoPause}
           startDelay={startDelay}
           onStartDelayChange={setStartDelay}
-          onStart={() => setScreen("run")}
         />
       )}
       {screen === "admin" && <AdminScreen onBack={() => setScreen("setup")} />}
@@ -593,10 +592,10 @@ export default function RunBuddyApp() {
           showFriends={!!auth.user}
           friendsBadge={unreadCount}
           showAdmin={auth.isAdmin !== false}
-          runLabel={screen === "setup" ? null : "GET READY"}
+          runLabel={screen === "setup" ? "START RUN" : "GET READY"}
           onHome={() => setScreen(auth.user ? "home" : "landing")}
           onFriends={() => setScreen("friends")}
-          onRun={() => setScreen("setup")}
+          onRun={() => setScreen(screen === "setup" ? "run" : "setup")}
           onAccount={() => setScreen("account")}
           onAdmin={() => setScreen("admin")}
         />

@@ -431,58 +431,6 @@ body {
   color: #fff;
 }
 
-/* The one-line settings summary and the named Start, pinned at the foot. */
-.setup-foot {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.setup-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 13px;
-  color: var(--label-2);
-}
-
-.setup-summary > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.link-btn {
-  flex-shrink: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 6px 0;
-  cursor: pointer;
-}
-
-/* Doubled up to outrank .cta's uppercase mono, which is declared later. */
-.cta.setup-start {
-  height: 56px;
-  padding: 0 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: inherit;
-  font-size: 18px;
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* ---------- Segmented control ---------- */
 
 .segmented {
@@ -2736,11 +2684,6 @@ input[type="range"]::-moz-range-thumb {
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     inset 0 -2px 0 rgba(0, 0, 0, 0.22);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
-
-/* Setup carries its own Start: an empty slot keeps the side tabs in place. */
-.tab-run-gap {
-  flex: 0 1 min(44%, 182px);
 }
 
 .tab-run:active {

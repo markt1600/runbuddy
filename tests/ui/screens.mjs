@@ -20,10 +20,10 @@ await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/01-setup.png`, fullPage: true });
 
 // Start a run → paper while running; the shell only flips to ink on a pause.
-// Setup carries its own named Start; the tab bar's pill leaves the slot empty.
-assert.strictEqual(await page.locator(".tab-run").count(), 0, "setup still shows the tab-bar run pill");
-assert.match(await page.locator(".setup-start").innerText(), /Start with/i, "setup Start not named");
-await page.locator(".setup-start").click();
+// Target and chatter sit in plain view on setup, not behind a toggle.
+assert.strictEqual(await page.locator(".section-header", { hasText: "Target" }).count(), 1, "target section hidden");
+assert.strictEqual(await page.locator(".section-header", { hasText: "Coach Chatter" }).count(), 1, "chatter section hidden");
+await page.locator(".tab-run").click();
 await page.waitForTimeout(2000);
 
 assert.strictEqual(await page.locator(".app.theme-ink").count(), 0, "running screen should be paper");
