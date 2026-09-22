@@ -481,11 +481,74 @@ export function drawRunCard(canvas: HTMLCanvasElement, opts: RunCardOptions) {
   ctx.textAlign = "center";
   ctx.font = `600 20px ${fonts.mono}`;
   ctx.fillStyle = INK_FAINT;
-  ctx.fillText("R U N   B U D D Y", S / 2, S - 46);
+  ctx.fillText("T E K A N   B U D D Y", S / 2, S - 46);
 }
 
 export function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+}
+
+/**
+ * Keep the card: the photo library in the shell, a download on the web.
+ * The summary's "Save to Photos" — never a share sheet.
+ */
+export async function saveCardToDevice(
+  canvas: HTMLCanvasElement,
+  filename: string
+): Promise<"photos" | "downloaded" | "failed"> {
+  const native = runBuddyNative();
+  if (native) {
+    try {
+      const dataUrl = canvas.toDataURL("image/png");
+      await native.saveToPhotos({ data: dataUrl.slice(dataUrl.indexOf(",") + 1) });
+      return "photos";
+    } catch {
+      /* fall through to the web path */
+    }
+  }
+  const blob = await canvasToBlob(canvas);
+  if (!blob) return "failed";
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    return "downloaded";
+  } catch {
+    return "failed";
+  }
+}
+
+/**
+ * Hand the card to the share sheet. Where the WebView has no Web Share for
+ * files, the card goes to Photos instead and the caller says so — sharing
+ * from there is one tap, and nothing is lost.
+ */
+export async function shareCard(
+  canvas: HTMLCanvasElement,
+  filename: string
+): Promise<"shared" | "photos" | "downloaded" | "failed"> {
+  const blob = await canvasToBlob(canvas);
+  if (!blob) return "failed";
+  const file = new File([blob], filename, { type: "image/png" });
+  const nav = navigator as Navigator & {
+    canShare?: (data?: ShareData) => boolean;
+    share?: (data?: ShareData) => Promise<void>;
+  };
+  if (nav.canShare?.({ files: [file] }) && nav.share) {
+    try {
+      await nav.share({ files: [file] });
+      return "shared";
+    } catch (err) {
+      // Dismissing the sheet is not a failure.
+      if (err instanceof DOMException && err.name === "AbortError") return "shared";
+    }
+  }
+  return saveCardToDevice(canvas, filename);
 }
 
 /** Share via the iOS share sheet when possible, else fall back to a download. */

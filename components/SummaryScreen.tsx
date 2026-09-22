@@ -1,14 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatElapsed, formatPace } from "@/lib/geo";
+import { formatElapsed } from "@/lib/geo";
 import { coachIsSpeaking } from "@/lib/audio";
 import { getVoiceVolume } from "@/lib/voiceLibrary";
 import HealthPanel from "./HealthPanel";
 import type { SpeedUnit } from "@/lib/units";
 import { loadCardBg } from "@/lib/prefs";
-import { drawRunCard, shareOrDownloadCard } from "@/lib/runCard";
+import { drawRunCard, saveCardToDevice, shareCard } from "@/lib/runCard";
 import type { Persona, RunStats } from "@/lib/types";
+
+// The post-run screen. The shareable card is the thing, so it fills the top
+// with Share and Save right under it; everything else — the Watch check,
+// splits, the route, who cheered — collapses into rows beneath.
 
 interface Props {
   persona: Persona;
@@ -69,6 +73,39 @@ function RouteMap({ route, accent }: { route: RunStats["route"]; accent: string 
   );
 }
 
+/** One collapsible row: a title, a one-line answer, and the detail on tap. */
+function SumRow({
+  title,
+  sub,
+  children,
+}: {
+  title: string;
+  sub: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`sum-row-wrap${open ? " open" : ""}`}>
+      <div className="sum-row">
+        <button className="sum-row-main" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+          <span className="sum-row-title">{title}</span>
+          <span className="sum-row-sub">{sub}</span>
+        </button>
+        <button
+          className="sum-row-chev"
+          aria-label={open ? `Hide ${title}` : `Show ${title}`}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </button>
+      </div>
+      {open && <div className="sum-row-body">{children}</div>}
+    </div>
+  );
+}
+
 export default function SummaryScreen({
   persona,
   duo,
@@ -83,10 +120,10 @@ export default function SummaryScreen({
   const [saveNote, setSaveNote] = useState<string | null>(null);
   // A native save/share can take a second or two with no visible response;
   // without immediate feedback + a guard, tapping again saves the card twice.
-  const [saving, setSaving] = useState(false);
-  const savingRef = useRef(false);
+  const [busy, setBusy] = useState<"share" | "save" | null>(null);
+  const busyRef = useRef(false);
   // Local because confirming against the Watch amends them in place — the
-  // stat grid and the card both redraw from whatever is here.
+  // rows and the card both redraw from whatever is here.
   const [stats, setStats] = useState(initialStats);
   const runIdRef = useRef(initialRunId);
   runIdRef.current = initialRunId ?? runIdRef.current;
@@ -123,7 +160,6 @@ export default function SummaryScreen({
       : Date.now(),
   }).current;
 
-  const headline = persona.positive ? "You crushed it!" : "Okay lah, not bad, chee bye.";
   const fallbackSub = persona.positive
     ? "Every step of that was yours. Be proud!"
     : "Don't get cocky ah, kanina. Same time tomorrow.";
@@ -236,35 +272,53 @@ export default function SummaryScreen({
     };
   }, [comment, persona, duo, stats, speedUnit, fallbackSub]);
 
-  const saveCard = useCallback(async () => {
-    const canvas = canvasRef.current;
-    if (!canvas || savingRef.current) return; // guard re-taps while a save is in flight
-    savingRef.current = true;
-    setSaving(true);
-    setSaveNote(null);
-    try {
-      const stamp = new Date().toISOString().slice(0, 10);
-      const result = await shareOrDownloadCard(canvas, `run-buddy-${stamp}.png`);
-      setSaveNote(
-        result === "shared"
-          ? null
-          : result === "photos"
-            ? "✓ Saved to your Photos"
-            : result === "downloaded"
-              ? "Saved to your downloads"
-              : "Couldn't save — long-press the image to save it instead"
-      );
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-  }, []);
+  const withCard = useCallback(
+    async (
+      kind: "share" | "save",
+      run: (canvas: HTMLCanvasElement, name: string) => Promise<string>
+    ) => {
+      const canvas = canvasRef.current;
+      if (!canvas || busyRef.current) return; // guard re-taps while one is in flight
+      busyRef.current = true;
+      setBusy(kind);
+      setSaveNote(null);
+      try {
+        const stamp = new Date().toISOString().slice(0, 10);
+        const result = await run(canvas, `tekan-buddy-${stamp}.png`);
+        setSaveNote(
+          result === "shared"
+            ? null
+            : result === "photos"
+              ? kind === "share"
+                ? "✓ Saved to your Photos — share it from there"
+                : "✓ Saved to your Photos"
+              : result === "downloaded"
+                ? "Saved to your downloads"
+                : "Couldn't save — long-press the image to save it instead"
+        );
+      } finally {
+        busyRef.current = false;
+        setBusy(null);
+      }
+    },
+    []
+  );
+
+  const dateLabel = new Date(stats.startedAt ?? Date.now() - stats.elapsedMs).toLocaleString(
+    [],
+    { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }
+  );
+  const fastestSplit = stats.splits.length > 0 ? Math.min(...stats.splits) : null;
+  const cheers = stats.cheers;
+  const cheerSub = cheers
+    ? `${cheers.count} from ${cheers.from.length} friend${cheers.from.length === 1 ? "" : "s"}`
+    : "";
 
   return (
-    <div className="fade-in" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-      <div className="summary-hero">
-        <div className="summary-emoji">{persona.emoji}</div>
-        <div className="summary-headline">{headline}</div>
+    <div className="fade-in summary">
+      <div className="sum-head">
+        <h1 className="sum-title">Done</h1>
+        <span className="sum-date">{dateLabel}</span>
       </div>
 
       {/* The shareable square card — what you see is exactly what saves. */}
@@ -278,95 +332,126 @@ export default function SummaryScreen({
         </div>
       )}
 
-      <button
-        className="cta secondary save-card-btn"
-        onClick={saveCard}
-        disabled={saving}
-      >
-        {saving ? "Saving…" : "⬇︎ Save run card"}
-      </button>
+      <div className="sum-actions">
+        <button
+          className="cta"
+          disabled={busy !== null}
+          onClick={() => void withCard("share", shareCard)}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M12 16V4" />
+            <path d="M6 10l6-6 6 6" />
+            <path d="M4 20h16" />
+          </svg>
+          {busy === "share" ? "Sharing…" : "Share card"}
+        </button>
+        <button
+          className="cta secondary"
+          disabled={busy !== null}
+          onClick={() => void withCard("save", saveCardToDevice)}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M12 4v12" />
+            <path d="M6 10l6 6 6-6" />
+            <path d="M4 20h16" />
+          </svg>
+          {busy === "save" ? "Saving…" : "Save to Photos"}
+        </button>
+      </div>
       {saveNote && <div className="save-note">{saveNote}</div>}
 
-      <div className="stat-grid">
-        {stats.treadmill ? (
-          <>
-            <div className="stat-cell">
-              <div className="stat-value">{formatElapsed(stats.elapsedMs)}</div>
-              <div className="stat-label">Time</div>
+      <div className="sum-rows">
+        <HealthPanel
+          variant="row"
+          sinceMs={healthWindow.sinceMs}
+          untilMs={healthWindow.untilMs}
+          appDistanceKm={stats.treadmill ? null : stats.distanceKm}
+          confirmed={stats.confirmed ?? null}
+          onConfirm={initialRunId && !stats.treadmill ? confirmDistance : undefined}
+        />
+
+        {stats.splits.length > 0 && (
+          <SumRow
+            title="Splits"
+            sub={
+              fastestSplit !== null
+                ? `Fastest ${formatElapsed(fastestSplit)} · ${stats.splits.length} km`
+                : `${stats.splits.length} km`
+            }
+          >
+            <div className="card splits">
+              {stats.splits.map((ms, i) => (
+                <div className="split-row" key={i}>
+                  <span className="k">Kilometre {i + 1}</span>
+                  <span>{formatElapsed(ms)}</span>
+                </div>
+              ))}
             </div>
-            <div className="stat-cell">
-              <div className="stat-value">
-                {stats.targetMinutes} <span className="stat-unit">min</span>
+          </SumRow>
+        )}
+
+        {!stats.treadmill && (
+          <SumRow
+            title="Route"
+            sub={
+              stats.route.length >= 2
+                ? stats.locality ?? stats.city ?? "GPS route"
+                : "No GPS route recorded"
+            }
+          >
+            <div className="card route-card">
+              <RouteMap route={stats.route} accent={persona.accent} />
+            </div>
+            {/* GPS delivery diagnostics: the difference between "the run was
+                short" and "iOS starved us of fixes". Only when we have data. */}
+            {stats.gps && stats.gps.avgFixGapSec !== null && (
+              <div className="gps-diag">
+                GPS fix every {stats.gps.avgFixGapSec.toFixed(1)}s avg · longest gap{" "}
+                {Math.round(stats.gps.maxFixGapSec)}s
+                {stats.gps.overCapSec >= 1 &&
+                  ` · ${Math.round(stats.gps.overCapSec)}s beyond the credit cap`}
+                {stats.gps.bridgedKm >= 0.005 &&
+                  ` · correction added ${Math.round(stats.gps.bridgedKm * 1000)}m`}
+                {(stats.gps.startKm ?? 0) >= 0.005 &&
+                  ` · start credit ${Math.round((stats.gps.startKm ?? 0) * 1000)}m`}
               </div>
-              <div className="stat-label">Target</div>
+            )}
+          </SumRow>
+        )}
+
+        {stats.treadmill && (
+          <SumRow
+            title="Treadmill"
+            sub={`${formatElapsed(stats.elapsedMs)} of a ${stats.targetMinutes ?? 0} min target`}
+          >
+            <div className="health-line">
+              Time-target run: no GPS, so there is no distance, pace or route. Your buddy
+              paced you by the clock.
             </div>
-          </>
-        ) : (
-          <>
-            <div className="stat-cell">
-              <div className="stat-value">
-                {stats.distanceKm.toFixed(2)} <span className="stat-unit">km</span>
-              </div>
-              <div className="stat-label">Distance</div>
+          </SumRow>
+        )}
+
+        {cheers && cheers.count > 0 && (
+          <SumRow title="Cheers received" sub={cheerSub}>
+            <div className="card splits">
+              {cheers.from.map((name) => (
+                <div className="split-row" key={name}>
+                  <span className="k">{name}</span>
+                  <span>cheered you on</span>
+                </div>
+              ))}
             </div>
-            <div className="stat-cell">
-              <div className="stat-value">{formatElapsed(stats.elapsedMs)}</div>
-              <div className="stat-label">Time</div>
+            <div className="health-line">
+              Played during the run, in your trainer&apos;s voice or their own. Say thanks
+              in the Friends tab.
             </div>
-            <div className="stat-cell">
-              <div className="stat-value">{formatPace(stats.avgPaceSecPerKm)}</div>
-              <div className="stat-label">Avg pace / km</div>
-            </div>
-            <div className="stat-cell">
-              <div className="stat-value">
-                {avgSpeedKmh.toFixed(1)} <span className="stat-unit">km/h</span>
-              </div>
-              <div className="stat-label">Avg speed</div>
-            </div>
-          </>
+          </SumRow>
         )}
       </div>
 
-      {/* GPS delivery diagnostics: the difference between "the run was short"
-          and "iOS starved us of fixes". One quiet line, only when we have data. */}
-      {stats.gps && stats.gps.avgFixGapSec !== null && (
-        <div className="gps-diag">
-          GPS fix every {stats.gps.avgFixGapSec.toFixed(1)}s avg · longest gap{" "}
-          {Math.round(stats.gps.maxFixGapSec)}s
-          {stats.gps.overCapSec >= 1 &&
-            ` · ${Math.round(stats.gps.overCapSec)}s beyond the credit cap`}
-          {stats.gps.bridgedKm >= 0.005 &&
-            ` · correction added ${Math.round(stats.gps.bridgedKm * 1000)}m`}
-          {(stats.gps.startKm ?? 0) >= 0.005 &&
-            ` · start credit ${Math.round((stats.gps.startKm ?? 0) * 1000)}m`}
-        </div>
-      )}
-
-      <HealthPanel
-        sinceMs={healthWindow.sinceMs}
-        untilMs={healthWindow.untilMs}
-        appDistanceKm={stats.treadmill ? null : stats.distanceKm}
-        confirmed={stats.confirmed ?? null}
-        onConfirm={initialRunId && !stats.treadmill ? confirmDistance : undefined}
-      />
-
-      {stats.splits.length > 0 && (
-        <>
-          <div className="section-header">Splits</div>
-          <div className="card splits">
-            {stats.splits.map((ms, i) => (
-              <div className="split-row" key={i}>
-                <span className="k">Kilometre {i + 1}</span>
-                <span>{formatElapsed(ms)}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      <div className="footer-cta">
-        <button className="cta" onClick={onDone}>
-          Done
+      <div className="sum-foot">
+        <button className="cta secondary" onClick={onDone}>
+          Back to home
         </button>
       </div>
     </div>

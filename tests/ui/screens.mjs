@@ -95,6 +95,20 @@ await page.waitForTimeout(3000);
 assert.strictEqual(await page.locator(".app.theme-ink").count(), 0, "summary still in ink theme");
 await page.screenshot({ path: `${OUT}/03-summary.png`, fullPage: true });
 
+// The detail rows collapse under the card; opening one reveals its body.
+assert.strictEqual(await page.locator(".sum-row-body").count(), 0, "a summary row started open");
+await page.locator(".sum-row-main", { hasText: "Route" }).click();
+await page.waitForTimeout(300);
+assert.strictEqual(await page.locator(".sum-row-body").count(), 1, "the Route row did not open");
+assert.ok(
+  (await page.locator(".sum-row-body .route-map, .sum-row-body .route-empty").count()) === 1,
+  "the Route row opened without a map or an empty-state line"
+);
+await page.screenshot({ path: `${OUT}/03b-summary-open.png`, fullPage: true });
+await page.locator(".sum-row-main", { hasText: "Route" }).click();
+await page.waitForTimeout(200);
+assert.strictEqual(await page.locator(".sum-row-body").count(), 0, "the Route row did not close");
+
 const dataUrl = await page.evaluate(
   () => document.querySelector(".run-card-img")?.getAttribute("src") ?? null
 );

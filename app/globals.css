@@ -1758,31 +1758,168 @@ input[type="range"]::-moz-range-thumb {
   z-index: 1;
 }
 
-/* ---------- Summary ---------- */
+/* ---------- Summary: the card first ---------- */
 
-.summary-hero {
-  text-align: center;
-  padding: 40px 0 24px;
+.summary {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 14px;
 }
 
-.summary-emoji { font-size: 64px; }
+.sum-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
 
-.summary-headline {
+.sum-title {
   font-family: var(--ff-display);
-  font-size: clamp(32px, 9vw, 42px);
+  font-size: 30px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  line-height: 1.02;
-  margin-top: 14px;
+  line-height: 1;
 }
 
-.summary-sub {
+.sum-date {
+  font-size: 13px;
   color: var(--label-2);
-  margin-top: 8px;
-  font-size: 17px;
-  font-style: italic;
-  line-height: 1.4;
+  white-space: nowrap;
 }
+
+.summary .run-card-img {
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.sum-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Sentence-case 52px buttons, as the run screen's controls: the uppercase
+   mono CTA is for the one big call on a screen, not a row of three. */
+.sum-actions .cta,
+.sum-foot .cta {
+  margin: 0;
+  height: 52px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.sum-actions .cta { flex: 1; min-width: 0; }
+.sum-actions .cta svg { flex-shrink: 0; }
+.sum-actions .cta.secondary,
+.sum-foot .cta.secondary {
+  color: var(--label);
+  border-color: var(--separator-strong);
+}
+.sum-actions .cta.secondary { background: var(--bg-elevated); }
+
+.sum-foot {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.sum-rows {
+  border-top: 1px solid var(--separator);
+}
+
+.sum-row-wrap {
+  border-bottom: 1px solid var(--separator);
+}
+
+.sum-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+}
+
+.sum-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border: 0;
+  background: none;
+  color: var(--label);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sum-row-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.sum-row-ok { color: var(--green); }
+
+.sum-row-sub {
+  font-size: 13.5px;
+  color: var(--label-2);
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sum-row-pill {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sum-row-pill:disabled { opacity: 0.5; }
+
+.sum-row-chev {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: none;
+  color: var(--label-3);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.sum-row-wrap.open .sum-row-chev { transform: rotate(90deg); }
+
+.sum-row-body {
+  padding: 0 0 14px;
+}
+
+.sum-row-body .splits { margin-top: 0; }
+.sum-row-body .gps-diag { margin-top: 8px; }
+.health-card.in-row { margin-top: 0; }
 
 .route-card {
   padding: 8px;
