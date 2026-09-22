@@ -95,7 +95,9 @@ export async function openAdmin(page) {
   await page.waitForTimeout(1000);
   await page.locator(".tab-admin").click();
   await page.waitForTimeout(600);
-  const pin = page.locator('input[type="password"], input[inputmode="numeric"]').first();
+  // The PIN field by its own class: the admin console has other numeric
+  // inputs (the level-check threshold) that a looser selector would hit.
+  const pin = page.locator("input.pin-input").first();
   if (await pin.count()) {
     await pin.fill("0000");
     await page.keyboard.press("Enter");

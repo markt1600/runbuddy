@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatElapsed, formatPace } from "@/lib/geo";
 import { PERSONAS } from "@/lib/personas";
-import { loadSpeedUnit } from "@/lib/units";
-import { drawRunCard } from "@/lib/runCard";
 import type { PersonaId, RunStats } from "@/lib/types";
 import type { AppNotification } from "@/lib/server/notifications";
 
-// The Friends tab: add people by name, and a feed of every mutual friend's
-// runs — their run cards, comments underneath, tap-through to the full
-// read-only detail. Friendship only activates when BOTH sides added each
-// other; until then the row shows as pending and no runs are visible.
+// The Friends tab: one feed, newest first, of everything your friends did —
+// their runs, what they said about yours, the cheers of yours that played in
+// their runs, who added you back. A cheer composer sits on top and says who
+// is out running right now; requests wear a badge in the header; adding
+// someone is a button, not a permanent search box. Friendship only activates
+// when BOTH sides added each other; until then the row reads as pending and
+// no runs are visible.
 
 export interface FeedRun {
   id: string;
@@ -228,69 +229,127 @@ interface Comment {
 
 interface Props {
   onOpenRun: (run: FeedRun) => void;
-  /** The alert inbox (owned by the app shell, which also polls it). */
+  /** The whole alert inbox (owned by the app shell, which also polls it). */
   notifications?: AppNotification[];
+  /** Alerts newer than this arrived since the previous visit: marked as new. */
+  newSince?: number;
   onOpenNotification?: (n: AppNotification) => void;
 }
 
-/** "2h ago" style stamps for the What's New strip. */
-function ago(at: number): string {
+/** "12 min" / "3 h" / "Yesterday" / "Sat" / "12 Sep" — the feed's stamps. */
+function when(at: number): string {
   const s = Math.max(0, Math.floor((Date.now() - at) / 1000));
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86_400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86_400)}d ago`;
+  if (s < 60) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)} min`;
+  if (s < 86_400) return `${Math.floor(s / 3600)} h`;
+  const d = new Date(at);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.floor((today.getTime() - d.getTime()) / 86_400_000) + 1;
+  if (days <= 1) return "Yesterday";
+  if (days < 7) return d.toLocaleDateString(undefined, { weekday: "short" });
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-/** One feed entry: the friend's run card, drawn from their real stats. */
-function FeedCard({ run, onOpen }: { run: FeedRun; onOpen: () => void }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [cardUrl, setCardUrl] = useState<string | null>(null);
+/** A steady colour per person, from the design's palette. */
+const AVATAR_COLOURS = ["#3f7d3f", "#2f5d8c", "#b06a15", "#7b4fa0", "#a8391e", "#5a5142"];
+
+function Avatar({ name, isNew }: { name: string; isNew?: boolean }) {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const colour = AVATAR_COLOURS[h % AVATAR_COLOURS.length];
+  return (
+    <span className="fe-avatar" style={{ background: colour }} aria-hidden>
+      {name.trim().charAt(0).toUpperCase() || "•"}
+      {isNew && <span className="fe-new" />}
+    </span>
+  );
+}
+
+/**
+ * The server writes each alert as one display line, emoji first. Split it
+ * into the feed's shape — a head with the person's name in bold, a quieter
+ * second line — without the server learning a new format.
+ */
+function splitNotification(n: AppNotification): {
+  head: React.ReactNode;
+  sub: string | null;
+  quote: boolean;
+} {
+  const text = n.text.replace(/^[^\p{L}\p{N}]+\s*/u, ""); // drop the leading emoji
+  // A comment quotes the words: "Mel commented on your run: “…”".
+  const quoted = text.match(/^(.*?):\s*[“"](.*)[”"]\s*$/s);
+  let head = text;
+  let sub: string | null = null;
+  let quote = false;
+  if (quoted) {
+    head = quoted[1];
+    sub = quoted[2];
+    quote = true;
+  } else {
+    const dash = text.indexOf(" — ");
+    if (dash > 0) {
+      head = text.slice(0, dash);
+      sub = text.slice(dash + 3);
+    }
+  }
+  // "Played at 07:42 in Mel's run" leads with the moment; everything else
+  // leads with the person.
+  const played = head.match(/^(Played(?: at [^ ]+(?: [AaPp][Mm])?)?)(.*)$/);
+  let node: React.ReactNode = head;
+  if (played) {
+    node = (
+      <>
+        <strong>{played[1]}</strong>
+        {played[2]}
+      </>
+    );
+  } else if (n.fromName && head.startsWith(n.fromName)) {
+    node = (
+      <>
+        <strong>{n.fromName}</strong>
+        {head.slice(n.fromName.length)}
+      </>
+    );
+  } else if (n.fromName && head.startsWith(`You and ${n.fromName}`)) {
+    node = (
+      <>
+        You and <strong>{n.fromName}</strong>
+        {head.slice(`You and ${n.fromName}`.length)}
+      </>
+    );
+  }
+  return { head: node, sub, quote };
+}
+
+/** A friend's run in the feed: the head line, a compact strip, comments. */
+function RunEntry({
+  run,
+  isNew,
+  onOpen,
+  onCheer,
+}: {
+  run: FeedRun;
+  isNew: boolean;
+  onOpen: () => void;
+  onCheer: () => void;
+}) {
+  const [stats, setStats] = useState<RunStats | null>(null);
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [commenting, setCommenting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
+    // The strip's second line wants where it was and whether it was a duo —
+    // both live in the full stats, one small fetch per run.
     void fetch(`/api/friends/runs/${run.friendUid}/${encodeURIComponent(run.id)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { stats: RunStats } | null) => {
-        if (cancelled || !data?.stats) return;
-        const persona = PERSONAS[run.personaId as PersonaId] ?? PERSONAS.ahbeng;
-        // The friend's own card background, when they've set one — proxied
-        // same-origin (mutuality-gated) so the canvas isn't tainted. Drawn
-        // without it first so the card is never blank waiting on the photo.
-        let bgImg: HTMLImageElement | null = null;
-        const draw = () => {
-          const canvas = canvasRef.current;
-          if (!canvas || cancelled) return;
-          drawRunCard(canvas, {
-            persona,
-            duo:
-              data.stats.duoWith && PERSONAS[data.stats.duoWith]
-                ? PERSONAS[data.stats.duoWith]
-                : null,
-            stats: data.stats,
-            unit: loadSpeedUnit(),
-            comment: persona.positive
-              ? "Every step of that was theirs. Respect!"
-              : "Not bad lah. Your turn.",
-            background: bgImg,
-            date: new Date(run.startedAt),
-          });
-          setCardUrl(canvas.toDataURL("image/png"));
-        };
-        const bg = new Image();
-        bg.onload = () => {
-          bgImg = bg;
-          draw();
-        };
-        bg.src = `/api/friends/card-bg/${run.friendUid}`;
-        draw();
-        if (typeof document !== "undefined" && document.fonts?.status !== "loaded") {
-          void document.fonts.ready.then(draw).catch(() => {});
-        }
+        if (!cancelled && data?.stats) setStats(data.stats);
       })
       .catch(() => {});
     void fetch(`/api/friends/runs/${run.friendUid}/${encodeURIComponent(run.id)}/comments`)
@@ -304,8 +363,11 @@ function FeedCard({ run, onOpen }: { run: FeedRun; onOpen: () => void }) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run.friendUid, run.id]);
+
+  useEffect(() => {
+    if (commenting) inputRef.current?.focus();
+  }, [commenting]);
 
   const postComment = async () => {
     const text = draft.trim();
@@ -332,84 +394,155 @@ function FeedCard({ run, onOpen }: { run: FeedRun; onOpen: () => void }) {
     }
   };
 
-  const pace =
-    run.distanceKm > 0 ? formatPace(run.movingSec / run.distanceKm) : null;
+  const persona = PERSONAS[run.personaId as PersonaId] ?? PERSONAS.ahbeng;
+  const duo = stats?.duoWith ? PERSONAS[stats.duoWith] : null;
+  const treadmill = run.distanceKm <= 0;
+  const pace = !treadmill ? formatPace(run.movingSec / run.distanceKm) : null;
+  const trainers = duo ? `${persona.shortName} & ${duo.shortName}` : persona.shortName;
+  const place = stats?.locality ?? stats?.city ?? null;
   const shown = showAll ? (comments ?? []) : (comments ?? []).slice(-2);
 
   return (
-    <div className="feed-item">
-      <div className="feed-head">
-        <span className="feed-name">{run.friendName}</span>
-        <span className="feed-when">
-          {new Date(run.startedAt).toLocaleDateString(undefined, {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
-          })}
-          {" · "}
-          {run.distanceKm > 0
-            ? `${run.distanceKm.toFixed(2)} km · ${pace}/km`
-            : formatElapsed(run.movingSec * 1000)}
-        </span>
-      </div>
-      <canvas ref={canvasRef} style={{ display: "none" }} />
-      {cardUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          className="run-card-img feed-card-img"
-          src={cardUrl}
-          alt={`${run.friendName}'s run card`}
-          onClick={onOpen}
-        />
-      ) : (
-        <div className="feed-card-loading" onClick={onOpen}>
-          Loading run card…
+    <div className="fe">
+      <Avatar name={run.friendName} isNew={isNew} />
+      <div className="fe-body">
+        <div className="fe-head">
+          <span className="fe-text">
+            <strong>{run.friendName}</strong>{" "}
+            {treadmill
+              ? `ran ${formatElapsed(run.movingSec * 1000)} on the treadmill`
+              : `ran ${run.distanceKm.toFixed(1)} km`}
+          </span>
+          <span className="fe-when">{when(run.startedAt)}</span>
         </div>
-      )}
-      <div className="feed-comments">
-        {comments !== null && comments.length > 2 && !showAll && (
-          <button className="feed-more" onClick={() => setShowAll(true)}>
-            Show all {comments.length} comments
-          </button>
-        )}
-        {shown.map((c, i) => (
-          <div className="feed-comment" key={`${c.at}-${i}`}>
-            <span className="feed-comment-name">{c.name}</span> {c.text}
+        <button className="fe-strip" onClick={onOpen} aria-label={`Open ${run.friendName}'s run`}>
+          <span className="fe-strip-km">
+            {treadmill ? formatElapsed(run.movingSec * 1000) : run.distanceKm.toFixed(2)}
+          </span>
+          <span className="fe-strip-meta">
+            <span>
+              {treadmill
+                ? "Treadmill, by the clock"
+                : `${formatElapsed(run.movingSec * 1000)} · ${pace} per km`}
+            </span>
+            <span>
+              {trainers}
+              {place ? ` · ${place}` : ""}
+            </span>
+          </span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden className="fe-strip-chev">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </button>
+        {shown.length > 0 && (
+          <div className="feed-comments">
+            {comments !== null && comments.length > 2 && !showAll && (
+              <button className="feed-more" onClick={() => setShowAll(true)}>
+                Show all {comments.length} comments
+              </button>
+            )}
+            {shown.map((c, i) => (
+              <div className="feed-comment" key={`${c.at}-${i}`}>
+                <span className="feed-comment-name">{c.name}</span> {c.text}
+              </div>
+            ))}
           </div>
-        ))}
-        <div className="feed-comment-row">
-          <input
-            className="feed-comment-input"
-            placeholder="Say something…"
-            value={draft}
-            maxLength={400}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void postComment();
-            }}
-          />
-          <button
-            className="feed-comment-send"
-            disabled={posting || draft.trim() === ""}
-            onClick={() => void postComment()}
-          >
-            ➤
-          </button>
-        </div>
+        )}
+        {commenting ? (
+          <div className="feed-comment-row">
+            <input
+              ref={inputRef}
+              className="feed-comment-input"
+              placeholder="Say something…"
+              value={draft}
+              maxLength={400}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void postComment();
+              }}
+            />
+            <button
+              className="feed-comment-send"
+              disabled={posting || draft.trim() === ""}
+              onClick={() => void postComment()}
+              aria-label="Post comment"
+            >
+              ➤
+            </button>
+          </div>
+        ) : (
+          <div className="fe-links">
+            <button className="fe-link" onClick={() => setCommenting(true)}>
+              Comment
+            </button>
+            <button className="fe-link" onClick={onCheer}>
+              Cheer next run
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-export default function FriendsScreen({ onOpenRun, notifications, onOpenNotification }: Props) {
+/** Anything that isn't a run: a cheer that played, a comment, a new friend. */
+function NoteEntry({
+  n,
+  isNew,
+  onOpen,
+}: {
+  n: AppNotification;
+  isNew: boolean;
+  onOpen?: () => void;
+}) {
+  const { head, sub, quote } = splitNotification(n);
+  const body = (
+    <>
+      <div className="fe-head">
+        <span className="fe-text">{head}</span>
+        <span className="fe-when">{when(n.at)}</span>
+      </div>
+      {sub && <span className={`fe-sub${quote ? " quote" : ""}`}>{quote ? `“${sub}”` : sub}</span>}
+    </>
+  );
+  return (
+    <div className="fe">
+      <Avatar name={n.fromName ?? "•"} isNew={isNew} />
+      {onOpen ? (
+        <button className="fe-body fe-open" onClick={onOpen}>
+          {body}
+        </button>
+      ) : (
+        <div className="fe-body">{body}</div>
+      )}
+    </div>
+  );
+}
+
+type Entry =
+  | { kind: "run"; at: number; key: string; run: FeedRun }
+  | { kind: "note"; at: number; key: string; n: AppNotification };
+
+export default function FriendsScreen({
+  onOpenRun,
+  notifications,
+  newSince = 0,
+  onOpenNotification,
+}: Props) {
   const [friends, setFriends] = useState<FriendEntry[] | null>(null);
   const [requests, setRequests] = useState<{ uid: string; name: string; city?: string }[]>([]);
   const [feed, setFeed] = useState<FeedRun[] | null>(null);
+  const [showRequests, setShowRequests] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ uid: string; name: string; city?: string }[]>([]);
   const [searching, setSearching] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const [composerFor, setComposerFor] = useState<string | null>(null);
+  /** The cheer composer: open, and for whom. */
+  const [cheerOpen, setCheerOpen] = useState(false);
+  const [cheerFor, setCheerFor] = useState<string | null>(null);
+  const cheerRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const seq = useRef(0);
 
   const refresh = useCallback(() => {
@@ -434,6 +567,10 @@ export default function FriendsScreen({ onOpenRun, notifications, onOpenNotifica
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (showAdd) searchRef.current?.focus();
+  }, [showAdd]);
 
   // Debounced name search, same discipline as the home-city autocomplete:
   // a sequence guard so a slow stale response never overwrites a newer one.
@@ -495,88 +632,197 @@ export default function FriendsScreen({ onOpenRun, notifications, onOpenNotifica
     }
   };
 
+  /** "Cheer next run" on a feed entry opens the composer up top, for them. */
+  const cheer = (uid: string) => {
+    setCheerFor(uid);
+    setCheerOpen(true);
+    cheerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const addedUids = new Set((friends ?? []).map((f) => f.uid));
+  const mutuals = (friends ?? []).filter((f) => f.mutual);
+  const runningFriend = mutuals.find((f) => f.running) ?? null;
+  const cheerTarget = mutuals.find((f) => f.uid === cheerFor) ?? null;
+
+  // One list, newest first. Run alerts are skipped: the run itself is here.
+  // The same alert text twice (a glitch-era double-fire, or two adds
+  // racing) reads as noise — keep the newest of each.
+  const entries: Entry[] = [
+    ...(feed ?? []).map<Entry>((run) => ({
+      kind: "run",
+      at: run.startedAt,
+      key: `run-${run.friendUid}-${run.id}`,
+      run,
+    })),
+    ...(notifications ?? [])
+      .filter((n) => n.type !== "run")
+      .filter((n, i, arr) => arr.findIndex((m) => m.text === n.text) === i)
+      .map<Entry>((n) => ({ kind: "note", at: n.at, key: `note-${n.id}`, n })),
+  ].sort((a, b) => b.at - a.at);
+  const loading = feed === null || friends === null;
 
   return (
-    <div className="fade-in">
-      <h1 className="large-title">Friends</h1>
-      <p className="subtitle">Their runs, your kaypoh commentary.</p>
+    <div className="fade-in friends">
+      <div className="fr-head">
+        <h1 className="fr-title">Friends</h1>
+        <div className="fr-head-btns">
+          {requests.length > 0 && (
+            <button
+              className={`fr-pill${showRequests ? " on" : ""}`}
+              aria-expanded={showRequests}
+              onClick={() => setShowRequests((s) => !s)}
+            >
+              Requests
+              <span className="fr-badge">{requests.length}</span>
+            </button>
+          )}
+          <button
+            className={`fr-pill${showAdd ? " on" : ""}`}
+            aria-expanded={showAdd}
+            onClick={() => setShowAdd((s) => !s)}
+          >
+            {showAdd ? "Done" : "+ Add"}
+          </button>
+        </div>
+      </div>
 
-      {notifications !== undefined && notifications.length > 0 && (
-        <>
-          <div className="section-header">What&apos;s new</div>
-          <div className="card" style={{ padding: "4px 14px" }}>
-            {notifications
-              // Same text twice (a glitch-era double-fire, or two adds racing)
-              // reads as noise — keep the newest of each.
-              .filter((n, i, arr) => arr.findIndex((m) => m.text === n.text) === i)
-              .slice(0, 8)
-              .map((n) => (
-              <button
-                className="notif-row"
-                key={n.id}
-                onClick={() => onOpenNotification?.(n)}
-              >
-                <span className="notif-text">{n.text}</span>
-                <span className="notif-when">{ago(n.at)}</span>
+      {showRequests && requests.length > 0 && (
+        <div className="card fr-block">
+          {requests.map((r) => (
+            <div className="friend-result" key={r.uid}>
+              <span className="friend-result-name">{r.name}</span>
+              <span className="friend-result-city">{r.city ?? ""}</span>
+              <button className="open-pill" onClick={() => void add(r.uid, r.name, true)}>
+                ✓ Confirm
               </button>
-            ))}
-          </div>
-        </>
+            </div>
+          ))}
+        </div>
       )}
 
-      {requests.length > 0 && (
-        <>
-          <div className="section-header">
-            Friend requests<span className="cat-count">{requests.length}</span>
-          </div>
-          <div className="card" style={{ padding: "4px 14px" }}>
-            {requests.map((r) => (
-              <div className="friend-result" key={r.uid}>
-                <span className="friend-result-name">{r.name}</span>
-                <span className="friend-result-city">{r.city ?? ""}</span>
-                <button className="open-pill" onClick={() => void add(r.uid, r.name, true)}>
-                  ✓ Confirm
-                </button>
-              </div>
-            ))}
-          </div>
-        </>
+      {showAdd && (
+        <div className="friend-search fr-block">
+          <input
+            ref={searchRef}
+            className="profile-input friend-search-input"
+            placeholder="Search by name…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {(results.length > 0 || searching) && (
+            <div className="friend-results">
+              {searching && results.length === 0 && (
+                <div className="friend-result-empty">Searching…</div>
+              )}
+              {results.map((r) => (
+                <div className="friend-result" key={r.uid}>
+                  <span className="friend-result-name">{r.name}</span>
+                  <span className="friend-result-city">{r.city ?? ""}</span>
+                  {addedUids.has(r.uid) ? (
+                    <span className="friend-added">Added</span>
+                  ) : (
+                    <button className="open-pill" onClick={() => void add(r.uid, r.name)}>
+                      Add
+                    </button>
+                  )}
+                </div>
+              ))}
+              {!searching && results.length === 0 && (
+                <div className="friend-result-empty">Nobody by that name yet</div>
+              )}
+            </div>
+          )}
+        </div>
       )}
+      {note && <div className="save-note">{note}</div>}
 
-      <div className="section-header">Add a friend</div>
-      <div className="friend-search">
-        <input
-          className="profile-input friend-search-input"
-          placeholder="Search by name…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {(results.length > 0 || searching) && (
-          <div className="friend-results">
-            {searching && results.length === 0 && (
-              <div className="friend-result-empty">Searching…</div>
+      {/* The cheer composer: who's out right now, then whom to cheer. */}
+      {mutuals.length > 0 && (
+        <div className="cheer-strip" ref={cheerRef}>
+          <button
+            className="cheer-open"
+            aria-expanded={cheerOpen}
+            onClick={() => setCheerOpen((o) => !o)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z" />
+              <path d="M19 12a7 7 0 0 1-14 0" />
+              <path d="M12 19v3" />
+            </svg>
+            <span className="cheer-prompt">
+              {cheerTarget ? `Cheer for ${cheerTarget.name}` : "Send a cheer to someone…"}
+            </span>
+            {runningFriend && (
+              <span className="cheer-live">
+                <span className="cheer-dot" />
+                {runningFriend.name} is running
+              </span>
             )}
-            {results.map((r) => (
-              <div className="friend-result" key={r.uid}>
-                <span className="friend-result-name">{r.name}</span>
-                <span className="friend-result-city">{r.city ?? ""}</span>
-                {addedUids.has(r.uid) ? (
-                  <span className="friend-added">Added</span>
-                ) : (
-                  <button className="open-pill" onClick={() => void add(r.uid, r.name)}>
-                    Add
+          </button>
+          {cheerOpen && (
+            <div className="cheer-body">
+              <div className="shout-row">
+                {mutuals.map((f) => (
+                  <button
+                    key={f.uid}
+                    className={`shout-pill${cheerFor === f.uid ? " active" : ""}`}
+                    onClick={() => setCheerFor(f.uid)}
+                  >
+                    {f.name}
+                    {f.running ? " 🏃" : ""}
                   </button>
-                )}
+                ))}
               </div>
-            ))}
-            {!searching && results.length === 0 && (
-              <div className="friend-result-empty">Nobody by that name yet</div>
-            )}
+              {cheerTarget ? (
+                <ShoutoutComposer
+                  key={cheerTarget.uid}
+                  friend={cheerTarget}
+                  onSent={() => setCheerOpen(false)}
+                />
+              ) : (
+                <div className="cheer-hint">Pick a friend to cheer.</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="feed">
+        {loading && entries.length === 0 ? (
+          <div className="home-empty">Loading…</div>
+        ) : entries.length === 0 ? (
+          <div className="home-empty">
+            {friends === null || friends.length === 0
+              ? "Add some friends to see their runs here."
+              : friends.some((f) => f.mutual)
+                ? "No runs from your friends yet — nag them to lace up."
+                : "Waiting for a friend to add you back — then their runs appear here."}
           </div>
+        ) : (
+          entries.map((e) =>
+            e.kind === "run" ? (
+              <RunEntry
+                key={e.key}
+                run={e.run}
+                isNew={e.at > newSince}
+                onOpen={() => onOpenRun(e.run)}
+                onCheer={() => cheer(e.run.friendUid)}
+              />
+            ) : (
+              <NoteEntry
+                key={e.key}
+                n={e.n}
+                isNew={e.at > newSince}
+                onOpen={
+                  onOpenNotification && (e.n.type === "comment" || e.n.type === "run")
+                    ? () => onOpenNotification(e.n)
+                    : undefined
+                }
+              />
+            )
+          )
         )}
       </div>
-      {note && <div className="save-note">{note}</div>}
 
       {friends !== null && friends.length > 0 && (
         <>
@@ -585,60 +831,24 @@ export default function FriendsScreen({ onOpenRun, notifications, onOpenNotifica
           </div>
           <div className="card" style={{ padding: "4px 14px" }}>
             {friends.map((f) => (
-              <div key={f.uid}>
-                <div className="friend-row">
-                  <span className="friend-row-name">{f.name}</span>
-                  <span className="friend-row-city">{f.city ?? ""}</span>
-                  {f.mutual && f.running && (
-                    <span className="friend-running">🏃 Running</span>
-                  )}
-                  <span className={`friend-status${f.mutual ? " mutual" : ""}`}>
-                    {f.mutual ? "✓ Friends" : "Pending"}
-                  </span>
-                  {f.mutual && (
-                    <button
-                      className="friend-shout"
-                      aria-label={`Send ${f.name} a shoutout`}
-                      title="Send a shoutout"
-                      onClick={() =>
-                        setComposerFor(composerFor === f.uid ? null : f.uid)
-                      }
-                    >
-                      📣
-                    </button>
-                  )}
-                  <button
-                    className="friend-remove"
-                    aria-label={`Remove ${f.name}`}
-                    onClick={() => void remove(f.uid)}
-                  >
-                    ✕
-                  </button>
-                </div>
-                {composerFor === f.uid && (
-                  <ShoutoutComposer friend={f} onSent={() => {}} />
-                )}
+              <div className="friend-row" key={f.uid}>
+                <span className="friend-row-name">{f.name}</span>
+                <span className="friend-row-city">{f.city ?? ""}</span>
+                {f.mutual && f.running && <span className="friend-running">🏃 Running</span>}
+                <span className={`friend-status${f.mutual ? " mutual" : ""}`}>
+                  {f.mutual ? "✓ Friends" : "Pending"}
+                </span>
+                <button
+                  className="friend-remove"
+                  aria-label={`Remove ${f.name}`}
+                  onClick={() => void remove(f.uid)}
+                >
+                  ✕
+                </button>
               </div>
             ))}
           </div>
         </>
-      )}
-
-      <div className="section-header">Feed</div>
-      {feed === null ? (
-        <div className="home-empty">Loading…</div>
-      ) : feed.length === 0 ? (
-        <div className="home-empty">
-          {friends === null || friends.length === 0
-            ? "Add some friends to see their runs here."
-            : friends.some((f) => f.mutual)
-              ? "No runs from your friends yet — nag them to lace up."
-              : "Waiting for a friend to add you back — then their runs appear here."}
-        </div>
-      ) : (
-        feed.map((run) => (
-          <FeedCard key={`${run.friendUid}-${run.id}`} run={run} onOpen={() => onOpenRun(run)} />
-        ))
       )}
     </div>
   );

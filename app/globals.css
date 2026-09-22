@@ -3297,6 +3297,10 @@ input[type="range"]::-moz-range-thumb {
 
 .friend-search-input {
   width: 100%;
+  text-align: left;
+  font-family: inherit;
+  font-size: 15px;
+  font-variant-numeric: normal;
 }
 
 .friend-results {
@@ -3396,49 +3400,6 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
-.feed-item {
-  margin-bottom: 26px;
-}
-
-.feed-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.feed-name {
-  font-weight: 700;
-}
-
-.feed-when {
-  font-family: var(--ff-mono);
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--label-3);
-}
-
-.feed-card-img {
-  cursor: pointer;
-}
-
-.feed-card-loading {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1;
-  border-radius: 18px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--separator);
-  color: var(--label-3);
-  font-family: var(--ff-mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-}
-
 .feed-comments {
   margin-top: 8px;
 }
@@ -3511,14 +3472,6 @@ input[type="range"]::-moz-range-thumb {
 
 @keyframes running-pulse {
   50% { opacity: 0.45; }
-}
-
-.friend-shout {
-  background: none;
-  border: 0;
-  font-size: 15px;
-  padding: 4px 4px;
-  cursor: pointer;
 }
 
 .shout-composer {
@@ -3633,38 +3586,288 @@ input[type="range"]::-moz-range-thumb {
   to { transform: translateY(0); opacity: 1; }
 }
 
-.notif-row {
+/* ---------- Friends: one feed ---------- */
+
+.friends {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 0;
-  background: none;
-  border: 0;
-  color: inherit;
+  flex-direction: column;
+}
+
+.fr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.fr-title {
+  font-family: var(--ff-display);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.fr-head-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.fr-pill {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--separator-strong);
+  background: var(--bg-elevated);
+  color: var(--label);
   font: inherit;
-  font-size: 13.5px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.fr-pill.on {
+  background: var(--bg-elevated-2);
+}
+
+.fr-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fr-block {
+  margin-top: 14px;
+}
+
+.card.fr-block {
+  padding: 4px 14px;
+}
+
+/* The cheer composer strip: a prompt, and who is out right now. */
+.cheer-strip {
+  margin-top: 14px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  scroll-margin-top: 12px;
+}
+
+.cheer-open {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  background: none;
+  color: var(--label-2);
+  font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.notif-row + .notif-row {
-  border-top: 0.5px solid var(--separator);
-}
-
-.notif-text {
+.cheer-prompt {
   flex: 1;
-  line-height: 1.4;
-}
-
-.notif-when {
-  font-family: var(--ff-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--label-3);
+  min-width: 0;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.cheer-live {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+}
+
+.cheer-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: running-pulse 2s ease-in-out infinite;
+}
+
+.cheer-body {
+  padding: 0 12px 4px;
+  border-top: 1px solid var(--separator);
+}
+
+.cheer-body .shout-row { padding-top: 10px; }
+.cheer-body .shout-composer { border-top: 0; padding-top: 4px; }
+
+.cheer-hint {
+  padding: 4px 0 12px;
+  font-size: 13px;
+  color: var(--label-2);
+}
+
+/* The feed itself: rows on rules, like a ledger. */
+.feed {
+  margin-top: 14px;
+  border-top: 1px solid var(--separator);
+}
+
+.fe {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.fe-avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: #f5efe2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ff-display);
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* Arrived since the last visit. */
+.fe-new {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+}
+
+.fe-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fe-open {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.fe-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.fe-text {
+  font-size: 15px;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.fe-when {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--label-2);
+  white-space: nowrap;
+}
+
+.fe-sub {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--label-2);
+}
+
+.fe-sub.quote { font-style: italic; }
+
+/* The run strip: the number, the pace, who and where — the card is a tap away. */
+.fe-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--label); /* inverted: ink on paper, paper on ink */
+  color: var(--bg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fe-strip-km {
+  font-family: var(--ff-mono);
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.fe-strip-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  line-height: 1.3;
+  opacity: 0.72;
+}
+
+.fe-strip-meta > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fe-strip-chev {
+  flex-shrink: 0;
+  opacity: 0.72;
+}
+
+.fe-links {
+  display: flex;
+  gap: 14px;
+}
+
+.fe-link {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fe .feed-comments { margin-top: 0; }
+.fe .feed-comment-row { margin-top: 0; }
 
 /* ---------- Voice studio: actor booth + admin console ---------- */
 

@@ -457,7 +457,8 @@ export default function RunBuddyApp() {
       )}
       {screen === "friends" && auth.user && (
         <FriendsScreen
-          notifications={notifs.items.filter((n) => n.at > (stripSince ?? notifs.readAt))}
+          notifications={notifs.items}
+          newSince={stripSince ?? notifs.readAt}
           onOpenNotification={openNotification}
           onOpenRun={(run) => {
             setOpenFriendRun(run);
