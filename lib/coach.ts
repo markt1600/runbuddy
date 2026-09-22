@@ -190,8 +190,9 @@ export class CoachEngine {
   private duoPieces: { at?: number; frac?: number; kind: "duet" | "argument" }[] = [];
   /** Friends' shoutouts waiting for their slot in this run. */
   private shoutoutQueue: { at?: number; frac?: number; s: DeliveredShoutout }[] = [];
-  /** Set by the run screen: a message just started playing — tell the sender. */
-  onShoutoutPlayed: ((id: string) => void) | null = null;
+  /** Set by the run screen: a message just started playing — tell the sender,
+   *  and let the run count its cheers. */
+  onShoutoutPlayed: ((id: string, fromName: string) => void) | null = null;
 
   constructor(
     persona: Persona,
@@ -398,7 +399,7 @@ export class CoachEngine {
     // The receipt fires when the FIRST piece starts — the intro for a voice
     // message, the line itself for a trainer-spoken one — which is the moment
     // the runner hears that a message has arrived.
-    const onStart = s.id ? () => this.onShoutoutPlayed?.(s.id!) : undefined;
+    const onStart = s.id ? () => this.onShoutoutPlayed?.(s.id!, s.fromName) : undefined;
     if (s.kind === "voice") {
       if (s.introBase64) {
         items.push({
@@ -875,6 +876,10 @@ export class CoachEngine {
   tickPaused(stats: RunStats) {
     if (this.disposed || this.voice.busy || this.pausedSince === 0) return;
     if (this.essentials) return; // paused was announced; no nagging after it
+    // A pause the runner chose is theirs: the screen promises "your buddies
+    // are quiet", and nagging someone who pressed Pause is not coaching.
+    // Auto-pauses still escalate — the runner stopped without saying so.
+    if (this.manualHold) return;
     const now = Date.now();
     if (now < this.nextLoiterAt) return;
 

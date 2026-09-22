@@ -135,4 +135,6 @@ export interface RunStats {
    * carries it along untouched.
    */
   duoWith?: PersonaId;
+  /** Friends' shout-outs that actually played during the run. */
+  cheers?: { count: number; from: string[] };
 }

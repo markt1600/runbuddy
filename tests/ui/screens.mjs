@@ -19,14 +19,14 @@ await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/01-setup.png`, fullPage: true });
 
-// Start a run → ink theme.
+// Start a run → paper while running; the shell only flips to ink on a pause.
 await page.locator(".tab-run").click();
 await page.waitForTimeout(2000);
 
-assert.strictEqual(await page.locator(".app.theme-ink").count(), 1, "run screen not in ink theme");
+assert.strictEqual(await page.locator(".app.theme-ink").count(), 0, "running screen should be paper");
 const runColors = await page.evaluate(() => {
   const app = document.querySelector(".app");
-  const timer = document.querySelector(".big-timer");
+  const timer = document.querySelector(".rs-timer");
   return {
     bg: getComputedStyle(app).backgroundColor,
     fg: getComputedStyle(timer).color,
@@ -63,8 +63,21 @@ assert.match(
   /resume/i,
   "unlock did not auto-pause the run"
 );
+// Paused = the whole shell in ink with amber, unmistakable at arm's length.
+assert.strictEqual(await page.locator(".app.theme-ink.theme-paused").count(), 1, "pause did not flip the theme");
+const pausedColors = await page.evaluate(() => {
+  const app = document.querySelector(".app");
+  const timer = document.querySelector(".rs-timer");
+  return { bg: getComputedStyle(app).backgroundColor, fg: getComputedStyle(timer).color };
+});
+assert.ok(
+  Math.abs(lum(pausedColors.fg) - lum(pausedColors.bg)) > 0.4,
+  `paused timer barely differs from its ground: ${JSON.stringify(pausedColors)}`
+);
+await page.screenshot({ path: `${OUT}/02b-paused.png`, fullPage: true });
 await page.locator(".control-btn.pause").click(); // back to running for the walk
 await page.waitForTimeout(400);
+assert.strictEqual(await page.locator(".app.theme-ink").count(), 0, "resume did not restore paper");
 
 // Walk far enough to leave a route, then end → summary + card.
 for (let i = 0; i < 24; i++) {
@@ -75,6 +88,9 @@ for (let i = 0; i < 24; i++) {
   await page.waitForTimeout(150);
 }
 await page.locator(".control-btn.end").click();
+// End asks first — an in-app overlay, never window.confirm (which froze the
+// WebView mid-gesture in the field).
+await page.locator(".end-confirm .cta:not(.secondary)").click();
 await page.waitForTimeout(3000);
 assert.strictEqual(await page.locator(".app.theme-ink").count(), 0, "summary still in ink theme");
 await page.screenshot({ path: `${OUT}/03-summary.png`, fullPage: true });

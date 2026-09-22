@@ -152,7 +152,10 @@ export class VoiceEngine {
   /** True while the keep-alive loop is held down on purpose for ducking. */
   private duckHold = false;
   speaking = false;
-  onSpeakingChange: (speaking: boolean, text: string | null) => void = () => {};
+  /** Fires on every line start and end; `speaker` is whoever is talking (the
+   *  duo partner, a cameo) or the run persona. */
+  onSpeakingChange: (speaking: boolean, text: string | null, speaker?: Persona) => void =
+    () => {};
   /** How each spoken line was served this run. */
   counts = { prerendered: 0, live: 0, synth: 0 };
 
@@ -371,9 +374,9 @@ export class VoiceEngine {
     void this.drain();
   }
 
-  private setSpeaking(s: boolean, text: string | null) {
+  private setSpeaking(s: boolean, text: string | null, speaker?: Persona) {
     this.speaking = s;
-    this.onSpeakingChange(s, text);
+    this.onSpeakingChange(s, text, speaker);
   }
 
   private async drain() {
@@ -405,7 +408,7 @@ export class VoiceEngine {
     try {
       while (this.queue.length > 0) {
         const item = this.queue.shift()!;
-        this.setSpeaking(true, item.text);
+        this.setSpeaking(true, item.text, item.speaker ?? this.persona);
         try {
           item.onStart?.();
         } catch {

@@ -7,7 +7,7 @@ import { VoiceEngine, WakeLockManager, audioSessionSupported, vibrate } from "@/
 import { CoachEngine, type RunnerInfo } from "@/lib/coach";
 import type { RunHistoryDigest } from "@/lib/history";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
-import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel } from "@/lib/prefs";
+import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel, formatTargetPace } from "@/lib/prefs";
 import { isNativeApp, runBuddyNative } from "@/lib/native";
 import { renderedUrlsFor } from "@/lib/voiceLibrary";
 import { PERSONAS, PERSONA_LIST } from "@/lib/personas";
@@ -41,6 +41,8 @@ interface Props {
   duoWith?: PersonaId | null;
   /** Mid-run duo toggling reports here so the preference persists. */
   onDuoModeChange?: (on: boolean) => void;
+  /** The shell re-themes the whole app while the run is paused. */
+  onPauseStateChange?: (paused: boolean) => void;
   onFinish: (stats: RunStats) => void;
 }
 
@@ -62,6 +64,7 @@ export default function RunScreen({
   onPersonaChange,
   duoWith,
   onDuoModeChange,
+  onPauseStateChange,
   onFinish,
 }: Props) {
   // Duo can be toggled mid-run via the chip, so it's live state seeded from
@@ -125,6 +128,12 @@ export default function RunScreen({
   }>({ now: null, lastKm: null, avg: null });
   const [coachText, setCoachText] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
+  /** Who is talking right now — the partner or a cameo, not always the lead. */
+  const [speaker, setSpeaker] = useState<Persona | null>(null);
+  /** Chatter, music, stats and the microphone live behind one sheet. */
+  const [sheetOpen, setSheetOpen] = useState(false);
+  /** Friends' shout-outs that actually played — the summary counts them. */
+  const cheersRef = useRef<string[]>([]);
   const [aod, setAod] = useState(false);
   const [listening, setListening] = useState(false);
   const [gpsNote, setGpsNote] = useState<string | null>(null);
@@ -204,10 +213,23 @@ export default function RunScreen({
       wallElapsedMs: wallStartRef.current ? Date.now() - wallStartRef.current : undefined,
       locality: localityRef.current ?? undefined,
       city: cityRef.current ?? undefined,
+      cheers:
+        cheersRef.current.length > 0
+          ? { count: cheersRef.current.length, from: [...new Set(cheersRef.current)] }
+          : undefined,
     };
     statsRef.current = stats;
     return stats;
   }, []);
+
+  // The shell inverts the whole app while the clock is stopped: a paused run
+  // must be unmistakable at arm's length, and a colour change across the
+  // entire screen beats any label. Cleared on unmount so the summary is paper.
+  useEffect(() => {
+    onPauseStateChange?.(paused);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paused]);
+  useEffect(() => () => onPauseStateChange?.(false), [onPauseStateChange]);
 
   /**
    * Pause and resume are things you feel rather than see when the phone is in
@@ -247,9 +269,10 @@ export default function RunScreen({
 
   useEffect(() => {
     const voice = new VoiceEngine(persona);
-    voice.onSpeakingChange = (s, text) => {
+    voice.onSpeakingChange = (s, text, who) => {
       setSpeaking(s);
       if (text) setCoachText(text);
+      if (s) setSpeaker(who ?? null);
     };
     voice.start();
     voiceRef.current = voice;
@@ -265,7 +288,8 @@ export default function RunScreen({
     // phone — it's this run, in this timezone. Fire-and-forget; guests have
     // no friends layer, so nothing is ever queued for them.
     if (runner) {
-      coach.onShoutoutPlayed = (id) => {
+      coach.onShoutoutPlayed = (id, fromName) => {
+        cheersRef.current.push(fromName);
         const localTime = new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -648,6 +672,11 @@ export default function RunScreen({
   // The shell ducks through a real AVAudioSession; Safari needs the web
   // audioSession API. Either way "softening" is the truth to display.
   const canDuck = audioSessionSupported() || isNativeApp();
+  const musicNote = musicLabel
+    ? canDuck
+      ? `${musicLabel} softens while your buddy talks · ringer on`
+      : `${musicLabel} stays at full volume on this iOS · ringer on`
+    : null;
 
   const GPS_META: Record<GpsSignal, { cls: string; label: string }> = {
     good: { cls: "good", label: "GPS" },
@@ -659,59 +688,197 @@ export default function RunScreen({
   };
   const gps = GPS_META[gpsSignal];
   const gpsTrouble = gpsSignal === "lost" || gpsSignal === "denied" || gpsSignal === "unavailable";
+  const partner = PERSONAS.ahlian;
+  const counting = countdown > 0 || resumeCountdown > 0;
+
+  // One line that says what the coach is doing. Three things on the screen:
+  // the clock, this, and the buttons — everything else is behind the sheet.
+  const status: { tone: "live" | "hold" | "bad" | "idle"; title: string; sub: string | null } =
+    (() => {
+      if (!treadmill && gpsSignal === "lost")
+        return {
+          tone: "bad",
+          title: "GPS lost — distance paused",
+          sub: "It picks up on its own when the signal comes back.",
+        };
+      if (resumeCountdown > 0)
+        return { tone: "hold", title: `Resuming in ${resumeCountdown}`, sub: "Get set." };
+      if (awaitingMovement)
+        return {
+          tone: "hold",
+          title: "Waiting for you to run",
+          sub: "The clock restarts itself the moment you move off.",
+        };
+      if (autoPaused)
+        return {
+          tone: "hold",
+          title: "Auto-paused",
+          sub: "Start moving and the clock resumes on its own.",
+        };
+      if (paused)
+        return {
+          tone: "hold",
+          title: duoActive ? "Your buddies are quiet" : `${persona.shortName} is quiet`,
+          sub: "No nagging while you chose to stop.",
+        };
+      if (speaking)
+        return {
+          tone: "live",
+          title: `${(speaker ?? persona).shortName} is talking`,
+          sub: coachText,
+        };
+      return {
+        tone: "idle",
+        title: duoActive
+          ? `${persona.shortName} and ${partner.shortName} are with you`
+          : `${persona.shortName} is with you`,
+        sub: coachText ?? gpsNote ?? envLine ?? musicNote,
+      };
+    })();
+
+  const timerLabel = countdown > 0
+    ? "Starting soon"
+    : resumeCountdown > 0
+      ? "Resuming soon"
+      : awaitingMovement
+        ? "In the sleeve"
+        : autoPaused
+          ? "Auto-paused"
+          : paused
+            ? "Clock stopped"
+            : "Moving time";
+
+  const targetLine = (() => {
+    if (treadmill) {
+      const done = elapsedMs / (targetMin * 60_000);
+      return {
+        pct: Math.min(100, Math.max(0, done * 100)),
+        text:
+          done >= 1
+            ? `${targetMin} minute target reached`
+            : `${formatElapsed(elapsedMs)} of ${targetMin} min`,
+      };
+    }
+    if (targetKm > 0) {
+      const done = distanceKm / targetKm;
+      return {
+        pct: Math.min(100, Math.max(0, done * 100)),
+        text:
+          done >= 1 ? `${targetKm} km target reached` : `${distanceKm.toFixed(2)} of ${targetKm} km`,
+      };
+    }
+    if (targetPaceSec > 0) {
+      return { pct: null, text: `Target pace ${formatTargetPace(targetPaceSec)} /km` };
+    }
+    return null;
+  })();
+
+  const spoken = phraseStats.prerendered + phraseStats.live + phraseStats.synth;
+  const hitRate = spoken > 0 ? Math.round((phraseStats.prerendered / spoken) * 100) : null;
+  const showControls = !locked && !counting;
 
   return (
-    <div className="run-screen fade-in">
-      <div className="run-topbar">
+    <div className={`run-screen fade-in${paused ? " is-paused" : ""}`}>
+      <div className="rs-head">
         <button
-          className={`run-persona-chip${speaking ? " speaking" : ""}`}
+          className={`rs-trainer${speaking ? " speaking" : ""}`}
           aria-label="Switch trainer"
           onClick={switchPersona}
         >
-          <span className="chip-emoji">
+          <span className="rs-avatar" style={{ "--persona": persona.accent } as React.CSSProperties}>
             {persona.emoji}
-            {duoActive ? PERSONAS.ahlian.emoji : ""}
+            {duoActive ? partner.emoji : ""}
           </span>
-          {duoActive ? `${persona.shortName} + ${PERSONAS.ahlian.shortName}` : persona.name}
-          {onPersonaChange && <span className="chip-swap">⇄</span>}
+          <span className="rs-trainer-text">
+            <span className="rs-trainer-name">{persona.shortName}</span>
+            <span className="rs-trainer-sub">
+              {duoActive ? `with ${partner.shortName}` : onPersonaChange ? "tap to switch" : persona.name}
+            </span>
+          </span>
         </button>
-        {treadmill ? (
-          <div className="gps-pill treadmill">🏃 Treadmill</div>
-        ) : (
-          <div className={`gps-pill ${gps.cls}`}>
-            <span className="gps-dot" />
-            {gps.label}
-          </div>
-        )}
-        <button
-          className="icon-btn"
-          aria-label="Lock screen for armband"
-          onClick={() => setLocked(true)}
-          style={{ marginRight: 8 }}
-        >
-          🔒
-        </button>
-        <button
-          className={`icon-btn${aod ? " active" : ""}`}
-          aria-label="Always-on display"
-          onClick={() => setAod(true)}
-        >
-          ☾
-        </button>
+        <div className="rs-head-right">
+          {treadmill ? (
+            <span className="gps-pill treadmill">Treadmill</span>
+          ) : (
+            <span className={`gps-pill ${gps.cls}`}>
+              <span className="gps-dot" />
+              {gps.label}
+            </span>
+          )}
+          <button
+            className="rs-lock"
+            aria-label="Lock screen for armband"
+            onClick={() => setLocked(true)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <rect x="4" y="11" width="16" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      {countdown > 0 || resumeCountdown > 0 ? (
-        <>
-          <div className="big-timer counting">{countdown > 0 ? countdown : resumeCountdown}</div>
-          <div className="timer-label">
-            {countdown > 0
-              ? "Phone in the sleeve — starting soon"
-              : "Phone in the sleeve — resuming soon"}
+      <div className="rs-centre">
+        {counting ? (
+          <>
+            <div className="rs-timer counting">{countdown > 0 ? countdown : resumeCountdown}</div>
+            <div className="rs-timer-label">{timerLabel}</div>
+          </>
+        ) : (
+          <>
+            <div className="rs-timer">{formatElapsed(elapsedMs)}</div>
+            <div className="rs-timer-label">{timerLabel}</div>
+          </>
+        )}
+
+        {treadmill ? (
+          <div className="rs-pair">
+            <div className="rs-pair-item">
+              <span className="rs-pair-value">
+                {formatElapsed(Math.max(0, targetMin * 60_000 - elapsedMs))}
+              </span>
+              <span className="rs-pair-label">Remaining</span>
+            </div>
+            <span className="rs-pair-divider" />
+            <div className="rs-pair-item">
+              <span className="rs-pair-value">
+                {Math.floor(Math.min(100, (elapsedMs / (targetMin * 60_000)) * 100))}%
+              </span>
+              <span className="rs-pair-label">Complete</span>
+            </div>
           </div>
-          {/* Web/PWA: the one mistake that silences the trainer for a whole
-              run, at the moment they're most likely to make it — phone in
-              hand, about to be put away. The native shell survives the side
-              button (background audio + GPS), so there it's an invitation. */}
+        ) : (
+          <button
+            className="rs-pair tappable"
+            aria-label="Toggle between km/h and min/km"
+            onClick={() => onSpeedUnitChange(speedUnit === "kmh" ? "minkm" : "kmh")}
+          >
+            <span className="rs-pair-item">
+              <span className="rs-pair-value">{distanceKm.toFixed(2)}</span>
+              <span className="rs-pair-label">km</span>
+            </span>
+            <span className="rs-pair-divider" />
+            <span className="rs-pair-item">
+              <span className="rs-pair-value">{formatInUnit(speeds.now, speedUnit)}</span>
+              <span className="rs-pair-label">
+                {speedUnit === "minkm" ? "per km" : unitSuffix(speedUnit)}
+              </span>
+            </span>
+          </button>
+        )}
+
+        {targetLine && (
+          <div className="rs-target">
+            {targetLine.pct !== null && (
+              <div className="target-bar">
+                <div className="target-bar-fill" style={{ width: `${targetLine.pct}%` }} />
+              </div>
+            )}
+            <div className="rs-target-line">{targetLine.text}</div>
+          </div>
+        )}
+
+        {(counting || awaitingMovement) && (
           <div className="sleeve-notice">
             {isNativeApp() ? (
               <>
@@ -726,210 +893,173 @@ export default function RunScreen({
               </>
             )}
           </div>
-        </>
-      ) : (
-        <>
-          <div className={`big-timer${paused ? " paused" : ""}`}>{formatElapsed(elapsedMs)}</div>
-          <div className="timer-label">
-            {awaitingMovement
-              ? "Phone in the sleeve — start running to resume"
-              : autoPaused
-                ? "Auto-paused — start moving to resume"
-                : paused
-                  ? "Paused"
-                  : "Elapsed"}
-          </div>
-          {awaitingMovement && (
-            <div className="sleeve-notice">
-              {isNativeApp() ? (
-                <>
-                  <strong>Lock the phone if you like.</strong> Your buddy keeps talking and
-                  the GPS keeps tracking with the screen off.
-                </>
-              ) : (
-                <>
-                  <strong>Don&apos;t press the side button.</strong> Tekan Buddy locks the screen
-                  for you — it&apos;s already locked. If you lock the phone yourself, iOS mutes
-                  your buddy until you unlock it again.
-                </>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {(targetKm > 0 || treadmill) &&
-        (() => {
-          const done = treadmill ? elapsedMs / (targetMin * 60_000) : distanceKm / targetKm;
-          const pct = Math.min(100, Math.max(0, done * 100));
-          const label = treadmill
-            ? done >= 1
-              ? `🎯 ${targetMin} minute target reached`
-              : `${Math.floor(pct)}% of ${targetMin} min · ${formatElapsed(
-                  Math.max(0, targetMin * 60_000 - elapsedMs)
-                )} to go`
-            : done >= 1
-              ? `🎯 ${targetKm} km target reached`
-              : `${Math.floor(pct)}% of ${targetKm} km · ${(targetKm - distanceKm).toFixed(
-                  2
-                )} km to go`;
-          return (
-            <div className="target-progress">
-              <div className="target-bar">
-                <div className="target-bar-fill" style={{ width: `${pct}%` }} />
-              </div>
-              <div className="target-progress-label">{label}</div>
-            </div>
-          );
-        })()}
-
-      {treadmill ? (
-        // No GPS indoors, so distance and speed don't exist — show the clock.
-        <div className="stat-grid">
-          <div className="stat-cell">
-            <div className="stat-value">
-              {formatElapsed(Math.max(0, targetMin * 60_000 - elapsedMs))}
-            </div>
-            <div className="stat-label">Remaining</div>
-          </div>
-          <div className="stat-cell">
-            <div className="stat-value">
-              {Math.floor(Math.min(100, (elapsedMs / (targetMin * 60_000)) * 100))}
-              <span className="stat-unit">%</span>
-            </div>
-            <div className="stat-label">Complete</div>
-          </div>
-        </div>
-      ) : (
-      <div
-        className="stat-grid tappable"
-        role="button"
-        aria-label="Toggle between km/h and min/km"
-        onClick={() => onSpeedUnitChange(speedUnit === "kmh" ? "minkm" : "kmh")}
-      >
-        <div className="stat-cell">
-          <div className="stat-value">
-            {distanceKm.toFixed(2)} <span className="stat-unit">km</span>
-          </div>
-          <div className="stat-label">Distance</div>
-        </div>
-        <div className="stat-cell">
-          <div className="stat-value">
-            {formatInUnit(speeds.now, speedUnit)}{" "}
-            <span className="stat-unit">{unitSuffix(speedUnit)}</span>
-          </div>
-          <div className="stat-label">Current</div>
-        </div>
-        <div className="stat-cell">
-          <div className="stat-value">
-            {formatInUnit(speeds.lastKm, speedUnit)}{" "}
-            <span className="stat-unit">{unitSuffix(speedUnit)}</span>
-          </div>
-          <div className="stat-label">Last km</div>
-        </div>
-        <div className="stat-cell">
-          <div className="stat-value">
-            {formatInUnit(speeds.avg, speedUnit)}{" "}
-            <span className="stat-unit">{unitSuffix(speedUnit)}</span>
-          </div>
-          <div className="stat-label">Run average · tap to switch</div>
-        </div>
-      </div>
-      )}
-
-      {/* The quote bubble is gone (the screen was crowding the End button off
-          the bottom); the line being spoken shows here transiently instead —
-          it clears itself the moment the voice stops. */}
-      {treadmill ? (
-        <div className="env-line">
-          {coachText ?? (musicLabel ? canDuck
-            ? `Softening ${musicLabel} when the coach speaks · ringer on 🔔`
-            : `${musicLabel} stays at full volume on this iOS · ringer on 🔔` : "Location tracking off")}
-        </div>
-      ) : gpsSignal === "lost" || gpsNote ? (
-        <div className="gps-note">
-          {gpsSignal === "lost"
-            ? "GPS signal lost — distance is paused until it comes back"
-            : gpsNote}
-        </div>
-      ) : (
-        <div className="env-line">
-          {coachText ?? envLine ?? (musicLabel ? canDuck
-            ? `Softening ${musicLabel} when the coach speaks · ringer on 🔔`
-            : `${musicLabel} stays at full volume on this iOS · ringer on 🔔` : "")}
-        </div>
-      )}
-
-      {music === "spotify" && (
-        <SpotifyTransport
-          hidden={locked}
-          firstPollMs={8_000}
-          intervalMs={120_000}
-          onTrack={(label) => coachRef.current?.setNowPlaying(label)}
-        />
-      )}
-
-      {/* Hidden rather than unmounted while locked: the buttons are inert under
-          the overlay and would otherwise sit right beneath the unlock pad, but
-          keeping their space stops everything above from jumping. */}
-      {paused && !autoPaused && resumeCountdown === 0 && !awaitingMovement && !locked && (
-        <button className="cta secondary delayed-resume" onClick={startDelayedResume}>
-          {treadmill
-            ? `⏱ Resume in ${RESUME_DELAY_SEC}s — locks for the sleeve`
-            : "🔒 Put it away — resumes when I run"}
-        </button>
-      )}
-
-      {!locked && (
-        <div className="chatter-inline">
-          <span className="chatter-inline-icon" aria-hidden>🗣</span>
-          <input
-            type="range"
-            aria-label="How often your buddy talks"
-            min={CHATTINESS_MIN}
-            max={CHATTINESS_MAX}
-            step={0.25}
-            value={chattiness}
-            onChange={(e) => changeChattiness(Number(e.target.value))}
-          />
-          <span className="chatter-inline-label">{chattinessLabel(chattiness)}</span>
-        </div>
-      )}
-
-
-      <div className="run-controls" style={{ visibility: locked ? "hidden" : "visible" }}>
-        <button className="control-btn pause" onClick={togglePause}>
-          {paused ? "Resume" : "Pause"}
-        </button>
-        <button
-          className={`ptt-btn${listening ? " listening" : ""}`}
-          aria-label="Talk to your trainer"
-          onClick={pushToTalk}
-        >
-          🎤
-        </button>
-        <button className="control-btn end" onClick={endRun}>
-          End
-        </button>
+        )}
       </div>
 
-      <div className="phrase-stats">
-        {(() => {
-          const spoken = phraseStats.prerendered + phraseStats.live + phraseStats.synth;
-          const hit =
-            spoken > 0 ? Math.round((phraseStats.prerendered / spoken) * 100) : null;
-          return (
+      <div className={`rs-status ${status.tone}`}>
+        <span className="rs-status-dot" />
+        <div className="rs-status-text">
+          <span className="rs-status-title">{status.title}</span>
+          {status.sub && <span className="rs-status-sub">{status.sub}</span>}
+        </div>
+      </div>
+
+      {/* Hidden rather than unmounted while locked, so nothing above jumps. */}
+      <div className="rs-actions" style={{ visibility: locked ? "hidden" : "visible" }}>
+        {counting ? (
+          <button className="control-btn end ghost" onClick={endRun}>
+            End run
+          </button>
+        ) : paused ? (
+          <>
+            <button className="control-btn pause primary" onClick={togglePause}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M7 5l12 7-12 7z" />
+              </svg>
+              Resume now
+            </button>
+            {!autoPaused && !awaitingMovement && (
+              <button className="control-btn secondary" onClick={startDelayedResume}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="4" y="11" width="16" height="10" rx="2" />
+                  <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                </svg>
+                {treadmill
+                  ? `Put it away, resumes in ${RESUME_DELAY_SEC}s`
+                  : "Put it away, resume when I run"}
+              </button>
+            )}
+            <button className="control-btn end ghost" onClick={endRun}>
+              End run
+            </button>
+          </>
+        ) : (
+          <div className="rs-actions-row">
+            <button className="control-btn pause" onClick={togglePause}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <rect x="6" y="4" width="4" height="16" rx="1" />
+                <rect x="14" y="4" width="4" height="16" rx="1" />
+              </svg>
+              Pause
+            </button>
+            <button className="control-btn end" onClick={endRun}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <rect x="5" y="5" width="14" height="14" rx="2" />
+              </svg>
+              End run
+            </button>
+          </div>
+        )}
+      </div>
+
+      {showControls && (
+        <button className="rs-sheet-toggle" onClick={() => setSheetOpen(true)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <path d="M6 15l6-6 6 6" />
+          </svg>
+          Chatter, music, stats
+        </button>
+      )}
+
+      {/* Always mounted: the Spotify transport inside keeps polling now-playing
+          for the coach whether or not the sheet is showing. */}
+      <div className={`rs-sheet${sheetOpen && !locked ? " open" : ""}`} aria-hidden={!sheetOpen}>
+        <button className="rs-sheet-scrim" aria-label="Close" onClick={() => setSheetOpen(false)} />
+        <div className="rs-sheet-panel">
+          <div className="rs-sheet-head">
+            <span className="rs-sheet-title">Chatter, music, stats</span>
+            <button className="rs-sheet-close" aria-label="Close" onClick={() => setSheetOpen(false)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="rs-sheet-label">How much your buddy talks</div>
+          <div className="chatter-inline">
+            <input
+              type="range"
+              aria-label="How often your buddy talks"
+              min={CHATTINESS_MIN}
+              max={CHATTINESS_MAX}
+              step={0.25}
+              value={chattiness}
+              onChange={(e) => changeChattiness(Number(e.target.value))}
+            />
+            <span className="chatter-inline-label">{chattinessLabel(chattiness)}</span>
+          </div>
+
+          {!treadmill && (
             <>
-              📚 {phraseStats.rendered}/{phraseStats.total} phrases pre-rendered
+              <div className="rs-sheet-label">Speed display</div>
+              <div className="segmented">
+                <button
+                  className={speedUnit === "kmh" ? "active" : ""}
+                  onClick={() => onSpeedUnitChange("kmh")}
+                >
+                  km/h
+                </button>
+                <button
+                  className={speedUnit === "minkm" ? "active" : ""}
+                  onClick={() => onSpeedUnitChange("minkm")}
+                >
+                  min/km
+                </button>
+              </div>
+            </>
+          )}
+
+          {music === "spotify" && (
+            <>
+              <div className="rs-sheet-label">Music</div>
+              <SpotifyTransport
+                hidden={!sheetOpen || locked}
+                firstPollMs={8_000}
+                intervalMs={120_000}
+                onTrack={(label) => coachRef.current?.setNowPlaying(label)}
+              />
+            </>
+          )}
+
+          <div className="rs-sheet-row">
+            <button
+              className={`rs-sheet-btn${listening ? " listening" : ""}`}
+              onClick={pushToTalk}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z" />
+                <path d="M19 12a7 7 0 0 1-14 0" />
+                <path d="M12 19v3" />
+              </svg>
+              {listening ? "Listening…" : "Talk to your trainer"}
+            </button>
+            <button
+              className="rs-sheet-btn"
+              onClick={() => {
+                setSheetOpen(false);
+                setAod(true);
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+              </svg>
+              Dim the screen
+            </button>
+          </div>
+
+          <div className="phrase-stats">
+            {musicNote && <div>{musicNote}</div>}
+            <div>
+              {phraseStats.rendered}/{phraseStats.total} phrases pre-rendered
               {" · "}
-              {hit === null
+              {hitRate === null
                 ? "no lines spoken yet"
-                : `hit rate ${hit}% (${phraseStats.prerendered}/${spoken}${
+                : `hit rate ${hitRate}% (${phraseStats.prerendered}/${spoken}${
                     phraseStats.live ? `, ${phraseStats.live} improvised` : ""
                   })`}
-            </>
-          );
-        })()}
+            </div>
+          </div>
+        </div>
       </div>
 
       {aod && (
@@ -966,7 +1096,7 @@ export default function RunScreen({
             e.preventDefault();
           }}
         >
-          <div className="lock-badge">🔒 Screen locked</div>
+          <div className="lock-badge">Screen locked</div>
           <button
             className="unlock-pad"
             aria-label="Hold to unlock"

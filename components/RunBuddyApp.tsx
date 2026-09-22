@@ -321,6 +321,10 @@ export default function RunBuddyApp() {
   // Snapshotted when the tab opens (before read-marking), so the strip is
   // stable while you look at it and clear on the next visit.
   const [stripSince, setStripSince] = useState<number | null>(null);
+  // The run screen inverts the whole shell while the clock is stopped — paper
+  // while running, ink with amber while paused — so a pause is unmistakable
+  // at arm's length. Reported by the run screen; cleared when it unmounts.
+  const [runPaused, setRunPaused] = useState(false);
 
   // Opening the Friends tab reads everything.
   useEffect(() => {
@@ -392,7 +396,7 @@ export default function RunBuddyApp() {
     // --persona, not --accent: the brand rust owns chrome and actions, and the
     // trainer's own colour is reserved for marking which trainer this is.
     <div
-      className={`app${screen === "run" ? " theme-ink" : ""}`}
+      className={`app${screen === "run" && runPaused ? " theme-ink theme-paused" : ""}`}
       style={{ "--persona": persona.accent } as React.CSSProperties}
     >
       {toast && (
@@ -526,7 +530,9 @@ export default function RunBuddyApp() {
           onPersonaChange={setPersonaId}
           duoWith={duoMode ? "ahlian" : null}
           onDuoModeChange={setDuoMode}
+          onPauseStateChange={setRunPaused}
           onFinish={(stats) => {
+            setRunPaused(false);
             setFinalStats(stats);
             setSavedRunId(null);
             setScreen("summary");
