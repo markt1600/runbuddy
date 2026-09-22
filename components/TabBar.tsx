@@ -18,8 +18,12 @@ interface Props {
   friendsBadge?: number;
   /** ADMIN_EMAIL gating: only the admin account gets the entry point. */
   showAdmin: boolean;
-  /** The big button: starts the run on setup, leads to setup elsewhere. */
-  runLabel: string;
+  /**
+   * The big button, which leads to setup. Null on setup itself, where the
+   * screen carries its own named Start — the pill's slot stays empty so the
+   * side tabs don't shift between screens.
+   */
+  runLabel: string | null;
   onHome: () => void;
   onFriends: () => void;
   onRun: () => void;
@@ -70,9 +74,13 @@ export default function TabBar({
           </button>
         )}
       </div>
-      <button className="tab-run" onClick={onRun}>
-        {runLabel}
-      </button>
+      {runLabel === null ? (
+        <span className="tab-run-gap" aria-hidden />
+      ) : (
+        <button className="tab-run" onClick={onRun}>
+          {runLabel}
+        </button>
+      )}
       <div className="tab-side">
         <button
           className={`tab-item tab-account${active === "account" ? " active" : ""}`}

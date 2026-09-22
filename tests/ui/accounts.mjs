@@ -157,12 +157,14 @@ async function stubAuth(page, me) {
   const firstCard = await page.locator(".run-card").first().innerText();
   assert.match(firstCard, /10\.06/, `card missing distance: ${firstCard}`);
 
-  // The big button leads to setup, where it becomes START RUN; the admin
-  // account keeps its admin tab, and Home leads back.
+  // The big button leads to setup, which carries its own named Start in
+  // place of the pill; the admin account keeps its admin tab, and Home
+  // leads back.
   await page.locator(".tab-run").click();
   await page.waitForTimeout(600);
   assert.ok(await page.locator(".persona-card").count() > 0, "setup not reached from home");
-  assert.match(await page.locator(".tab-run").innerText(), /START RUN/i, "wrong big-button label on setup");
+  assert.strictEqual(await page.locator(".tab-run").count(), 0, "setup still shows the tab-bar run pill");
+  assert.match(await page.locator(".setup-start").innerText(), /Start with/i, "setup Start not named");
   assert.strictEqual(await page.locator(".tab-admin").count(), 1, "admin tab missing for admin");
   await page.locator(".tab-home").click();
   await page.waitForTimeout(500);

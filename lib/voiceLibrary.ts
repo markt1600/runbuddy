@@ -624,17 +624,22 @@ export function stopPreview() {
   }
 }
 
-/** Preview a phrase: the pre-rendered ElevenLabs audio if we have it, else synth. */
-export function playPhrase(persona: Persona, phrase: Phrase) {
+/**
+ * Preview a phrase: the pre-rendered ElevenLabs audio if we have it, else
+ * synth. `onEnd` fires when the line finishes (not when a newer preview cuts
+ * it off), so a play button can show that it is playing.
+ */
+export function playPhrase(persona: Persona, phrase: Phrase, onEnd?: () => void) {
   stopPreview();
   const url = getPhraseUrl(persona.id, phrase.id);
   if (url) {
     if (!previewAudio) previewAudio = new Audio();
     previewAudio.volume = Math.min(1, voiceVolumes[persona.id]); // levels >1 are native-only
     previewAudio.src = url;
-    void previewAudio.play().catch(() => speakFallback(persona, phrase.text));
+    previewAudio.onended = onEnd ?? null;
+    void previewAudio.play().catch(() => speakFallback(persona, phrase.text, onEnd));
   } else {
-    speakFallback(persona, phrase.text);
+    speakFallback(persona, phrase.text, onEnd);
   }
 }
 
@@ -656,12 +661,19 @@ export function hasRenderedAudio(persona: PersonaId): boolean {
   return renderedCount(persona) > 0;
 }
 
-function speakFallback(persona: Persona, text: string) {
-  if (!("speechSynthesis" in window)) return;
+function speakFallback(persona: Persona, text: string, onEnd?: () => void) {
+  if (!("speechSynthesis" in window)) {
+    onEnd?.();
+    return;
+  }
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.rate = persona.tts.rate;
   u.pitch = persona.tts.pitch;
   u.lang = persona.tts.lang;
+  if (onEnd) {
+    u.onend = onEnd;
+    u.onerror = onEnd;
+  }
   window.speechSynthesis.speak(u);
 }

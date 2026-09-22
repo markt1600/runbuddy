@@ -20,7 +20,10 @@ await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/01-setup.png`, fullPage: true });
 
 // Start a run → paper while running; the shell only flips to ink on a pause.
-await page.locator(".tab-run").click();
+// Setup carries its own named Start; the tab bar's pill leaves the slot empty.
+assert.strictEqual(await page.locator(".tab-run").count(), 0, "setup still shows the tab-bar run pill");
+assert.match(await page.locator(".setup-start").innerText(), /Start with/i, "setup Start not named");
+await page.locator(".setup-start").click();
 await page.waitForTimeout(2000);
 
 assert.strictEqual(await page.locator(".app.theme-ink").count(), 0, "running screen should be paper");
