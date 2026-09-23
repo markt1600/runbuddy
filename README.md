@@ -170,6 +170,10 @@ bug; see `tests/README.md`.
 | `BLOB_READ_WRITE_TOKEN` | Auto-injected when you add a Vercel Blob store — enables first-launch in-app library rendering |
 | `ADMIN_PIN` | Protects the admin page and credit-spending endpoints (unset = open, for local dev) |
 | `ADMIN_EMAIL` | Hides the ⚙ Admin link from everyone but these Google accounts (comma-separated; needs sign-in configured) |
+| `DEFAULT_PLAN` | The plan for accounts with none pinned: `full` (default, pre-launch) or `free` (once the subscription is on sale) |
+| `REVENUECAT_SECRET_KEY` | RevenueCat secret API key — lets the server read who is subscribed (the sync route and the webhook) |
+| `REVENUECAT_WEBHOOK_SECRET` | The Authorization value you set on the RevenueCat webhook pointing at `/api/plan/webhook` |
+| `NEXT_PUBLIC_REVENUECAT_IOS_KEY` | RevenueCat public iOS SDK key — the shell configures the purchases plugin with it (public by design) |
 
 Weather (Open-Meteo) and reverse geocoding (BigDataCloud) are keyless — the
 location/weather-aware phrases need no configuration.

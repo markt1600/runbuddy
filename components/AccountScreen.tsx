@@ -34,6 +34,8 @@ interface Props {
   configured: boolean;
   historyAvailable: boolean;
   onSignOut: () => void;
+  /** Opens the Subscribe screen (prices, buy, restore). */
+  onManagePlan?: () => void;
   /** The saved profile changed — lets the app hand fresh stats to the coach. */
   onProfileSaved?: (p: {
     age: number | null;
@@ -61,6 +63,7 @@ export default function AccountScreen({
   configured,
   historyAvailable,
   onSignOut,
+  onManagePlan,
   onProfileSaved,
 }: Props) {
   // Inputs are strings so half-typed values survive; canonical metric numbers
@@ -467,7 +470,14 @@ export default function AccountScreen({
             <div>
               <div className="account-name">{user.name}</div>
               {user.email && <div className="account-email">{user.email}</div>}
-              <div className="account-plan">{PLAN_LABEL[plan]}</div>
+              <div className="account-plan">
+                {PLAN_LABEL[plan]}
+                {onManagePlan && (
+                  <button className="link-btn account-plan-link" onClick={onManagePlan}>
+                    {plan === "full" ? "Manage plan" : "Get Full"}
+                  </button>
+                )}
+              </div>
               {account && (
                 <div className="account-providers">
                   {account.provider === "apple" ? " Apple" : "Google"}

@@ -17,6 +17,7 @@ const suites = [
   { file: "efforts.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
   { file: "cameo.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
   { file: "paceFigures.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
+  { file: "plan.test.mjs", flags: ["--import", path.join(dir, "ts-resolve.mjs")] },
 ];
 
 let failed = 0;

@@ -19,6 +19,8 @@ export interface AuthUser {
   name: string;
   picture: string | null;
   email?: string | null;
+  /** The hashed account id — the store's app user id. */
+  uid?: string;
 }
 
 interface Props {

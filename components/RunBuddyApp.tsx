@@ -12,6 +12,7 @@ import FriendsScreen, { type FeedRun } from "./FriendsScreen";
 import { parseRunId } from "@/lib/runId";
 import type { AppNotification } from "@/lib/server/notifications";
 import type { Plan } from "@/lib/plan";
+import SubscribeScreen from "./SubscribeScreen";
 import RunScreen from "./RunScreen";
 import SummaryScreen from "./SummaryScreen";
 import AdminScreen from "./AdminScreen";
@@ -53,7 +54,8 @@ type Screen =
   | "run"
   | "summary"
   | "admin"
-  | "runDetail";
+  | "runDetail"
+  | "subscribe";
 
 interface AuthState {
   configured: boolean;
@@ -430,6 +432,23 @@ export default function RunBuddyApp() {
               setScreen("landing");
             });
           }}
+          onManagePlan={() => setScreen("subscribe")}
+        />
+      )}
+      {screen === "subscribe" && (
+        <SubscribeScreen
+          plan={auth.plan ?? "full"}
+          uid={auth.user?.uid ?? null}
+          onSync={async () => {
+            // The server re-reads the store and pins the plan; its answer is
+            // the one the coach will follow.
+            const res = await fetch("/api/plan/sync", { method: "POST" });
+            if (!res.ok) throw new Error(String(res.status));
+            const data: { plan: Plan } = await res.json();
+            setAuth((a) => ({ ...a, plan: data.plan }));
+            return data.plan;
+          }}
+          onBack={() => setScreen("account")}
         />
       )}
       {screen === "landing" && (

@@ -3886,6 +3886,120 @@ input[type="range"]::-moz-range-thumb {
 
 .admin-plan-pick { flex: 1; }
 
+.account-plan-link {
+  display: block;
+  padding: 2px 0 0;
+}
+
+/* ---------- Subscribe ---------- */
+
+.subscribe {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.subscribe .setup-sub { margin-top: -8px; }
+
+.sub-card { padding: 14px 16px; }
+
+.sub-card-head {
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.sub-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14.5px;
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sub-note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--label-2);
+}
+
+.sub-list + .sub-note { margin-top: 10px; }
+
+.sub-packages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cta.sub-buy {
+  height: 60px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.sub-buy-price {
+  font-weight: 500;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.sub-legal {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--label-3);
+}
+
+.sub-links {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---------- Legal pages (served outside the app shell) ---------- */
+
+.legal {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 20px 60px;
+  color: var(--label);
+  line-height: 1.55;
+}
+
+.legal h1 {
+  font-family: var(--ff-display);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+
+.legal h2 {
+  font-family: var(--ff-display);
+  font-size: 19px;
+  font-weight: 700;
+  margin: 26px 0 6px;
+}
+
+.legal p, .legal li { font-size: 15px; }
+.legal ul { padding-left: 20px; }
+.legal li + li { margin-top: 6px; }
+.legal-date { color: var(--label-2); font-size: 13px; }
+
 /* ---------- Voice studio: actor booth + admin console ---------- */
 
 .booth {

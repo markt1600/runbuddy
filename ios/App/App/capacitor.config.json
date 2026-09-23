@@ -11,6 +11,7 @@
 	"packageClassList": [
 		"AppPlugin",
 		"CAPBrowserPlugin",
-		"RunBuddyNativePlugin"
+		"RunBuddyNativePlugin",
+		"PurchasesPlugin"
 	]
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminGateActive, authConfigured, isAdminEmail, readSession } from "@/lib/server/auth";
+import { adminGateActive, authConfigured, isAdminEmail, readSession, uidHash } from "@/lib/server/auth";
 import { blobConfigured } from "@/lib/server/library";
 import { planFor } from "@/lib/server/plan";
 
@@ -27,7 +27,17 @@ export async function GET(req: NextRequest) {
           ? isAdminEmail(user.email)
           : true
         : false,
-    user: user ? { name: user.name, picture: user.picture ?? null, email: user.email ?? null } : null,
+    user: user
+      ? {
+          name: user.name,
+          picture: user.picture ?? null,
+          email: user.email ?? null,
+          // The hashed id the run store and friends already key on — it is
+          // what the app signs in to the store's SDK with, so a purchase can
+          // find its profile.
+          uid: uidHash(user.sub),
+        }
+      : null,
     // Decided server-side; the client only mirrors it to skip round trips.
     plan: await planFor(req),
   });
