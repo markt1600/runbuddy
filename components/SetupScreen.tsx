@@ -113,6 +113,7 @@ export default function SetupScreen({
   onStartDelayChange,
 }: Props) {
   const [libraryReady, setLibraryReady] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   /** Which trainer's sample line is playing, for the button's state. */
   const [playing, setPlaying] = useState<PersonaId | null>(null);
   const playTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -212,6 +213,16 @@ export default function SetupScreen({
   };
 
   const musicMeta = music !== "none" ? MUSIC_META[music] : null;
+
+  // What the folded settings currently say, in one line.
+  const moreLine = [
+    musicMeta?.title ?? "No music",
+    speedUnit === "minkm" ? "min/km" : "km/h",
+    startDelay ? `${START_DELAY_SEC} s delay` : null,
+    mode !== "time" ? (autoPause ? "Auto-pause" : "No auto-pause") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="fade-in setup">
@@ -478,6 +489,23 @@ export default function SetupScreen({
               : " — km markers and pace reactions always fire; this tunes how often the in-between talking happens. All the way left is essentials only."}
           </div>
         </div>
+
+        {/* Music, speed display, delayed start and auto-pause are set once
+            and kept; they fold behind one line so the picker, the target and
+            the chatter stay in reach. */}
+        <button
+          className={`setup-more${moreOpen ? " open" : ""}`}
+          aria-expanded={moreOpen}
+          onClick={() => setMoreOpen((o) => !o)}
+        >
+          <span className="setup-more-title">More settings</span>
+          <span className="setup-more-sub">{moreLine}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden className="setup-more-chev">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </button>
+        {moreOpen && (
+          <div className="setup-more-body">
         <div className="section-header">Background Audio</div>
         <div className="segmented">
           {(["spotify", "apple-music", "apple-podcasts", "none"] as MusicSource[]).map((m) => (
@@ -584,6 +612,9 @@ export default function SetupScreen({
             </div>
           </>
         )}
+          </div>
+        )}
+
         <div className="section-header">Before You Go</div>
         <div
           className="card"
