@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminGateActive, authConfigured, isAdminEmail, readSession } from "@/lib/server/auth";
 import { blobConfigured } from "@/lib/server/library";
+import { planFor } from "@/lib/server/plan";
 
 export const dynamic = "force-dynamic";
 
@@ -27,5 +28,7 @@ export async function GET(req: NextRequest) {
           : true
         : false,
     user: user ? { name: user.name, picture: user.picture ?? null, email: user.email ?? null } : null,
+    // Decided server-side; the client only mirrors it to skip round trips.
+    plan: await planFor(req),
   });
 }

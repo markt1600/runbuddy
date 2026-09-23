@@ -3861,6 +3861,31 @@ input[type="range"]::-moz-range-thumb {
 .fe .feed-comments { margin-top: 0; }
 .fe .feed-comment-row { margin-top: 0; }
 
+.account-plan {
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--label-2);
+}
+
+.admin-plan-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.admin-plan-label {
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--label-3);
+}
+
+.admin-plan-pick { flex: 1; }
+
 /* ---------- Voice studio: actor booth + admin console ---------- */
 
 .booth {

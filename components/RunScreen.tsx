@@ -5,6 +5,7 @@ import { GeoTracker, formatElapsed, type GpsSignal } from "@/lib/geo";
 import { formatInUnit, unitSuffix, type SpeedUnit } from "@/lib/units";
 import { VoiceEngine, WakeLockManager, audioSessionSupported, vibrate } from "@/lib/audio";
 import { CoachEngine, type RunnerInfo } from "@/lib/coach";
+import { planAllowsGenerated, type Plan } from "@/lib/plan";
 import type { RunHistoryDigest } from "@/lib/history";
 import { describeEnvironment, fetchRunEnvironment } from "@/lib/enviro";
 import { CHATTINESS_MAX, CHATTINESS_MIN, chattinessLabel, formatTargetPace } from "@/lib/prefs";
@@ -31,6 +32,8 @@ interface Props {
   startDelaySec: number;
   /** Signed-in runner's profile — the coach weaves it into improvised lines. */
   runner?: RunnerInfo | null;
+  /** The account's plan (lib/plan): "free" plays the library only. */
+  plan?: Plan;
   /** Their saved-run digest — what the coach "remembers" about them. */
   history?: RunHistoryDigest | null;
   /** Best 1/5/10km efforts from history — live PR announcements compare here. */
@@ -59,6 +62,7 @@ export default function RunScreen({
   autoPause,
   startDelaySec,
   runner,
+  plan = "full",
   history,
   personalRecords,
   onPersonaChange,
@@ -279,6 +283,7 @@ export default function RunScreen({
 
     const coach = new CoachEngine(persona, voice, chattiness, targetKm, targetMin, targetPaceSec);
     coach.setRunner(runner ?? null);
+    coach.setGenerated(planAllowsGenerated(plan));
     coach.setHistory(history ?? null);
     coach.setPersonalRecords(personalRecords ?? null);
     if (duoWith && PERSONAS[duoWith]) coach.setDuo(PERSONAS[duoWith]);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateLine, renderVoice } from "@/lib/server/generate";
 import { PERSONAS } from "@/lib/personas";
+import { requireGenerated } from "@/lib/server/plan";
 import type { PersonaId, PhraseCategory } from "@/lib/types";
 
 export const maxDuration = 30;
@@ -57,6 +58,9 @@ const INSTRUCTIONS: Partial<Record<PhraseCategory, string>> = {
 };
 
 export async function POST(req: NextRequest) {
+  // Model time is the paid tier; a free run plays the library instead.
+  const gated = await requireGenerated(req);
+  if (gated) return gated;
   let body: { persona?: string; category?: string; context?: Record<string, unknown> };
   try {
     body = await req.json();

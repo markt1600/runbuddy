@@ -9,6 +9,8 @@ import {
   type ShoutoutSlot,
 } from "@/lib/server/shoutouts";
 import { PERSONAS } from "@/lib/personas";
+import { planFor } from "@/lib/server/plan";
+import { planAllowsGenerated } from "@/lib/plan";
 import type { PersonaId } from "@/lib/types";
 
 // The recipient's side: the run screen calls this at run start (start/middle/
@@ -40,6 +42,9 @@ export async function POST(req: NextRequest) {
 
   const self = uidHash(user.sub);
   const queued = (await listShoutouts(self)).filter((s) => slots.includes(s.slot)).slice(0, 3);
+  // Embellishing is model time, so it follows the RUNNER's plan (it is their
+  // run); a free runner hears every cheer word for word.
+  const mayEmbellish = planAllowsGenerated(await planFor(req));
 
   const delivered: {
     id: string;
@@ -55,7 +60,7 @@ export async function POST(req: NextRequest) {
   for (const s of queued) {
     try {
       if (s.kind === "trainer" && s.text) {
-        const line = s.embellish
+        const line = s.embellish && mayEmbellish
           ? await generateShoutoutLine(persona, s.fromName, s.text)
           : `Message from ${s.fromName}. They say: ${s.text}`;
         const audio = await renderVoice(persona, line);

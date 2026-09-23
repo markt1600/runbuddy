@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateCameo, generateDuo, renderVoice, type DuoKind } from "@/lib/server/generate";
 import { PERSONAS } from "@/lib/personas";
+import { requireGenerated } from "@/lib/server/plan";
 import type { PersonaId } from "@/lib/types";
 
 // The mid-run cameo: a second trainer barges in and argues with the first,
@@ -12,6 +13,9 @@ import type { PersonaId } from "@/lib/types";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
+  // Model time is the paid tier; a free run plays the library instead.
+  const gated = await requireGenerated(req);
+  if (gated) return gated;
   let body: {
     persona?: string;
     cameo?: string;

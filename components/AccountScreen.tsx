@@ -19,6 +19,7 @@ import { drawRunCard } from "@/lib/runCard";
 import { loadSpeedUnit } from "@/lib/units";
 import type { RunStats } from "@/lib/types";
 import { WEB_BUILD } from "@/lib/version";
+import { PLAN_LABEL, type Plan } from "@/lib/plan";
 
 
 // Account: who you are, your body stats (the trainer weaves these into its
@@ -27,6 +28,8 @@ import { WEB_BUILD } from "@/lib/version";
 
 interface Props {
   user: AuthUser | null;
+  /** The account's plan (lib/plan) — what the coaching may draw on. */
+  plan?: Plan;
   /** Google sign-in exists on this deployment (guests can upgrade). */
   configured: boolean;
   historyAvailable: boolean;
@@ -54,6 +57,7 @@ const show = (n: number) => {
 
 export default function AccountScreen({
   user,
+  plan = "full",
   configured,
   historyAvailable,
   onSignOut,
@@ -463,6 +467,7 @@ export default function AccountScreen({
             <div>
               <div className="account-name">{user.name}</div>
               {user.email && <div className="account-email">{user.email}</div>}
+              <div className="account-plan">{PLAN_LABEL[plan]}</div>
               {account && (
                 <div className="account-providers">
                   {account.provider === "apple" ? " Apple" : "Google"}

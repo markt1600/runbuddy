@@ -172,6 +172,12 @@ export class CoachEngine {
   private manualHold = false;
   private runner: RunnerInfo | null = null;
   private history: RunHistoryDigest | null = null;
+  /**
+   * Whether this run may ask the model for lines (lib/plan). The server
+   * enforces it; this mirror just saves the round trip, so a free run never
+   * waits on a request that will be refused. Off means the library, always.
+   */
+  private generated = true;
   private recordTold = new Set<"wr" | "hs">();
   /** Stored PRs from the account's history, and which have been beaten aloud. */
   private prs: { targetKm: number; sec: number; startedAt: number }[] | null = null;
@@ -491,6 +497,11 @@ export class CoachEngine {
   /** Signed-in runner's profile — folded into every improvised line's context. */
   setRunner(runner: RunnerInfo | null) {
     this.runner = runner && Object.keys(runner).length > 0 ? runner : null;
+  }
+
+  /** The plan's verdict on improvised lines — see lib/plan. */
+  setGenerated(on: boolean) {
+    this.generated = on;
   }
 
   /** What the runner has done before — so the trainer can actually remember. */
@@ -1282,7 +1293,7 @@ export class CoachEngine {
     stats: RunStats,
     extra: Record<string, unknown> = {}
   ) {
-    if (!this.duo) return;
+    if (!this.duo || !this.generated) return;
     try {
       const res = await fetch("/api/cameo", {
         method: "POST",
@@ -1324,6 +1335,7 @@ export class CoachEngine {
     extra: Record<string, unknown> = {},
     asPersona: PersonaId = this.persona.id
   ): Promise<{ text: string; url?: string } | null> {
+    if (!this.generated) return null;
     try {
       const res = await fetch("/api/phrase", {
         method: "POST",
@@ -1360,6 +1372,10 @@ export class CoachEngine {
 
   /** Push-to-talk: send what the runner said, speak the reply. */
   async respondTo(userSpeech: string, stats: RunStats) {
+    if (!this.generated) {
+      this.sayFromLibrary("chat"); // the canned reply — a free run still answers
+      return;
+    }
     try {
       const res = await fetch("/api/chat", {
         method: "POST",

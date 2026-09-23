@@ -2,6 +2,7 @@ import { del, list, put } from "@vercel/blob";
 import { blobConfigured } from "./library";
 import { uidHash, type SessionUser } from "./auth";
 import { listRunsByHash, moveRunsBetweenHashes } from "./runs";
+import type { Plan } from "../plan";
 
 // Registry of accounts that have signed in, one profile blob per user, keyed
 // by the same HMAC'd id the run store uses — which is exactly what lets the
@@ -42,6 +43,8 @@ export interface UserProfile {
   notificationsReadAt?: number;
   /** Spotify OAuth tokens, AES-sealed (lib/server/spotify.ts) — never plaintext. */
   spotify?: string;
+  /** Pinned plan (lib/plan). Unset means the server default. */
+  plan?: Plan;
 }
 
 /** The subset of the profile the account screen may edit. */
@@ -116,6 +119,18 @@ export async function recordUserLogin(user: SessionUser): Promise<void> {
 export async function getProfile(uid: string): Promise<UserProfile | null> {
   if (!blobConfigured()) return null;
   return readProfile(uid);
+}
+
+/** Pin a plan on the profile (Admin; later, the store's webhook). Null clears it. */
+export async function setPlan(uid: string, plan: Plan | null): Promise<UserProfile | null> {
+  if (!blobConfigured()) return null;
+  const existing = await readProfile(uid);
+  if (!existing) return null;
+  const next = { ...existing };
+  if (plan) next.plan = plan;
+  else delete next.plan;
+  await writeProfile(next);
+  return next;
 }
 
 // ---- run-card background photo ----

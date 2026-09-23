@@ -46,6 +46,7 @@ import { EXPANDABLE_CATEGORIES, FIXED_CATEGORY_REASON } from "@/lib/phraseCatego
 import { formatElapsed, formatPace } from "@/lib/geo";
 import RunDetailScreen from "./RunDetailScreen";
 import type { PersonaId, PhraseCategory } from "@/lib/types";
+import { PLANS, type Plan } from "@/lib/plan";
 
 const CATEGORY_LABELS: Record<PhraseCategory, string> = {
   intro: "Start-line intros",
@@ -95,6 +96,8 @@ interface AdminUser {
   firstSeen: number;
   lastSeen: number;
   runCount: number;
+  /** Pinned plan (lib/plan); unset follows the server default. */
+  plan?: Plan;
 }
 
 interface AdminRun {
@@ -188,6 +191,25 @@ export default function AdminScreen({ onBack }: Props) {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [usersNote, setUsersNote] = useState<string | null>(null);
   const [openUser, setOpenUser] = useState<AdminUser | null>(null);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const onSetPlan = async (u: AdminUser, plan: Plan | null) => {
+    setSavingPlan(true);
+    try {
+      const res = await fetch(`/api/admin/users/${u.uid}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...adminPinHeaders() },
+        body: JSON.stringify({ plan }),
+      });
+      if (!res.ok) throw new Error();
+      const next = { ...u, plan: plan ?? undefined };
+      setOpenUser(next);
+      setUsers((list) => list?.map((x) => (x.uid === u.uid ? next : x)) ?? list);
+    } catch {
+      setNotice("⚠ Couldn't change the plan — try again");
+    } finally {
+      setSavingPlan(false);
+    }
+  };
   const [userRuns, setUserRuns] = useState<AdminRun[] | null>(null);
   // A run opened from the admin list — the runner's own detail view, read-only.
   const [openRun, setOpenRun] = useState<AdminRun | null>(null);
@@ -772,6 +794,24 @@ export default function AdminScreen({ onBack }: Props) {
           <div className="admin-user-head">
             <span className="admin-user-name">{openUser.name}</span>
             {openUser.email && <span className="admin-user-email">{openUser.email}</span>}
+          </div>
+          {/* The plan pin: "default" follows the server (full until the store
+              subscription ships), the other two override it for this account
+              — the way to try a free run without touching anyone else. */}
+          <div className="admin-plan-row">
+            <span className="admin-plan-label">Plan</span>
+            <div className="segmented compact admin-plan-pick">
+              {(["default", ...PLANS] as const).map((choice) => (
+                <button
+                  key={choice}
+                  className={(openUser.plan ?? "default") === choice ? "active" : ""}
+                  disabled={savingPlan}
+                  onClick={() => void onSetPlan(openUser, choice === "default" ? null : choice)}
+                >
+                  {choice}
+                </button>
+              ))}
+            </div>
           </div>
           {userRuns === null ? (
             <div className="home-empty">Loading runs…</div>

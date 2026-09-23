@@ -11,6 +11,7 @@ import TabBar from "./TabBar";
 import FriendsScreen, { type FeedRun } from "./FriendsScreen";
 import { parseRunId } from "@/lib/runId";
 import type { AppNotification } from "@/lib/server/notifications";
+import type { Plan } from "@/lib/plan";
 import RunScreen from "./RunScreen";
 import SummaryScreen from "./SummaryScreen";
 import AdminScreen from "./AdminScreen";
@@ -61,6 +62,8 @@ interface AuthState {
   /** ADMIN_EMAIL is set server-side and this session doesn't match it. */
   adminGated?: boolean;
   isAdmin?: boolean;
+  /** Decided server-side (lib/plan); mirrored so the coach skips refused calls. */
+  plan?: Plan;
 }
 
 export default function RunBuddyApp() {
@@ -410,6 +413,7 @@ export default function RunBuddyApp() {
       {screen === "account" && (
         <AccountScreen
           user={auth.user}
+          plan={auth.plan ?? "full"}
           configured={auth.configured}
           historyAvailable={auth.historyAvailable}
           onProfileSaved={(p) =>
@@ -526,6 +530,7 @@ export default function RunBuddyApp() {
                 }
               : null
           }
+          plan={auth.plan ?? "full"}
           history={runHistory}
           personalRecords={personalRecords}
           onPersonaChange={setPersonaId}
