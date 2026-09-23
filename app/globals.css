@@ -3970,6 +3970,8 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 600;
 }
 
+.sub-links a { color: var(--accent); }
+
 /* ---------- Legal pages (served outside the app shell) ---------- */
 
 .legal {

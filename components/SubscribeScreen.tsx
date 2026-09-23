@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { isNativeApp } from "@/lib/native";
-import { PLAN_LABEL, type Plan } from "@/lib/plan";
+import type { Plan } from "@/lib/plan";
 import { PRIVACY_PATH, TERMS_URL } from "@/lib/subscription";
 import {
   buyPackage,
@@ -139,7 +139,11 @@ export default function SubscribeScreen({ plan, uid, onSync, onBack }: Props) {
             <li key={line}>{line}</li>
           ))}
         </ul>
-        <div className="sub-note">Free keeps everything else: {PLAN_LABEL.free.replace(/^Free — /, "")}.</div>
+        <div className="sub-note">
+          Free keeps everything recorded: the start, every kilometre and its split,
+          checkpoints and the target, pause and resume, the record moments, duo mode&apos;s
+          scripted reactions, cheers word for word, the run card, friends.
+        </div>
       </div>
 
       {!native ? (
