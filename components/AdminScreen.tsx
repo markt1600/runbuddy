@@ -66,7 +66,6 @@ const CATEGORY_LABELS: Record<PhraseCategory, string> = {
   auto_paused: "Auto-pause announcements",
   auto_resumed: "Auto-resume announcements",
   loitering: "Standing around too long",
-  chat: "Chat replies",
   summary: "Run summaries",
   progress: "Target progress (generic)",
   progress_km: "Distance-target checkpoints",

@@ -24,7 +24,6 @@ export const EXPANDABLE_CATEGORIES: PhraseCategory[] = [
   "auto_resumed",
   "loitering",
   "pace_lead",
-  "chat",
   "progress",
   "target_hit",
 ];
@@ -60,7 +59,6 @@ export const CATEGORY_BRIEF: Partial<Record<PhraseCategory, string>> = {
   auto_resumed: "the app restarted the clock because they moved off again — SHORT, under 15 words",
   loitering: "they have been standing still far too long and you are needling them about it — these play after several milder ones, so go further than you otherwise would",
   pace_lead: "a lead-in that ends mid-sentence so a spoken duration can follow it, like \"and that last kilometre took you…\" — it must trail off, never complete the thought",
-  chat: "a reply for when the runner says something to you mid-run and nothing better is available",
   progress: "they crossed a checkpoint on the way to a target — generic, so never name a distance, a time or a percentage",
   target_hit: "they just reached the target they set out to do",
 };

@@ -274,12 +274,6 @@ const ahbeng: Phrase[] = [
   { id: "ab-loiter-8", category: "loitering", text: "Kanina bu chao chee bye. I count to three. One. Two. Don't make me say three, I beg you. RUN!" },
   { id: "ab-loiter-9", category: "loitering", text: "You stand so long ah, chao chee bye! Even the dog at the void deck jog more than you today, kanina!" },
   // ---- canned chat replies ----
-  { id: "ab-chat-1", category: "chat", text: "Talk less, run more lah chee bye! Save your breath for the hill, kanina!" },
-  { id: "ab-chat-2", category: "chat", text: "Hah? Cannot hear you. All I hear is lan jiao excuses. RUN!" },
-  { id: "ab-chat-3", category: "chat", text: "Yes yes, sibei interesting. You know what's MORE interesting? Your chee bye pace. FASTER!" },
-  { id: "ab-chat-4", category: "chat", text: "Tiam lah! Save your breath for running, not talking, kanina!" },
-  { id: "ab-chat-5", category: "chat", text: "Hah? Nabei, you still got energy to talk means you not running hard enough. GO!" },
-  { id: "ab-chat-6", category: "chat", text: "Talk talk talk. Kao pei kao bu somemore. Legs, chee bye, LEGS!" },
   // ---- target progress ----
   { id: "ab-prog-1", category: "progress", text: "Eh, got progress ah! Don't get happy too early, chee bye. Still not finish!" },
   { id: "ab-prog-2", category: "progress", text: "Kanina, chalk one up. Now stop thinking and keep those legs moving!" },
@@ -583,9 +577,6 @@ const coach: Phrase[] = [
   { id: "co-loiter-4", category: "loitering", text: "You've been stopped a while. The hardest part of any run is starting again, and you've already done that once today." },
   { id: "co-loiter-5", category: "loitering", text: "I'll wait as long as you need. But you didn't come out here to stand still, and we both know it. One step. That's all I'm asking." },
   // ---- canned chat replies ----
-  { id: "co-chat-1", category: "chat", text: "I hear you! Whatever it is, we'll run through it together. One step at a time!" },
-  { id: "co-chat-2", category: "chat", text: "Great question! My honest answer: you're doing better than you think you are. Keep going!" },
-  { id: "co-chat-3", category: "chat", text: "I'm listening! And for the record — you sound strong. Let's keep that energy!" },
   // ---- target progress ----
   { id: "co-prog-1", category: "progress", text: "Look at that progress! You're eating into this target beautifully. Keep the rhythm!" },
   { id: "co-prog-2", category: "progress", text: "Another chunk done and you're still strong. This is exactly how it should feel!" },
@@ -878,9 +869,6 @@ const flirty: Phrase[] = [
   { id: "ca-loiter-4", category: "loitering", text: "I've been staring at a very still little dot on my screen. Move it for me. Please?" },
   { id: "ca-loiter-5", category: "loitering", text: "Last chance before I start taking this personally. Come on. Impress me." },
   // ---- canned chat replies ----
-  { id: "ca-chat-1", category: "chat", text: "Talking to me already? Save your breath, gorgeous. You'll need it." },
-  { id: "ca-chat-2", category: "chat", text: "Mmm, I love the sound of your voice. Now use it for breathing and keep running." },
-  { id: "ca-chat-3", category: "chat", text: "Flirting with me mid-run? Bold. Keep that energy in your legs, darling." },
   // ---- target progress ----
   { id: "ca-prog-1", category: "progress", text: "Mmm, look at you making progress. I do love a runner who follows through." },
   { id: "ca-prog-2", category: "progress", text: "Another piece of it, done. You're making this look far too easy, gorgeous." },
@@ -1202,12 +1190,6 @@ const loanshark: Phrase[] = [
   { id: "al-loiter-8", category: "loitering", text: "Kanina bu chao chee bye. I count to three, then I start charging standing fees. One. Two. Don't make me say three ah, I will kan you. RUN!" },
   { id: "al-loiter-9", category: "loitering", text: "Stand so long even the pigeons tu lan with you. And pigeons got NO financial obligations. GO!" },
   // ---- canned chat replies ----
-  { id: "al-chat-1", category: "chat", text: "You talking to me? Talk with MONEY lah, chee bye! Now RUN!" },
-  { id: "al-chat-2", category: "chat", text: "Kanina, excuses ah, I heard all of them already. Save your breath for running lah!" },
-  { id: "al-chat-3", category: "chat", text: "Very nice story. Does it come with a payment? No? Then FASTER, chee bye!" },
-  { id: "al-chat-4", category: "chat", text: "Tiam lah! Interest don't stop for conversation, kanina!" },
-  { id: "al-chat-5", category: "chat", text: "Hah? Still got breath to talk? Then got breath to run, chee bye. GO!" },
-  { id: "al-chat-6", category: "chat", text: "Kao pei kao bu somemore! You know who else complain a lot? People with DEBT. Run it off lah, kanina!" },
   // ---- target progress ----
   { id: "al-prog-1", category: "progress", text: "Eh, progress! I updating your ledger ah. In pencil. Keep running, chee bye!" },
   { id: "al-prog-2", category: "progress", text: "Kanina, you actually sticking to the plan. Suspicious. Keep going, I'm watching!" },
@@ -1395,13 +1377,6 @@ const ahlian: Phrase[] = [
   { id: "li-loiter-7", category: "loitering", text: "Nabei, you grow root ah? Even the void deck cat change position more often than this. MOVE!" },
   { id: "li-loiter-8", category: "loitering", text: "Kanina bu chao chee bye. I count to three. One. Two. Don't make me say three ah, I will kan you. RUN!" },
   { id: "li-loiter-9", category: "loitering", text: "Stand so long the pigeons think you statue already. Even THEY tu lan with you. GO!" },
-  // ---- chat ----
-  { id: "li-chat-1", category: "chat", text: "Talk less, run more lah chee bye! Save your breath for the hill, kanina!" },
-  { id: "li-chat-2", category: "chat", text: "Hah? I cannot hear. All I hear is excuses, and I got no space left for excuses today. RUN!" },
-  { id: "li-chat-3", category: "chat", text: "Yes yes, sibei interesting. You know what's more interesting? Your chee bye pace. FASTER!" },
-  { id: "li-chat-4", category: "chat", text: "Tiam lah! Breath is for running, not talking, kanina!" },
-  { id: "li-chat-5", category: "chat", text: "Hah? Still got energy to talk? Means not running hard enough lah, chee bye. GO!" },
-  { id: "li-chat-6", category: "chat", text: "Kao pei kao bu so much for what? Want to complain, complain while running. LEGS, kanina, LEGS!" },
   // ---- progress ----
   { id: "li-prog-1", category: "progress", text: "Eh, got progress! Don't happy too early lah, chee bye. Still not finish!" },
   { id: "li-prog-2", category: "progress", text: "Kanina, chalk one up. Now stop thinking and keep moving lah!" },
@@ -1742,12 +1717,6 @@ const posbeng: Phrase[] = [
   { id: "pb-loiter-8", category: "loitering", text: "Champion, listen. Every legend has a moment where they almost stopped. This is yours, kanina. And legends MOVE, chee bye!" },
   { id: "pb-loiter-9", category: "loitering", text: "Okay real talk, chee bye: right now I believe in you MORE than you believe in you. So borrow my belief, kanina! One step! GO, CHAMPION, GO!" },
   // ---- canned chat replies ----
-  { id: "pb-chat-1", category: "chat", text: "Hahaha I hear you, champion! But save the golden breath for the golden pace, kanina!" },
-  { id: "pb-chat-2", category: "chat", text: "Tell me the full story at the finish line, chee bye! Legs first, gossip later, kanina!" },
-  { id: "pb-chat-3", category: "chat", text: "Wah, still can talk while running? Fitness level: impressive, kanina! Now channel it to the legs, chee bye!" },
-  { id: "pb-chat-4", category: "chat", text: "I'm listening, I'm listening — but the road wants to hear your FOOTSTEPS, champion. Make them loud, chee bye!" },
-  { id: "pb-chat-5", category: "chat", text: "Good point, good point! You know what's an even better point? That finish line, kanina. GO!" },
-  { id: "pb-chat-6", category: "chat", text: "Sibei chatty today ah, champion! I love the energy — now convert it to pace, chee bye!" },
   // ---- target progress ----
   { id: "pb-prog-1", category: "progress", text: "Checkpoint collected, kanina! You're building something beautiful today. Keep stacking, chee bye!" },
   { id: "pb-prog-2", category: "progress", text: "Progress logged, champion! Lim peh's clipboard says: ON TRACK. GO lah, kanina!" },

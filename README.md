@@ -225,7 +225,7 @@ routes run as serverless functions.
 - `lib/phraseCategories.ts` — which phrase categories the generator can top up,
   what each one is for, and why the rest are fixed. Shared by the admin screen
   and the expand endpoint so they can't disagree.
-- `app/api/phrase` / `app/api/chat` — Claude (claude-sonnet-5) writes one line
+- `app/api/phrase` — Claude (claude-sonnet-5) writes one line
   in-persona from the live run stats; ElevenLabs voices it; both degrade
   gracefully.
 

@@ -22,12 +22,12 @@ export function isPlan(v: unknown): v is Plan {
   return v === "free" || v === "full";
 }
 
-/** Whether the plan may call the model (live lines, replies, banter). */
+/** Whether the plan may call the model (live lines, banter). */
 export function planAllowsGenerated(plan: Plan): boolean {
   return plan === "full";
 }
 
 export const PLAN_LABEL: Record<Plan, string> = {
   free: "Free — pre-rendered lines only",
-  full: "Full — improvised lines, your name and stats in the coaching, duo banter, replies when you talk to your trainer",
+  full: "Full — improvised lines, your name and stats in the coaching, duo banter",
 };

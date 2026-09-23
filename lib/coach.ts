@@ -1370,31 +1370,6 @@ export class CoachEngine {
     else this.sayFromLibrary(category); // library always has our back
   }
 
-  /** Push-to-talk: send what the runner said, speak the reply. */
-  async respondTo(userSpeech: string, stats: RunStats) {
-    if (!this.generated) {
-      this.sayFromLibrary("chat"); // the canned reply — a free run still answers
-      return;
-    }
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          persona: this.persona.id,
-          message: userSpeech,
-          context: this.buildContext(stats),
-        }),
-      });
-      if (!res.ok) throw new Error(String(res.status));
-      const data: { text: string; audioBase64?: string } = await res.json();
-      const url = data.audioBase64 ? `data:audio/mpeg;base64,${data.audioBase64}` : undefined;
-      this.voice.say(data.text, url);
-    } catch {
-      this.sayFromLibrary("chat");
-    }
-  }
-
   dispose() {
     this.disposed = true;
   }

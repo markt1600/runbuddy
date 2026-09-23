@@ -134,12 +134,11 @@ export default function RunScreen({
   const [speaking, setSpeaking] = useState(false);
   /** Who is talking right now — the partner or a cameo, not always the lead. */
   const [speaker, setSpeaker] = useState<Persona | null>(null);
-  /** Chatter, music, stats and the microphone live behind one sheet. */
+  /** Chatter, music and stats live behind one sheet. */
   const [sheetOpen, setSheetOpen] = useState(false);
   /** Friends' shout-outs that actually played — the summary counts them. */
   const cheersRef = useRef<string[]>([]);
   const [aod, setAod] = useState(false);
-  const [listening, setListening] = useState(false);
   const [gpsNote, setGpsNote] = useState<string | null>(null);
   const [gpsSignal, setGpsSignal] = useState<GpsSignal>("acquiring");
   const [locked, setLocked] = useState(startDelaySec > 0);
@@ -540,27 +539,6 @@ export default function RunScreen({
     setTimeout(() => onFinish(stats), 300);
   };
 
-  const pushToTalk = () => {
-    if (listening) return;
-    const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
-    if (!Recognition) {
-      setCoachText("Voice input isn't supported on this browser.");
-      return;
-    }
-    const rec = new Recognition();
-    rec.lang = "en-US";
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    setListening(true);
-    let got = false;
-    rec.onresult = (e) => {
-      got = true;
-      const transcript = e.results[e.resultIndex][0].transcript;
-      setListening(false);
-      setCoachText(`You: “${transcript}”`);
-      void coachRef.current?.respondTo(transcript, statsRef.current);
-    };
     rec.onerror = () => {
       setListening(false);
     };
@@ -578,9 +556,9 @@ export default function RunScreen({
   // Hold-to-unlock: a sustained 1.5s press ARMS the unlock; the unlock itself
   // happens on finger RELEASE, and the overlay lingers briefly past release.
   // Unlocking mid-press used to unmount the overlay while the finger was still
-  // down, so the lift-off tap fell through onto the push-to-talk button
-  // underneath and started the microphone. Fabric brushing the screen still
-  // can't unlock: short or moving contacts never survive the full hold.
+  // down, so the lift-off tap fell through onto whatever button sat
+  // underneath (at the time, the microphone). Fabric brushing the screen
+  // still can't unlock: short or moving contacts never survive the full hold.
   const HOLD_MS = 1500;
 
   const startHold = () => {
@@ -1033,17 +1011,6 @@ export default function RunScreen({
           )}
 
           <div className="rs-sheet-row">
-            <button
-              className={`rs-sheet-btn${listening ? " listening" : ""}`}
-              onClick={pushToTalk}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z" />
-                <path d="M19 12a7 7 0 0 1-14 0" />
-                <path d="M12 19v3" />
-              </svg>
-              {listening ? "Listening…" : "Talk to your trainer"}
-            </button>
             <button
               className="rs-sheet-btn"
               onClick={() => {

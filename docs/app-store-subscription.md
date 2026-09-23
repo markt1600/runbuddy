@@ -12,7 +12,7 @@ on **full**. Flip it to `free` on Vercel when the subscription goes on sale.
 ## What is already built
 
 - `lib/plan.ts`, `lib/server/plan.ts` — the plans and the server-side gate.
-  `/api/phrase`, `/api/chat` and `/api/cameo` answer 402 on free; cheers are
+  `/api/phrase` and `/api/cameo` answer 402 on free; cheers are
   read word for word on free; the coach mirrors the plan and never asks.
 - `lib/purchases.ts` — the RevenueCat Capacitor plugin, loaded only in the
   shell, configured with the account's uid hash as the app user id.

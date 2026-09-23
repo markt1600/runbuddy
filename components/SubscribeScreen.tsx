@@ -32,7 +32,6 @@ const FULL_GETS = [
   "Improvised lines all run long — colour on every kilometre, fresh encouragement, anecdotes",
   "The personal touches: your name, your age and build, your history and records, the weather where you are",
   "Duo banter — Ah Beng and Ah Lian actually arguing about your run",
-  "Talk to your trainer mid-run and get a real reply",
   "A closing comment on your run card, and cheers from friends in the trainer's own words",
 ];
 

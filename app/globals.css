@@ -1433,13 +1433,6 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
-.rs-sheet-btn.listening {
-  background: var(--red);
-  border-color: var(--red);
-  color: #fff;
-  animation: gps-pulse 1s ease-in-out infinite;
-}
-
 .phrase-stats {
   margin-top: 16px;
   text-align: center;

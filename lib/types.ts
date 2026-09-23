@@ -20,7 +20,6 @@ export type PhraseCategory =
   | "auto_paused" // the app paused itself — say so, the phone is in a sleeve
   | "auto_resumed" // …and say when it picked the run back up
   | "loitering" // stopped for far too long, and the coach has noticed
-  | "chat" // canned push-to-talk replies when offline
   | "summary" // post-run closing comment (generated only)
   | "progress" // generic checkpoint line (fallback)
   | "progress_km" // checkpoint on a preset distance target: percentage + exact remaining
