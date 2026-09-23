@@ -539,20 +539,6 @@ export default function RunScreen({
     setTimeout(() => onFinish(stats), 300);
   };
 
-    rec.onerror = () => {
-      setListening(false);
-    };
-    rec.onend = () => {
-      setListening(false);
-      if (!got) setCoachText("Didn't catch that — try again!");
-    };
-    try {
-      rec.start();
-    } catch {
-      setListening(false);
-    }
-  };
-
   // Hold-to-unlock: a sustained 1.5s press ARMS the unlock; the unlock itself
   // happens on finger RELEASE, and the overlay lingers briefly past release.
   // Unlocking mid-press used to unmount the overlay while the finger was still
