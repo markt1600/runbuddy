@@ -4002,6 +4002,33 @@ input[type="range"]::-moz-range-thumb {
 .legal li + li { margin-top: 6px; }
 .legal-date { color: var(--label-2); font-size: 13px; }
 
+.delete-confirm {
+  padding: 14px 16px;
+  border-color: var(--red);
+}
+
+.delete-confirm-title {
+  font-family: var(--ff-display);
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.delete-confirm-actions .cta { flex: 1; margin: 0; }
+
+.account-legal {
+  margin-top: 18px;
+  font-size: 13px;
+}
+
+.account-legal a { color: var(--accent); font-weight: 600; }
+
 /* ---------- Voice studio: actor booth + admin console ---------- */
 
 .booth {

@@ -25,8 +25,10 @@ on **full**. Flip it to `free` on Vercel when the subscription goes on sale.
   issue); same re-read, so the plan follows the store while the app is shut.
 - Admin → user → Plan pin (default / free / full), for trying a free run
   before anything is sold.
-- `app/privacy/page.tsx` — a draft privacy policy. Read it and fill the two
-  bracketed spots.
+- `app/privacy/page.tsx` — the privacy policy, written from what the app
+  stores; its contact comes from `NEXT_PUBLIC_SUPPORT_EMAIL`.
+- `/api/account` (DELETE) and `lib/server/deleteAccount.ts` — account
+  deletion, reached from the foot of the Account screen.
 
 ## What to set up
 
@@ -94,10 +96,13 @@ Sandbox tester (Settings → App Store → Sandbox Account).
 
 ### 5. Before submitting
 
-- Fill the bracketed spots in `app/privacy/page.tsx`.
-- **Account deletion** is required for apps with sign-in and is not built
-  yet — an in-app "Delete account" that removes the profile, runs, friends,
-  notifications and cheers.
+- Set `NEXT_PUBLIC_SUPPORT_EMAIL` on Vercel so `/privacy` shows a contact
+  (without it the page points at the listing's support link), and put the
+  same address as the Support URL / contact in App Store Connect.
+- Account deletion is built: Account → Delete my account → Delete
+  everything wipes the profile, runs, stats, friends, comments on their
+  runs, cheers, receipts, presence, link records and the RevenueCat
+  customer, then drops the session (`lib/server/deleteAccount.ts`).
 - Reviewers buy with a sandbox account: make sure a fresh sandbox account
   can go Account → Get Full → buy → see "Full" on Account, and Restore
   purchases on a second device.

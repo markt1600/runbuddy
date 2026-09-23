@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 
-// The privacy policy the App Store listing and the Subscribe screen link to.
-// A DRAFT in plain language, written from what the app actually does — read
-// it through and adjust before submission; the two bracketed spots need your
-// own details.
+// The privacy policy the App Store listing, the Subscribe screen and the
+// Account screen link to. Plain language, written from what the app actually
+// does — keep it in step with lib/server/deleteAccount.ts, which is the list
+// of what "everything stored with it" means. The contact comes from
+// NEXT_PUBLIC_SUPPORT_EMAIL; without it the page points at the App Store
+// listing's support link.
+
+const UPDATED = "23 September 2026";
+const CONTACT = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "";
 
 export const metadata: Metadata = {
   title: "Privacy — Tekan Buddy",
@@ -14,7 +19,7 @@ export default function PrivacyPage() {
   return (
     <main className="legal">
       <h1>Privacy Policy</h1>
-      <p className="legal-date">Last updated: [date]</p>
+      <p className="legal-date">Last updated: {UPDATED}</p>
 
       <h2>What Tekan Buddy is</h2>
       <p>
@@ -82,12 +87,22 @@ export default function PrivacyPage() {
       <h2>Deleting your data</h2>
       <p>
         You can remove individual runs from the app at any time. To delete your account and
-        everything stored with it, use Delete account on the Account screen, or contact
-        [your contact email]. Deletion is permanent.
+        everything stored with it — your runs and routes, stats, friends, comments on your
+        runs and cheers waiting for you — open the Account screen and choose Delete my
+        account. It takes effect immediately and cannot be undone. Comments you left on
+        friends&apos; runs stay with their runs. A subscription bought through Apple is
+        managed and cancelled in your Apple ID settings.
       </p>
 
       <h2>Contact</h2>
-      <p>Questions about this policy: [your contact email].</p>
+      <p>
+        Questions about this policy:{" "}
+        {CONTACT ? (
+          <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
+        ) : (
+          <>use the support link on the app&apos;s App Store listing.</>
+        )}
+      </p>
     </main>
   );
 }

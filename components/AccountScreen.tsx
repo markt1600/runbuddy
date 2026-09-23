@@ -88,6 +88,10 @@ export default function AccountScreen({
     linked: string[];
   } | null>(null);
   const [linkNote, setLinkNote] = useState<string | null>(null);
+  // Account deletion: a second step in-app (never window.confirm, which has
+  // frozen the WebView before), then the route wipes everything and drops
+  // the cookie.
+  const [deleteStep, setDeleteStep] = useState<"idle" | "confirm" | "busy" | "failed">("idle");
   const [linkBusy, setLinkBusy] = useState(false);
   const previewStatsRef = useRef<RunStats | null>(null);
 
@@ -779,6 +783,69 @@ export default function AccountScreen({
           <button className="cta secondary" style={{ marginTop: 18 }} onClick={onSignOut}>
             Sign out
           </button>
+
+          <div className="section-header">Delete account</div>
+          {deleteStep === "idle" || deleteStep === "failed" ? (
+            <>
+              <p className="account-note">
+                Removes your account and everything stored with it: your runs and routes,
+                your stats, friends, comments on your runs, and any cheers waiting for you.
+                Comments you left on friends&apos; runs stay with their runs. This cannot be
+                undone.
+              </p>
+              {deleteStep === "failed" && (
+                <div className="save-note">
+                  ⚠ Couldn&apos;t delete the account — check the connection and try again.
+                </div>
+              )}
+              <button className="cta secondary" onClick={() => setDeleteStep("confirm")}>
+                Delete my account…
+              </button>
+            </>
+          ) : (
+            <div className="card delete-confirm">
+              <div className="delete-confirm-title">Delete everything?</div>
+              <p className="account-note">
+                Your runs, stats, friends and cheers will be gone for good. A subscription
+                bought through Apple keeps running until you cancel it in your Apple ID
+                settings.
+              </p>
+              <div className="delete-confirm-actions">
+                <button
+                  className="cta secondary"
+                  disabled={deleteStep === "busy"}
+                  onClick={() => setDeleteStep("idle")}
+                >
+                  Keep my account
+                </button>
+                <button
+                  className="cta danger"
+                  disabled={deleteStep === "busy"}
+                  onClick={() => {
+                    setDeleteStep("busy");
+                    void fetch("/api/account", {
+                      method: "DELETE",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ confirm: "delete my account" }),
+                    })
+                      .then((res) => {
+                        if (!res.ok) throw new Error(String(res.status));
+                        clearEffortCache();
+                        onSignOut(); // the cookie is already gone; this resets the app
+                      })
+                      .catch(() => setDeleteStep("failed"));
+                  }}
+                >
+                  {deleteStep === "busy" ? "Deleting…" : "Delete everything"}
+                </button>
+              </div>
+            </div>
+          )}
+          <p className="account-legal">
+            <a href="/privacy" target="_blank" rel="noreferrer">
+              Privacy policy
+            </a>
+          </p>
         </>
       ) : (
         <>

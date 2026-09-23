@@ -173,6 +173,7 @@ bug; see `tests/README.md`.
 | `DEFAULT_PLAN` | The plan for accounts with none pinned: `full` (default, pre-launch) or `free` (once the subscription is on sale) |
 | `REVENUECAT_SECRET_KEY` | RevenueCat secret API key — lets the server read who is subscribed (the sync route and the webhook) |
 | `REVENUECAT_WEBHOOK_SECRET` | The Authorization value you set on the RevenueCat webhook pointing at `/api/plan/webhook` |
+| `NEXT_PUBLIC_SUPPORT_EMAIL` | Shown as the contact on `/privacy` (without it the page points at the App Store listing's support link) |
 | `NEXT_PUBLIC_REVENUECAT_IOS_KEY` | RevenueCat public iOS SDK key — the shell configures the purchases plugin with it (public by design) |
 
 Weather (Open-Meteo) and reverse geocoding (BigDataCloud) are keyless — the
