@@ -54,6 +54,14 @@ await page.screenshot({ path: `${OUT}/02-run.png`, fullPage: true });
 await page.locator('[aria-label="Lock screen for armband"]').click();
 await page.waitForTimeout(300);
 assert.strictEqual(await page.locator(".lock-overlay").count(), 1, "lock overlay missing");
+// The overlay's badge and pad float over the bottom band; the status box
+// must stay above them rather than slide down underneath.
+const statusBox = await page.locator(".rs-status").boundingBox();
+const badgeBox = await page.locator(".lock-badge").boundingBox();
+assert.ok(
+  statusBox.y + statusBox.height < badgeBox.y,
+  `status box (${statusBox.y + statusBox.height}) runs under the lock badge (${badgeBox.y})`
+);
 const pad = await page.locator(".unlock-pad").boundingBox();
 await page.mouse.move(pad.x + pad.width / 2, pad.y + pad.height / 2);
 await page.mouse.down();
