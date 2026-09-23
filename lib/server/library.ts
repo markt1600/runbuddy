@@ -1,5 +1,6 @@
 import { del, list, put } from "@vercel/blob";
 import { PHRASE_LIBRARY } from "../phrases";
+import { paceFigureById } from "../paceFigures";
 import { phraseHash } from "../phraseHash";
 import { renderVoiceBuffer } from "./generate";
 import type { PersonaId, Phrase } from "../types";
@@ -341,8 +342,11 @@ async function recordRenderHash(persona: PersonaId, phraseId: string, hash: stri
 }
 
 async function findPhrase(persona: PersonaId, phraseId: string): Promise<Phrase | undefined> {
+  // The split figures (pf-…) are the same words for every trainer and sit
+  // outside the library proper — see lib/paceFigures.
   const base =
     PHRASE_LIBRARY[persona].find((p) => p.id === phraseId) ??
+    paceFigureById(phraseId) ??
     (await readExtras(persona)).find((p) => p.id === phraseId);
   if (!base) return undefined;
   const corrected = (await readOverrides(persona))[phraseId];

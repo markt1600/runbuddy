@@ -5,6 +5,7 @@ import type { RunEnvironment } from "./enviro";
 import type { RunHistoryDigest } from "./history";
 import { hsFinishMs, wrFinishMs } from "./records";
 import { PERSONAS } from "./personas";
+import { paceFigureFor } from "./paceFigures";
 import type { PersonaId } from "./types";
 
 /** A friend's shoutout as the deliver endpoint hands it over, ready to play. */
@@ -629,6 +630,27 @@ export class CoachEngine {
     this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s);
   }
 
+  /**
+   * The last kilometre's split: a lead-in from the library, then the figure
+   * in the same trainer's voice when it has been rendered (3:00–15:59, to
+   * the second — Admin renders the set per trainer). Outside that band, or
+   * before the figures exist, the number falls through to the device voice
+   * as it always did. One speaker for both halves, so a duo never hands the
+   * sentence to the other trainer mid-way.
+   */
+  private sayPaceSplit(totalSec: number) {
+    const s = this.speaker();
+    const lead = this.pick("pace_lead", s.id);
+    if (lead) {
+      this.lastLibSpeaker = s;
+      this.voice.say(lead.text, getPhraseUrl(s.id, lead.id), undefined, s);
+    }
+    const figure = paceFigureFor(totalSec);
+    const url = figure ? getPhraseUrl(s.id, figure.id) : undefined;
+    if (figure && url) this.voice.say(figure.text, url, undefined, s);
+    else this.voice.say(spokenDuration(totalSec), undefined, undefined, s);
+  }
+
   onRunStart() {
     const now = Date.now();
     this.runStarted = true;
@@ -1032,10 +1054,7 @@ export class CoachEngine {
       // itself falls through to the device voice; the sentence around it is
       // pre-rendered.
       const lastKmSec = this.lastKmPaceSec(stats, km);
-      if (lastKmSec !== null) {
-        this.sayFromLibrary("pace_lead");
-        this.voice.say(spokenDuration(lastKmSec));
-      }
+      if (lastKmSec !== null) this.sayPaceSplit(lastKmSec);
       const colorSpeaker = this.duo ? this.speaker() : this.persona;
       void this.fetchFresh(
         "milestone",
@@ -1146,10 +1165,7 @@ export class CoachEngine {
       this.lastKmAnnounced = km;
       this.sayKmMarker(km);
       const lastKmSec = this.lastKmPaceSec(stats, km);
-      if (lastKmSec !== null) {
-        this.sayFromLibrary("pace_lead");
-        this.voice.say(spokenDuration(lastKmSec));
-      }
+      if (lastKmSec !== null) this.sayPaceSplit(lastKmSec);
     }
   }
 

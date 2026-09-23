@@ -10,6 +10,7 @@ export type PhraseCategory =
   | "duo_react" // duo mode: one trainer reacting to the other's line
   | "km_marker" // "three kilometres down" — one per km, so the number is in-voice
   | "pace_lead" // lead-in that hands off to the spoken pace figure
+  | "pace_figure" // the figure itself: one per second from 3:00 to 15:59 /km (lib/paceFigures)
   | "anecdote" // facts, stories, nuggets
   | "finish"
   | "paused"
@@ -57,6 +58,8 @@ export interface Phrase {
   condition?: PhraseCondition | PhraseCondition[];
   /** Only for "km_marker" phrases: which kilometre this line announces. */
   km?: number;
+  /** Only for "pace_figure": the split this line states, in seconds per km. */
+  sec?: number;
   /**
    * Only for "progress_km" / "progress_time": which preset target this line
    * belongs to (kilometres or minutes), and which checkpoint of it, as a whole

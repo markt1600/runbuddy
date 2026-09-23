@@ -13,7 +13,9 @@ import {
   libraryFlags,
   lifetimeStats,
   loadLibraryState,
+  paceFigureStatus,
   playPhrase,
+  renderPaceFigures,
   reRenderPersona,
   renderMissingPhrases,
   reRenderPhrase,
@@ -73,6 +75,7 @@ const CATEGORY_LABELS: Record<PhraseCategory, string> = {
   hs_finish: "High-school-record moments",
   pr: "Personal-record moments",
   duo_react: "Duo reactions",
+  pace_figure: "Pace figures (split read-outs)",
 };
 
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS) as PhraseCategory[];
@@ -126,6 +129,7 @@ export default function AdminScreen({ onBack }: Props) {
   const [personaId, setPersonaId] = useState<PersonaId>("ahbeng");
   const [ready, setReady] = useState(false);
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
+  const [renderingFigures, setRenderingFigures] = useState(false);
   const [expanding, setExpanding] = useState<PhraseCategory | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // "Re-render these": a pasted id list for the cases the stale check cannot
@@ -496,6 +500,21 @@ export default function AdminScreen({ onBack }: Props) {
   };
 
   const recordedHere = promotedPhrases(personaId);
+
+  const paceFigures = paceFigureStatus(personaId);
+  const onRenderPaceFigures = async () => {
+    setNotice(null);
+    setRenderingFigures(true);
+    try {
+      await renderPaceFigures(personaId, (p) => {
+        setProgress(p);
+        refresh();
+      });
+    } finally {
+      setRenderingFigures(false);
+      refresh();
+    }
+  };
 
   const onReRender = async () => {
     const count = allPhrasesFor(personaId).length;
@@ -917,6 +936,33 @@ export default function AdminScreen({ onBack }: Props) {
         >
           Render missing — all personas
         </button>
+        {/* The split figures live outside the library: their own count, their
+            own button, and never part of "missing" — so an actor's promoted
+            takes are never in the same batch as 780 numbers. */}
+        <div className="card" style={{ marginTop: 12, padding: "12px 16px" }}>
+          <div className="switch-text">
+            Pace figures · {paceFigures.rendered}/{paceFigures.total} rendered
+            <span className="switch-sub">
+              The split after the pace lead-in, in {persona.shortName}&apos;s own voice: every
+              second from 3:00 to 15:59 per km (&ldquo;Five minutes, twelve seconds per
+              kilometre.&rdquo;). Until a figure is rendered the device voice reads it, as
+              before. Not in studio scripts, the editor or the level check, and rendering
+              them never touches a recorded take.
+            </span>
+          </div>
+          <button
+            className="cta secondary"
+            style={{ marginTop: 10 }}
+            disabled={busy || paceFigures.rendered >= paceFigures.total}
+            onClick={onRenderPaceFigures}
+          >
+            {progress?.state === "generating" && renderingFigures
+              ? `Rendering figures… ${progress.done}/${progress.total}`
+              : paceFigures.rendered >= paceFigures.total
+                ? `All ${paceFigures.total} figures rendered`
+                : `Render ${paceFigures.total - paceFigures.rendered} missing ${persona.shortName} figures`}
+          </button>
+        </div>
         {recordedHere.length > 0 && (
           <button
             className="cta secondary"

@@ -1,4 +1,5 @@
 import { PHRASE_LIBRARY } from "./phrases";
+import { PACE_FIGURES } from "./paceFigures";
 import { PERSONAS } from "./personas";
 import { phraseHash } from "./phraseHash";
 import type { Persona, Phrase, PersonaId, PhraseCategory } from "./types";
@@ -337,12 +338,22 @@ export async function renderMissingPhrases(
     return;
   }
 
-  // Sequential: ElevenLabs concurrency limits are low, and per-phrase progress
-  // is exactly what the UI wants.
+  await renderList(missing, report);
+}
+
+/**
+ * Render a list of phrases one by one — ElevenLabs concurrency limits are
+ * low, and per-phrase progress is exactly what the UI wants. Stops after
+ * three straight failures so a dead key doesn't burn the whole list.
+ */
+async function renderList(
+  items: { persona: PersonaId; id: string }[],
+  report: (state: GenerationProgress["state"], message?: string) => void
+): Promise<void> {
   let consecutiveFailures = 0;
   let lastError = "unknown";
   report("generating");
-  for (const { persona, id } of missing) {
+  for (const { persona, id } of items) {
     try {
       const res = await fetch("/api/library/render", {
         method: "POST",
@@ -373,6 +384,41 @@ export async function renderMissingPhrases(
     }
   }
   report("done");
+}
+
+// ---- Pace figures: the split read-out, in the trainer's own voice ----
+// Outside the library proper (see lib/paceFigures), so they never count
+// toward "missing", never enter a studio script, and rendering them can't
+// touch a promoted actor take — the ids are their own.
+
+/** How many of this trainer's 780 split figures have audio. */
+export function paceFigureStatus(persona: PersonaId): { rendered: number; total: number } {
+  const rendered = PACE_FIGURES.filter((p) => urls.has(key(persona, p.id))).length;
+  return { rendered, total: PACE_FIGURES.length };
+}
+
+/** Render this trainer's split figures that don't have audio yet. */
+export async function renderPaceFigures(
+  persona: PersonaId,
+  onProgress: (p: GenerationProgress) => void
+): Promise<void> {
+  const report = (state: GenerationProgress["state"], message?: string) => {
+    const { rendered, total } = paceFigureStatus(persona);
+    onProgress({ state, done: rendered, total, message });
+  };
+  const missing = PACE_FIGURES.filter((p) => !urls.has(key(persona, p.id))).map((p) => ({
+    persona,
+    id: p.id,
+  }));
+  if (missing.length === 0) {
+    report("done");
+    return;
+  }
+  if (!flags.canRender) {
+    report("unavailable", unavailableReason());
+    return;
+  }
+  await renderList(missing, report);
 }
 
 export function getVoiceSpeed(persona: PersonaId): number {
