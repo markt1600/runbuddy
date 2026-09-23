@@ -632,11 +632,12 @@ export class CoachEngine {
 
   /**
    * The last kilometre's split: a lead-in from the library, then the figure
-   * in the same trainer's voice when it has been rendered (3:00–15:59, to
-   * the second — Admin renders the set per trainer). Outside that band, or
-   * before the figures exist, the number falls through to the device voice
-   * as it always did. One speaker for both halves, so a duo never hands the
-   * sentence to the other trainer mid-way.
+   * in the same trainer's voice — the minutes clip running straight into
+   * the seconds clip ("Five minutes," + "twelve seconds per kilometre.") —
+   * when both have been rendered (3:00–15:59; Admin renders the set per
+   * trainer). Outside that band, or before the clips exist, the number
+   * falls through to the device voice as it always did. One speaker for
+   * every part, so a duo never hands the sentence to the other trainer.
    */
   private sayPaceSplit(totalSec: number) {
     const s = this.speaker();
@@ -646,9 +647,14 @@ export class CoachEngine {
       this.voice.say(lead.text, getPhraseUrl(s.id, lead.id), undefined, s);
     }
     const figure = paceFigureFor(totalSec);
-    const url = figure ? getPhraseUrl(s.id, figure.id) : undefined;
-    if (figure && url) this.voice.say(figure.text, url, undefined, s);
-    else this.voice.say(spokenDuration(totalSec), undefined, undefined, s);
+    const minuteUrl = figure ? getPhraseUrl(s.id, figure.minute.id) : undefined;
+    const secondUrl = figure ? getPhraseUrl(s.id, figure.second.id) : undefined;
+    if (figure && minuteUrl && secondUrl) {
+      this.voice.say(figure.minute.text, minuteUrl, undefined, s, { joins: true });
+      this.voice.say(figure.second.text, secondUrl, undefined, s);
+    } else {
+      this.voice.say(spokenDuration(totalSec), undefined, undefined, s);
+    }
   }
 
   onRunStart() {

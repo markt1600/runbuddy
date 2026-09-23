@@ -391,7 +391,7 @@ async function renderList(
 // toward "missing", never enter a studio script, and rendering them can't
 // touch a promoted actor take — the ids are their own.
 
-/** How many of this trainer's 780 split figures have audio. */
+/** How many of this trainer's 73 split clips (13 minutes + 60 seconds) have audio. */
 export function paceFigureStatus(persona: PersonaId): { rendered: number; total: number } {
   const rendered = PACE_FIGURES.filter((p) => urls.has(key(persona, p.id))).length;
   return { rendered, total: PACE_FIGURES.length };

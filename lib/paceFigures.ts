@@ -1,15 +1,17 @@
 import type { Phrase } from "./types";
 
 // The split figure that follows a pace lead-in ("and that last kilometre
-// took you…"): every whole second from 3:00 to 15:59 per kilometre, as a
-// phrase each trainer renders in their own voice, so the number no longer
-// drops out of the trainer's mouth into the device's. The words are the same
-// for every trainer — the lead-in already carries the persona — and the ids
-// (pf-3-00 … pf-15-59) can never collide with a studio phrase, so an actor's
-// promoted takes are untouched by rendering these.
+// took you…"), in the trainer's own voice instead of the device's. Built
+// from two clips played back to back with no breath between: the minutes
+// ("Five minutes,") and the seconds ("twelve seconds per kilometre." — or
+// "flat!" for a round minute). Thirteen minute clips for 3:00–15:59 plus
+// sixty second clips is 73 renders per trainer, not 780. The words are the
+// same for every trainer — the lead-in already carries the persona — and the
+// ids (pf-min-3 … pf-sec-59) can never collide with a studio phrase, so an
+// actor's promoted takes are untouched by rendering these.
 //
 // Deliberately NOT part of PHRASE_LIBRARY: the studio script, the phrase
-// editor, the word counts and the level check all walk that list, and 780
+// editor, the word counts and the level check all walk that list, and the
 // numbers have no business in any of them. They live only in the render
 // pipeline (Admin renders them per trainer) and in the coach's lookup.
 
@@ -31,46 +33,55 @@ export function numberWords(n: number): string {
   return o === 0 ? TENS[t] : `${TENS[t]}-${ONES[o]}`;
 }
 
-export function paceFigureId(minutes: number, seconds: number): string {
-  return `pf-${minutes}-${String(seconds).padStart(2, "0")}`;
-}
+export const minuteFigureId = (minutes: number) => `pf-min-${minutes}`;
+export const secondFigureId = (seconds: number) => `pf-sec-${String(seconds).padStart(2, "0")}`;
 
-/** "Three minutes flat!" / "Three minutes, one second per kilometre." */
-export function paceFigureText(minutes: number, seconds: number): string {
+/** "Five minutes," — left open for the seconds to complete. */
+export function minuteFigureText(minutes: number): string {
   const m = numberWords(minutes);
-  const cap = m.charAt(0).toUpperCase() + m.slice(1);
-  if (seconds === 0) return `${cap} minutes flat!`;
-  const s = numberWords(seconds);
-  return `${cap} minutes, ${s} second${seconds === 1 ? "" : "s"} per kilometre.`;
+  return `${m.charAt(0).toUpperCase() + m.slice(1)} minutes,`;
 }
 
-/** All 780 figures, in order, shared by every trainer. */
-export const PACE_FIGURES: Phrase[] = (() => {
-  const out: Phrase[] = [];
-  for (let m = PACE_FIGURE_MIN_MINUTES; m <= PACE_FIGURE_MAX_MINUTES; m++) {
-    for (let s = 0; s < 60; s++) {
-      out.push({
-        id: paceFigureId(m, s),
-        category: "pace_figure",
-        text: paceFigureText(m, s),
-        sec: m * 60 + s,
-      });
-    }
+/** "flat!" / "one second per kilometre." / "twelve seconds per kilometre." */
+export function secondFigureText(seconds: number): string {
+  if (seconds === 0) return "flat!";
+  return `${numberWords(seconds)} second${seconds === 1 ? "" : "s"} per kilometre.`;
+}
+
+export const MINUTE_FIGURES: Phrase[] = Array.from(
+  { length: PACE_FIGURE_MAX_MINUTES - PACE_FIGURE_MIN_MINUTES + 1 },
+  (_, i) => {
+    const m = PACE_FIGURE_MIN_MINUTES + i;
+    return { id: minuteFigureId(m), category: "pace_figure", text: minuteFigureText(m), sec: m * 60 };
   }
-  return out;
-})();
+);
+
+export const SECOND_FIGURES: Phrase[] = Array.from({ length: 60 }, (_, s) => ({
+  id: secondFigureId(s),
+  category: "pace_figure",
+  text: secondFigureText(s),
+  sec: s,
+}));
+
+/** All 73 clips, shared by every trainer. */
+export const PACE_FIGURES: Phrase[] = [...MINUTE_FIGURES, ...SECOND_FIGURES];
 
 const byId = new Map(PACE_FIGURES.map((p) => [p.id, p]));
-const bySec = new Map(PACE_FIGURES.map((p) => [p.sec!, p]));
 
 export function paceFigureById(id: string): Phrase | undefined {
   return byId.get(id);
 }
 
 /**
- * The figure for a split, to the nearest second — or null outside the
+ * The two clips for a split, to the nearest second — or null outside the
  * 3:00–15:59 band, where the coach falls back to the device voice.
  */
-export function paceFigureFor(totalSec: number): Phrase | null {
-  return bySec.get(Math.round(totalSec)) ?? null;
+export function paceFigureFor(totalSec: number): { minute: Phrase; second: Phrase } | null {
+  const rounded = Math.round(totalSec);
+  const m = Math.floor(rounded / 60);
+  const s = rounded % 60;
+  if (m < PACE_FIGURE_MIN_MINUTES || m > PACE_FIGURE_MAX_MINUTES) return null;
+  const minute = byId.get(minuteFigureId(m));
+  const second = byId.get(secondFigureId(s));
+  return minute && second ? { minute, second } : null;
 }

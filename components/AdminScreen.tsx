@@ -938,16 +938,17 @@ export default function AdminScreen({ onBack }: Props) {
         </button>
         {/* The split figures live outside the library: their own count, their
             own button, and never part of "missing" — so an actor's promoted
-            takes are never in the same batch as 780 numbers. */}
+            takes are never in the same batch as the numbers. */}
         <div className="card" style={{ marginTop: 12, padding: "12px 16px" }}>
           <div className="switch-text">
             Pace figures · {paceFigures.rendered}/{paceFigures.total} rendered
             <span className="switch-sub">
-              The split after the pace lead-in, in {persona.shortName}&apos;s own voice: every
-              second from 3:00 to 15:59 per km (&ldquo;Five minutes, twelve seconds per
-              kilometre.&rdquo;). Until a figure is rendered the device voice reads it, as
-              before. Not in studio scripts, the editor or the level check, and rendering
-              them never touches a recorded take.
+              The split after the pace lead-in, in {persona.shortName}&apos;s own voice: 13
+              minute clips (&ldquo;Five minutes,&rdquo;) and 60 second clips (&ldquo;twelve seconds
+              per kilometre.&rdquo; / &ldquo;flat!&rdquo;) played back to back, covering every
+              second from 3:00 to 15:59 per km. Until both clips exist the device voice
+              reads it, as before. Not in studio scripts, the editor or the level check,
+              and rendering them never touches a recorded take.
             </span>
           </div>
           <button

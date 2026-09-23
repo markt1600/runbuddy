@@ -145,6 +145,8 @@ export class VoiceEngine {
     speaker?: Persona;
     /** Fires the moment this item starts to play — for "it was actually heard" receipts. */
     onStart?: () => void;
+    /** This item runs straight into the next one (half a sentence each). */
+    joins?: boolean;
   }[] = [];
   private playing = false;
   private persona: Persona;
@@ -308,7 +310,13 @@ export class VoiceEngine {
    * cameo lines pass their own speaker's admin level, so a guest voice isn't
    * played at the host's setting.
    */
-  say(text: string, audioUrl?: string, volume?: number, speaker?: Persona) {
+  say(
+    text: string,
+    audioUrl?: string,
+    volume?: number,
+    speaker?: Persona,
+    opts?: { joins?: boolean }
+  ) {
     // Lines never overlap: drain() plays them strictly one at a time. The cap
     // only stops a backlog building up so far that the coach ends up narrating
     // a part of the run you've already left behind.
@@ -318,6 +326,7 @@ export class VoiceEngine {
       audioUrl,
       volume: volume ?? (speaker ? getVoiceVolume(speaker.id) : undefined),
       speaker,
+      joins: opts?.joins,
     });
     void this.drain();
   }
@@ -451,7 +460,10 @@ export class VoiceEngine {
           recordLifetimePlay(served);
         }
         this.setSpeaking(false, null);
-        await new Promise((r) => setTimeout(r, item.cue ? 120 : 400));
+        // A breath between lines — except when this one is the first half
+        // of a sentence the next completes ("Five minutes," + "twelve seconds
+        // per kilometre."), which gets only the few ms the player needs.
+        await new Promise((r) => setTimeout(r, item.cue ? 120 : item.joins ? 40 : 400));
       }
     } finally {
       this.playing = false;

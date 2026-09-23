@@ -10,7 +10,7 @@ export type PhraseCategory =
   | "duo_react" // duo mode: one trainer reacting to the other's line
   | "km_marker" // "three kilometres down" — one per km, so the number is in-voice
   | "pace_lead" // lead-in that hands off to the spoken pace figure
-  | "pace_figure" // the figure itself: one per second from 3:00 to 15:59 /km (lib/paceFigures)
+  | "pace_figure" // the figure itself: minute and second clips composing 3:00–15:59 /km (lib/paceFigures)
   | "anecdote" // facts, stories, nuggets
   | "finish"
   | "paused"

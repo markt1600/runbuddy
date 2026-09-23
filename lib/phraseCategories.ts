@@ -40,7 +40,7 @@ export const FIXED_CATEGORY_REASON: Partial<Record<PhraseCategory, string>> = {
   hs_finish: "one per target and record holder — the times are baked into the words",
   pr: "generated live — the record and both times come from the run",
   duo_react: "duo mode only — one trainer answering the other's line",
-  pace_figure: "one per second from 3:00 to 15:59 per km — rendered per trainer from Admin, never in a studio script",
+  pace_figure: "13 minute clips and 60 second clips composing 3:00–15:59 per km — rendered per trainer from Admin, never in a studio script",
   summary: "written live from your actual numbers, never from the library",
 };
 
