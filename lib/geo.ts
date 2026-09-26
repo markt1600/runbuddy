@@ -21,7 +21,17 @@ const STATIONARY_MPS = 0.6; // Doppler speed below this = standing still
 const MAX_SPEED_KMH = 30; // anything faster is a GPS teleport, not a runner
 const WARMUP_MS = 4000; // ignore the first fixes; cold-start drift is worst
 const SPEED_SMOOTHING = 0.3; // EMA weight on the newest speed reading
-const MAX_GAP_S = 5; // longest interval a single speed reading may cover
+// The longest stretch one Doppler reading may credit. Fixes arrive together
+// with their speed, so a gap in delivery is a gap in both: with the cap at
+// five, a seven-second dropout (routine under trees and towers) paid for five
+// and wrote the rest off as "beyond the credit cap".
+const CREDIT_CAP_S = 10;
+// How long without a good position fix before the Doppler trapezoid starts
+// crediting live (the chord after re-acquire is reduced by what it earned).
+const OUTAGE_AFTER_S = 5;
+// The position filter's uncertainty stops growing past this — a red light
+// must not inflate it until it stops smoothing.
+const KALMAN_DT_CAP_S = 5;
 const DOPPLER_STALE_MS = 15_000; // after this, fall back to position deltas
 const KALMAN_Q = 2.5; // m/s of expected movement — the filter's process noise
 // After a gap this long the filtered position is stale rather than merely
@@ -250,7 +260,7 @@ export class GeoTracker {
           this.fixGapCount++;
           this.fixGapSumSec += gapSec;
           if (gapSec > this.fixGapMaxSec) this.fixGapMaxSec = gapSec;
-          if (gapSec > MAX_GAP_S) this.fixGapOverCapSec += gapSec - MAX_GAP_S;
+          if (gapSec > CREDIT_CAP_S) this.fixGapOverCapSec += gapSec - CREDIT_CAP_S;
         }
         this.lastFixAt = now;
         this.lastAccuracy = s.accuracy;
@@ -281,7 +291,7 @@ export class GeoTracker {
           // one is the correction diagnostic) — and, in corrected mode, the
           // live credit while good position fixes are absent, so the counter
           // keeps ticking through an urban canyon instead of freezing.
-          const dtSec = Math.min((now - this.lastSpeedAt) / 1000, MAX_GAP_S);
+          const dtSec = Math.min((now - this.lastSpeedAt) / 1000, CREDIT_CAP_S);
           if (this.dopplerSeen && dtSec > 0 && !this.paused) {
             const add = (((this.lastSpeedMps + mps) / 2) * dtSec) / 1000;
             this.shadowLegacyKm += add;
@@ -289,7 +299,7 @@ export class GeoTracker {
               this.distanceKm += add;
             } else if (
               this.lastGoodFixAt === 0 ||
-              now - this.lastGoodFixAt > MAX_GAP_S * 1000
+              now - this.lastGoodFixAt > OUTAGE_AFTER_S * 1000
             ) {
               this.distanceKm += add;
               this.outagePoolKm += add;
@@ -364,9 +374,15 @@ export class GeoTracker {
         if (this.correctedDistance) {
           // The chord may span a position outage the Doppler fallback
           // already paid for — credit only the shortfall, so the stretch
-          // counts once whichever engine saw it first.
-          this.distanceKm += Math.max(0, d - this.outagePoolKm);
-          this.outagePoolKm = 0;
+          // counts once whichever engine saw it first. When the fill paid
+          // MORE than the chord (chord noise, or a slower stretch than the
+          // last reading implied), the excess is carried to the next chord
+          // rather than kept: keeping it made every gap worth the larger of
+          // two noisy estimates, and a sparse run read a few percent high
+          // once the fill covered whole gaps. The counter never ticks back.
+          const shortfall = d - this.outagePoolKm;
+          this.distanceKm += Math.max(0, shortfall);
+          this.outagePoolKm = Math.max(0, -shortfall);
           if (useDelta) this.shadowLegacyKm += d; // legacy would credit here too
         } else if (useDelta) {
           this.distanceKm += d;
@@ -587,7 +603,7 @@ export class GeoTracker {
       // Time since the last *fix*, not since the last accepted step — the
       // anchor sits still for minutes at a red light, and pacing the filter
       // off it would inflate the uncertainty until it stopped smoothing.
-      const dtSec = Math.min(Math.max((s.timestamp - this.kAt) / 1000, 0), MAX_GAP_S);
+      const dtSec = Math.min(Math.max((s.timestamp - this.kAt) / 1000, 0), KALMAN_DT_CAP_S);
       this.kVar += dtSec * KALMAN_Q * KALMAN_Q;
       const gain = this.kVar / (this.kVar + acc * acc);
       this.kLat += gain * (s.lat - this.kLat);

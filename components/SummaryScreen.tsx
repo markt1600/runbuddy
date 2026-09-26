@@ -146,6 +146,8 @@ export default function SummaryScreen({
       const data: { id: string; stats: RunStats } = await res.json();
       runIdRef.current = data.id;
       setStats(data.stats);
+      // The distance and pace just changed: the card's quote follows them.
+      void fetchComment(data.stats, false);
       return true;
     } catch {
       return false;
@@ -164,68 +166,77 @@ export default function SummaryScreen({
     ? "Every step of that was yours. Be proud!"
     : "Don't get cocky ah, kanina. Same time tomorrow.";
 
-  const avgSpeedKmh =
-    stats.elapsedMs > 0 ? stats.distanceKm / (stats.elapsedMs / 3_600_000) : 0;
-
   // One in-persona closing comment on the actual numbers. Falls back to the
-  // static line if generation is unavailable.
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/phrase", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        persona: persona.id,
-        category: "summary",
-        // A treadmill run has no distance, pace or speed to talk about.
-        context: stats.treadmill
-          ? {
-              treadmill: true,
-              targetMinutes: stats.targetMinutes,
-              elapsedMin: Math.round(stats.elapsedMs / 60000),
-              localTime: new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-            }
-          : {
-              distanceKm: Number(stats.distanceKm.toFixed(2)),
-              elapsedMin: Math.round(stats.elapsedMs / 60000),
-              avgPaceMinPerKm:
-                stats.avgPaceSecPerKm !== null
-                  ? `${Math.floor(stats.avgPaceSecPerKm / 60)}:${Math.round(
-                      stats.avgPaceSecPerKm % 60
-                    )
-                      .toString()
-                      .padStart(2, "0")}`
-                  : undefined,
-              speedKmh: Number(avgSpeedKmh.toFixed(1)),
-              localTime: new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-            },
-      }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then(async (data: { text: string; audioBase64?: string } | null) => {
-        if (cancelled || !data?.text) return;
+  // static line if generation is unavailable. Spoken once, at the start;
+  // re-written silently when a Watch conform changes the numbers, so the
+  // card never quotes a pace the run no longer has.
+  const disposedRef = useRef(false);
+  const fetchComment = useCallback(
+    async (s: RunStats, speak: boolean) => {
+      const avgKmh = s.elapsedMs > 0 ? s.distanceKm / (s.elapsedMs / 3_600_000) : 0;
+      try {
+        const res = await fetch("/api/phrase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            persona: persona.id,
+            category: "summary",
+            // A treadmill run has no distance, pace or speed to talk about.
+            context: s.treadmill
+              ? {
+                  treadmill: true,
+                  targetMinutes: s.targetMinutes,
+                  elapsedMin: Math.round(s.elapsedMs / 60000),
+                  localTime: new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                }
+              : {
+                  distanceKm: Number(s.distanceKm.toFixed(2)),
+                  elapsedMin: Math.round(s.elapsedMs / 60000),
+                  avgPaceMinPerKm:
+                    s.avgPaceSecPerKm !== null
+                      ? `${Math.floor(s.avgPaceSecPerKm / 60)}:${Math.round(s.avgPaceSecPerKm % 60)
+                          .toString()
+                          .padStart(2, "0")}`
+                      : undefined,
+                  speedKmh: Number(avgKmh.toFixed(1)),
+                  localTime: new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                },
+          }),
+        });
+        const data: { text: string; audioBase64?: string } | null = res.ok
+          ? await res.json()
+          : null;
+        if (disposedRef.current || !data?.text) return;
         setComment(data.text);
-        if (!data.audioBase64) return;
+        if (!speak || !data.audioBase64) return;
         // The run screen's sign-off is still playing out; queue behind it
         // rather than speaking over the top.
         const waitStartedAt = Date.now();
         while (coachIsSpeaking() && Date.now() - waitStartedAt < 15_000) {
           await new Promise((r) => setTimeout(r, 250));
         }
-        if (cancelled) return;
+        if (disposedRef.current) return;
         const closing = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
         closing.volume = Math.min(1, getVoiceVolume(persona.id)); // element caps at 1
         void closing.play().catch(() => {});
-      })
-      .catch(() => {});
+      } catch {
+        /* generation unavailable — the static line stays */
+      }
+    },
+    [persona.id]
+  );
+
+  useEffect(() => {
+    disposedRef.current = false;
+    void fetchComment(stats, true);
     return () => {
-      cancelled = true;
+      disposedRef.current = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

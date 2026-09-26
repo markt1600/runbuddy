@@ -16,6 +16,7 @@ import {
   paceFigureStatus,
   playPhrase,
   renderPaceFigures,
+  reRenderPaceAudio,
   reRenderPersona,
   renderMissingPhrases,
   reRenderPhrase,
@@ -523,6 +524,29 @@ export default function AdminScreen({ onBack }: Props) {
   const recordedHere = promotedPhrases(personaId);
 
   const paceFigures = paceFigureStatus(personaId);
+  const paceLeadsSynth = allPhrasesFor(personaId, "pace_lead").filter(
+    (p) => !!getPhraseUrl(personaId, p.id) && !isPromoted(personaId, p.id)
+  ).length;
+  const onReRenderPaceAudio = async () => {
+    const n = paceLeadsSynth + paceFigures.rendered;
+    if (
+      !window.confirm(
+        `Re-render ${n} ${persona.shortName} clips (${paceLeadsSynth} synthesized lead-ins + ${paceFigures.rendered} split figures) trimmed of silence? Recorded lead-ins are left alone. This spends ElevenLabs credits.`
+      )
+    )
+      return;
+    setNotice(null);
+    setRenderingFigures(true);
+    try {
+      await reRenderPaceAudio(personaId, (p) => {
+        setProgress(p);
+        refresh();
+      });
+    } finally {
+      setRenderingFigures(false);
+      refresh();
+    }
+  };
   const onRenderPaceFigures = async () => {
     setNotice(null);
     setRenderingFigures(true);
@@ -1002,6 +1026,16 @@ export default function AdminScreen({ onBack }: Props) {
                 ? `All ${paceFigures.total} figures rendered`
                 : `Render ${paceFigures.total - paceFigures.rendered} missing ${persona.shortName} figures`}
           </button>
+          {paceLeadsSynth + paceFigures.rendered > 0 && (
+            <button
+              className="cta secondary"
+              style={{ marginTop: 10 }}
+              disabled={busy}
+              onClick={onReRenderPaceAudio}
+            >
+              Re-render {paceLeadsSynth + paceFigures.rendered} lead-ins and figures trimmed of silence
+            </button>
+          )}
         </div>
         {recordedHere.length > 0 && (
           <button

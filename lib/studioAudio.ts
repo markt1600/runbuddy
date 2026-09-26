@@ -3,6 +3,7 @@
 // The @breezystack fork, not upstream lamejs: upstream's Mp3Encoder crashes
 // at runtime ("MPEGMode is not defined") when bundled as an ES module.
 import { Mp3Encoder } from "@breezystack/lamejs";
+import { fadeEdges, findVoicedBounds } from "./audioTrim";
 
 // Studio audio plumbing: uncompressed mono WAV capture (the clone training
 // wants raw takes, and MediaRecorder's opus/AAC would bake compression in),
@@ -125,12 +126,24 @@ export async function decodeToMono(
   }
 }
 
-/** Mono MP3 at the given bitrate — 112k for playback, 192k for clone samples. */
+/** The take minus the room tone before the first word and after the last. */
+export function trimSilence(samples: Float32Array, sampleRate: number): Float32Array {
+  const { start, end } = findVoicedBounds(samples, sampleRate, 1);
+  if (start === 0 && end === samples.length) return samples;
+  return fadeEdges(samples.slice(start, end), sampleRate);
+}
+
+/**
+ * Mono MP3 at the given bitrate — 112k for playback, 192k for clone samples.
+ * Trimmed first: the app chains some clips into one sentence, and a booth's
+ * lead-in and tail would otherwise sit inside it as dead air.
+ */
 export function encodeMp3(samples: Float32Array, sampleRate: number, kbps: number): Uint8Array {
+  const trimmed = trimSilence(samples, sampleRate);
   const enc = new Mp3Encoder(1, sampleRate, kbps);
-  const int16 = new Int16Array(samples.length);
-  for (let i = 0; i < samples.length; i++) {
-    const s = Math.max(-1, Math.min(1, samples[i]));
+  const int16 = new Int16Array(trimmed.length);
+  for (let i = 0; i < trimmed.length; i++) {
+    const s = Math.max(-1, Math.min(1, trimmed[i]));
     int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
   }
   const parts: Uint8Array[] = [];

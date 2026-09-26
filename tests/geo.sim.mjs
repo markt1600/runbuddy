@@ -216,23 +216,26 @@ scenario("armed resume (Doppler): a stroll while paused never fires it, a jog do
 });
 
 scenario("corrected engine survives sparse fixes; legacy is why it exists", () => {
-  // A locked phone in a sleeve: fixes every 2–6s. The legacy trapezoid caps
-  // each interval at 5s, so it reads ~3% short; chords span the gaps whole.
-  const runSparse = (corrected, seed) => {
+  // A locked phone in a sleeve: fixes every 2–6s. Chords span the gaps
+  // whole, so the corrected engine holds its accuracy.
+  const runSparse = (corrected, seed, interval) => {
     const t = new GeoTracker();
     t.correctedDistance = corrected;
     const w = makeWorld(t, mulberry32(seed), { accuracy: 12 });
-    w.fixInterval = [2, 6];
+    w.fixInterval = interval;
     w.speedMps = 2.8;
     w.advance(600);
     return t;
   };
-  const legacy = runSparse(false, 11);
-  const corrected = runSparse(true, 11);
   const truth = (600 * 2.8) / 1000;
+  // The legacy trapezoid caps each interval at the credit cap (now 10s — a
+  // seven-second dropout is paid in full), so it only reads short once
+  // delivery is sparser than that.
+  const legacy = runSparse(false, 11, [8, 14]);
   const lossLegacy = truth - legacy.distanceKm;
-  const lossCorrected = Math.abs(truth - corrected.distanceKm);
   assert.ok(lossLegacy / truth > 0.02, "harness: sparse delivery should read short on legacy");
+  const corrected = runSparse(true, 11, [2, 6]);
+  const lossCorrected = Math.abs(truth - corrected.distanceKm);
   assert.ok(
     lossCorrected / truth < 0.03,
     `corrected engine off by ${(lossCorrected * 1000).toFixed(0)}m on a ${truth}km sparse run`
@@ -241,7 +244,16 @@ scenario("corrected engine survives sparse fixes; legacy is why it exists", () =
     corrected.distanceKm <= truth * 1.02,
     `corrected engine over-credited: ${corrected.distanceKm.toFixed(3)}km for ${truth.toFixed(3)}km`
   );
-  assert.ok(corrected.bridgedKm > 0, "correction diagnostic not recorded");
+  // Sparser than the cap, where the legacy engine falls short: the corrected
+  // engine still holds within tolerance, and the diagnostic records what the
+  // chords added over the trapezoid.
+  const correctedSparse = runSparse(true, 11, [8, 14]);
+  const lossSparse = Math.abs(truth - correctedSparse.distanceKm);
+  assert.ok(
+    lossSparse / truth < 0.03,
+    `corrected engine off by ${(lossSparse * 1000).toFixed(0)}m on a ${truth}km very sparse run`
+  );
+  assert.ok(correctedSparse.bridgedKm > 0, "correction diagnostic not recorded");
 
   // Healthy ~1Hz delivery with honest Doppler: the two engines must agree
   // closely — in this sim Doppler has no bias, so any spread is chord noise.

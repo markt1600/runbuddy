@@ -1,3 +1,5 @@
+import { Mp3Encoder } from "@breezystack/lamejs";
+import { fadeEdges, findVoicedBounds } from "../audioTrim";
 import Anthropic from "@anthropic-ai/sdk";
 import { PERSONAS } from "../personas";
 import { readVoiceSettings } from "./voiceSettings";
@@ -490,16 +492,25 @@ export function voiceIdFor(persona: PersonaId): string {
   return process.env[envName] || PERSONAS[persona].elevenLabsVoiceId;
 }
 
+/**
+ * `trim` asks ElevenLabs for raw PCM instead of MP3, cuts the silence it
+ * leaves before and after the words, and encodes the MP3 here — for clips
+ * the coach chains into one sentence (the pace lead-in, the minutes, the
+ * seconds), where every idle half-second is audible. Everything else keeps
+ * the plain MP3 render.
+ */
 export async function renderVoiceBuffer(
   persona: PersonaId,
-  text: string
+  text: string,
+  opts: { trim?: boolean } = {}
 ): Promise<Buffer | null> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) return null;
   const voiceId = voiceIdFor(persona);
   const settings = await readVoiceSettings();
+  const format = opts.trim ? `pcm_${TRIM_RATE}` : "mp3_44100_128";
   const res = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=${format}`,
     {
       method: "POST",
       headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
@@ -520,7 +531,28 @@ export async function renderVoiceBuffer(
     }
   );
   if (!res.ok) return null;
-  return Buffer.from(await res.arrayBuffer());
+  const bytes = Buffer.from(await res.arrayBuffer());
+  return opts.trim ? trimAndEncode(bytes) : bytes;
+}
+
+/** ElevenLabs PCM: 16-bit little-endian mono at this rate. */
+const TRIM_RATE = 24000;
+const TRIM_KBPS = 96;
+
+function trimAndEncode(pcm: Buffer): Buffer {
+  const all = new Int16Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.byteLength / 2));
+  const { start, end } = findVoicedBounds(all, TRIM_RATE, 32767);
+  const kept = fadeEdges(all.slice(start, end), TRIM_RATE);
+  const enc = new Mp3Encoder(1, TRIM_RATE, TRIM_KBPS);
+  const parts: Uint8Array[] = [];
+  const CHUNK = 1152 * 32;
+  for (let i = 0; i < kept.length; i += CHUNK) {
+    const out = enc.encodeBuffer(kept.subarray(i, i + CHUNK));
+    if (out.length > 0) parts.push(out);
+  }
+  const tail = enc.flush();
+  if (tail.length > 0) parts.push(tail);
+  return Buffer.concat(parts.map((u) => Buffer.from(u.buffer, u.byteOffset, u.byteLength)));
 }
 
 export async function renderVoice(persona: PersonaId, text: string): Promise<string | null> {

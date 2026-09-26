@@ -399,7 +399,10 @@ export async function renderPhraseToBlob(
     if (hit) return { url: hit.url, existed: true };
   }
 
-  const buf = await renderVoiceBuffer(persona, phrase.text);
+  // The split is spoken as lead-in + minutes + seconds, back to back: those
+  // three render trimmed of the silence around the words.
+  const chained = phrase.category === "pace_lead" || phrase.category === "pace_figure";
+  const buf = await renderVoiceBuffer(persona, phrase.text, { trim: chained });
   if (!buf) throw new Error("elevenlabs render failed");
 
   const blob = await put(pathname, buf, {

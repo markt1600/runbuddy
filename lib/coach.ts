@@ -653,13 +653,15 @@ export class CoachEngine {
   private sayPaceSplit(totalSec: number) {
     const s = this.speaker();
     const lead = this.pick("pace_lead", s.id);
-    if (lead) {
-      this.lastLibSpeaker = s;
-      this.voice.say(lead.text, getPhraseUrl(s.id, lead.id), undefined, s);
-    }
     const figure = paceFigureFor(totalSec);
     const minuteUrl = figure ? getPhraseUrl(s.id, figure.minute.id) : undefined;
     const secondUrl = figure ? getPhraseUrl(s.id, figure.second.id) : undefined;
+    const inVoice = !!(figure && minuteUrl && secondUrl);
+    if (lead) {
+      this.lastLibSpeaker = s;
+      // One sentence in one voice: no breath between the lead-in and the number.
+      this.voice.say(lead.text, getPhraseUrl(s.id, lead.id), undefined, s, { joins: inVoice });
+    }
     if (figure && minuteUrl && secondUrl) {
       this.voice.say(figure.minute.text, minuteUrl, undefined, s, { joins: true });
       this.voice.say(figure.second.text, secondUrl, undefined, s);

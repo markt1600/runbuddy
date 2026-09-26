@@ -595,6 +595,46 @@ export async function reRenderPhrase(persona: PersonaId, id: string): Promise<vo
   if (text !== undefined) renderHashes[persona][id] = phraseHash(text);
 }
 
+/**
+ * Re-render the clips the coach chains into the split sentence — this
+ * trainer's pace lead-ins (synthesized ones only; an actor's promoted take
+ * is left alone) and whichever split figures already have audio — so they
+ * come back trimmed of silence. Sequential, like every other batch.
+ */
+export async function reRenderPaceAudio(
+  persona: PersonaId,
+  onProgress: (p: GenerationProgress) => void
+): Promise<void> {
+  const leads = allPhrasesFor(persona, "pace_lead")
+    .filter((p) => urls.has(key(persona, p.id)) && !promoted.has(key(persona, p.id)))
+    .map((p) => p.id);
+  const figures = PACE_FIGURES.filter((p) => urls.has(key(persona, p.id))).map((p) => p.id);
+  const ids = [...leads, ...figures];
+  let done = 0;
+  const report = (state: GenerationProgress["state"], message?: string) =>
+    onProgress({ state, done, total: ids.length, message });
+  if (ids.length === 0) {
+    report("done");
+    return;
+  }
+  report("generating");
+  let failures = 0;
+  for (const id of ids) {
+    try {
+      await reRenderPhrase(persona, id);
+      done++;
+      failures = 0;
+      report("generating");
+    } catch (err) {
+      if (++failures >= 3) {
+        report("error", `Stopped after 3 straight failures — ${err instanceof Error ? err.message : err}`);
+        return;
+      }
+    }
+  }
+  report("done");
+}
+
 let autoStarted = false;
 
 /** App-launch hook: load state, then top up the library automatically. */
