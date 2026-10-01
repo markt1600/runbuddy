@@ -81,11 +81,8 @@ export interface StudioTake {
 }
 
 const sessionPath = (id: string) => `studio/sessions/${id}.json`;
-const takesPrefix = (id: string) => `studio/takes/${id}/`;
-export const takePath = (sessionId: string, itemId: string) =>
-  `${takesPrefix(sessionId)}${itemId}.wav`;
-export const takeMp3Path = (sessionId: string, itemId: string) =>
-  `${takesPrefix(sessionId)}${itemId}.mp3`;
+export { takePath, takeMp3Path } from "../studioPaths";
+import { takesPrefix, takePath, takeMp3Path } from "../studioPaths";
 
 export const SESSION_TOKEN_RE = /^[0-9a-f]{24}$/;
 export const ITEM_ID_RE = /^[\w-]{1,60}$/;

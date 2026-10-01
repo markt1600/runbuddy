@@ -16,6 +16,12 @@ export interface VoiceSettings {
    * can't go above 1, so the browser fallback clamps there.
    */
   volume: number;
+  /**
+   * An ElevenLabs voice id chosen in the studio (a voice built from clips),
+   * taking precedence over the ELEVENLABS_VOICE_* variable and the persona's
+   * built-in id. Absent means those apply.
+   */
+  voiceId?: string;
 }
 
 const PATH = "library/voice-settings.json";
@@ -36,7 +42,9 @@ function defaults(): Record<PersonaId, VoiceSettings> {
   return out;
 }
 
-type StoredSettings = Partial<Record<PersonaId, { speed?: unknown; volume?: unknown }>>;
+type StoredSettings = Partial<
+  Record<PersonaId, { speed?: unknown; volume?: unknown; voiceId?: unknown }>
+>;
 
 async function readStored(): Promise<StoredSettings | null> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
@@ -64,6 +72,10 @@ function resolve(stored: StoredSettings | null): Record<PersonaId, VoiceSettings
     if (isFinite(volume)) {
       base[persona].volume = Math.min(VOLUME_MAX, Math.max(VOLUME_MIN, volume));
     }
+    const voiceId = stored[persona]?.voiceId;
+    if (typeof voiceId === "string" && /^[A-Za-z0-9]{10,40}$/.test(voiceId)) {
+      base[persona].voiceId = voiceId;
+    }
   }
   // Positive Ah Beng is the same guy as Angry Ah Beng, so until he has his
   // own saved tuning he follows whatever Angry Ah Beng has been tuned to.
@@ -77,7 +89,7 @@ export async function readVoiceSettings(): Promise<Record<PersonaId, VoiceSettin
 
 export async function writeVoiceSettings(
   persona: PersonaId,
-  patch: { speed?: number; volume?: number }
+  patch: { speed?: number; volume?: number; voiceId?: string | null }
 ): Promise<Record<PersonaId, VoiceSettings>> {
   const stored = await readStored();
   const settings = resolve(stored);
@@ -87,6 +99,8 @@ export async function writeVoiceSettings(
   if (patch.volume !== undefined) {
     settings[persona].volume = Math.min(VOLUME_MAX, Math.max(VOLUME_MIN, patch.volume));
   }
+  if (patch.voiceId === null) delete settings[persona].voiceId;
+  else if (patch.voiceId !== undefined) settings[persona].voiceId = patch.voiceId;
   // Keep Positive Ah Beng mirroring Angry Ah Beng until he is tuned directly:
   // persisting his mirrored copy on an unrelated save would freeze it.
   const out: Partial<Record<PersonaId, VoiceSettings>> = { ...settings };

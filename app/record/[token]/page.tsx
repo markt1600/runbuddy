@@ -2,6 +2,8 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import { WavRecorder, toWav, encodeMp3, dbfs } from "@/lib/studioAudio";
+import { upload } from "@vercel/blob/client";
+import { takeMp3Path, takePath } from "@/lib/studioPaths";
 import { STUDIO_BRIEFS, EMBELLISH_NOTE, CLONE_BRIEF } from "@/lib/studioReads";
 import type { PersonaId } from "@/lib/types";
 
@@ -820,23 +822,27 @@ export default function RecordPage({ params }: { params: Promise<{ token: string
     if (!take || uploading) return;
     setUploading(true);
     try {
-      const res = await fetch(`/api/record/${token}/take/${item.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "audio/wav" },
-        body: take.wav,
+      // Straight into the store with a token the take route issues — a
+      // request body through a function was capped by the platform at a
+      // size a 50-second WAV already exceeded, which cut long takes off.
+      const handleUploadUrl = `/api/record/${token}/take/${item.id}`;
+      await upload(takePath(token, item.id), take.wav, {
+        access: "public",
+        handleUploadUrl,
+        contentType: "audio/wav",
+        multipart: take.wav.size > 8_000_000,
       });
-      if (!res.ok) throw new Error();
       if (item.kind === "read") {
         // Long reads feed the voice clone, which wants a small file: encode a
         // 192k MP3 twin here on the actor's machine. Best-effort — if it
         // fails, the clone builder falls back to the WAV.
         try {
           const mp3 = encodeMp3(take.samples, take.rate, 192);
-          await fetch(`/api/record/${token}/take/${item.id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "audio/mpeg" },
-            body: new Blob([mp3.buffer as ArrayBuffer], { type: "audio/mpeg" }),
-          });
+          await upload(
+            takeMp3Path(token, item.id),
+            new Blob([mp3.buffer as ArrayBuffer], { type: "audio/mpeg" }),
+            { access: "public", handleUploadUrl, contentType: "audio/mpeg" }
+          );
         } catch {
           /* WAV fallback covers it */
         }

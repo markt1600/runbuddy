@@ -49,6 +49,29 @@ export async function ivcCreate(
   return data.voice_id;
 }
 
+/**
+ * Add more samples to an instant clone. The create call takes one request's
+ * worth of files; anything beyond a function's body budget arrives here in
+ * further batches. `name` is required by the edit endpoint, so it rides along.
+ */
+export async function ivcAddSamples(
+  voiceId: string,
+  name: string,
+  files: { name: string; data: Buffer; mime: string }[]
+): Promise<void> {
+  const form = new FormData();
+  form.append("name", name);
+  for (const f of files) {
+    form.append("files", new Blob([new Uint8Array(f.data)], { type: f.mime }), f.name);
+  }
+  const res = await fetch(`${BASE}/v1/voices/${voiceId}/edit`, {
+    method: "POST",
+    headers: { "xi-api-key": key() },
+    body: form,
+  });
+  if (!res.ok) throw new Error(await readError(res));
+}
+
 /** Remove a voice — used before re-cloning so re-submits don't pile up. */
 export async function voiceDelete(voiceId: string): Promise<void> {
   const res = await fetch(`${BASE}/v1/voices/${voiceId}`, {

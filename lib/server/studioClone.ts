@@ -1,4 +1,4 @@
-import { StudioSession, listTakeFiles, writeSession } from "./studio";
+import { StudioSession, listSessions, listTakeFiles, writeSession } from "./studio";
 import { ivcCreate, voiceDelete } from "./elevenPvc";
 import { CLONE_READS, readsFor, TEST_READS } from "../studioReads";
 import { PERSONAS } from "../personas";
@@ -62,4 +62,43 @@ export async function instantCloneFromSession(session: StudioSession): Promise<s
   session.pvc = { voiceId, state: "ready" };
   await writeSession(session);
   return voiceId;
+}
+
+/**
+ * The long-read takes every (non-test) session for this persona has
+ * recorded — the material a new voice can be built from alongside clips
+ * uploaded in the studio. MP3 twin preferred, newest sessions first, capped
+ * like a clone build so the function stays inside its time budget.
+ */
+export async function readTakesForPersona(
+  persona: StudioSession["persona"],
+  max = MAX_FILES
+): Promise<{ name: string; data: Buffer; mime: string }[]> {
+  const sessions = (await listSessions())
+    .filter((s) => s.persona === persona && !s.test && !s.cloneOnly)
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const readIds = new Set(readsFor(persona).map((r) => r.id));
+  const picked: { name: string; data: Buffer; mime: string }[] = [];
+  let total = 0;
+  for (const s of sessions) {
+    const files = await listTakeFiles(s.id);
+    const byItem = new Map<string, { url: string; ext: "wav" | "mp3"; size: number }>();
+    for (const f of files) {
+      if (!readIds.has(f.itemId)) continue;
+      const cur = byItem.get(f.itemId);
+      if (!cur || (cur.ext === "wav" && f.ext === "mp3")) byItem.set(f.itemId, f);
+    }
+    for (const [id, f] of byItem) {
+      if (picked.length >= max || total + f.size > MAX_TOTAL_BYTES) return picked;
+      const res = await fetch(f.url, { cache: "no-store" });
+      if (!res.ok) continue;
+      picked.push({
+        name: `${s.id.slice(0, 6)}-${id}.${f.ext}`,
+        data: Buffer.from(await res.arrayBuffer()),
+        mime: f.ext === "mp3" ? "audio/mpeg" : "audio/wav",
+      });
+      total += f.size;
+    }
+  }
+  return picked;
 }

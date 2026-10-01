@@ -146,6 +146,15 @@ export default function StudioPage() {
   const [openEdit, setOpenEdit] = useState<{ session: EditRow; items: EditItem[] } | null>(null);
   const [amendId, setAmendId] = useState<string | null>(null);
   const [amendText, setAmendText] = useState("");
+  // Voices: each persona's current ElevenLabs voice, and the build-a-voice form.
+  const [voices, setVoices] = useState<
+    { persona: PersonaId; voiceId: string; source: "studio" | "env" | "built-in" }[] | null
+  >(null);
+  const [vPersona, setVPersona] = useState<PersonaId>("ahlian");
+  const [vName, setVName] = useState("");
+  const [vFiles, setVFiles] = useState<File[]>([]);
+  const [vIncludeTakes, setVIncludeTakes] = useState(true);
+  const [vResult, setVResult] = useState<{ voiceId: string; files: number; takes: number } | null>(null);
   const [overrides, setOverrides] = useState<
     { persona: PersonaId; id: string; category: string; shipped: string; corrected: string }[] | null
   >(null);
@@ -157,6 +166,18 @@ export default function StudioPage() {
     }),
     [pin]
   );
+
+  const loadVoices = useCallback(async () => {
+    try {
+      const res = await fetch("/api/studio/voices", { headers: headers() });
+      if (!res.ok) return;
+      const data: { voices: typeof voices } = await res.json();
+      setVoices(data.voices);
+    } catch {
+      /* the table just stays empty */
+    }
+  }, [headers]);
+
 
   useEffect(() => {
     void fetch("/api/auth/me")
@@ -215,8 +236,9 @@ export default function StudioPage() {
       loadSessions();
       loadAuditions();
       loadEdits();
+      void loadVoices();
     }
-  }, [pinOk, me, loadSessions, loadAuditions, loadEdits]);
+  }, [pinOk, me, loadSessions, loadAuditions, loadEdits, loadVoices]);
 
   if (!me) return <div className="studio"><p>Loading…</p></div>;
   if (!me.user || me.isAdmin === false) {
@@ -364,6 +386,105 @@ export default function StudioPage() {
       );
     } catch (err) {
       setNote(`⚠ ${err instanceof Error ? err.message : "promotion failed"}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const voicePost = async (body: Record<string, unknown>) => {
+    const res = await fetch("/api/studio/voices", {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+    return data;
+  };
+
+  /**
+   * Build a voice from the chosen clips (re-encoded here as 112k MP3 so a
+   * minute is under a megabyte, sent in batches under the request cap) plus,
+   * when ticked, the persona's long-read takes the server already holds.
+   */
+  const createVoice = async () => {
+    if (vFiles.length === 0 && !vIncludeTakes) return;
+    setBusy("Encoding clips…");
+    setNote(null);
+    setVResult(null);
+    try {
+      const encoded: { name: string; mp3Base64: string; bytes: number }[] = [];
+      for (const f of vFiles) {
+        const { samples, sampleRate } = await decodeToMono(await f.arrayBuffer());
+        const mp3 = encodeMp3(samples, sampleRate, 112);
+        encoded.push({ name: f.name.replace(/\.[^.]+$/, ""), mp3Base64: bytesToBase64(mp3), bytes: mp3.length });
+      }
+      // ~2.5 MB of MP3 per request keeps the base64 body inside the cap.
+      const batches: typeof encoded[] = [[]];
+      let size = 0;
+      for (const e of encoded) {
+        if (size + e.bytes > 2_500_000 && batches[batches.length - 1].length > 0) {
+          batches.push([]);
+          size = 0;
+        }
+        batches[batches.length - 1].push(e);
+        size += e.bytes;
+      }
+      const name = vName.trim() || `TekanBuddy ${PERSONA_LIST.find((p) => p.id === vPersona)?.shortName ?? vPersona}`;
+      setBusy(`Creating the voice at ElevenLabs${vIncludeTakes ? " (fetching recorded takes)" : ""}…`);
+      const created: { voiceId: string; files: number; takes: number } = await voicePost({
+        action: "create",
+        persona: vPersona,
+        name,
+        files: batches[0].map(({ name: n, mp3Base64 }) => ({ name: n, mp3Base64 })),
+        includeTakes: vIncludeTakes,
+      });
+      let files = created.files;
+      for (let i = 1; i < batches.length; i++) {
+        setBusy(`Adding clips… batch ${i + 1} of ${batches.length}`);
+        await voicePost({
+          action: "add",
+          voiceId: created.voiceId,
+          name,
+          files: batches[i].map(({ name: n, mp3Base64 }) => ({ name: n, mp3Base64 })),
+        });
+        files += batches[i].length;
+      }
+      setVResult({ voiceId: created.voiceId, files, takes: created.takes });
+      setNote(`✓ Voice created from ${files} file${files === 1 ? "" : "s"} — preview it, then make it ${vPersona}'s voice`);
+    } catch (err) {
+      setNote(`⚠ ${err instanceof Error ? err.message : "voice build failed"}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const previewVoice = async (voiceId: string, persona: PersonaId) => {
+    setBusy("Rendering a sample line…");
+    try {
+      const data: { audioBase64: string; text: string } = await voicePost({ action: "preview", voiceId, persona });
+      const a = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+      void a.play();
+      setNote(`▶ “${data.text}”`);
+    } catch (err) {
+      setNote(`⚠ ${err instanceof Error ? err.message : "preview failed"}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const useVoice = async (persona: PersonaId, voiceId: string | null) => {
+    setBusy(voiceId ? "Switching the voice…" : "Clearing the studio voice…");
+    try {
+      await voicePost(voiceId ? { action: "use", persona, voiceId } : { action: "clear", persona });
+      await loadVoices();
+      setNote(
+        voiceId
+          ? `✓ ${persona} now speaks with ${voiceId}. Re-render the library in Admin ("Re-render ALL … voice changed") so the recorded lines catch up.`
+          : `✓ ${persona} is back on the environment / built-in voice.`
+      );
+    } catch (err) {
+      setNote(`⚠ ${err instanceof Error ? err.message : "failed"}`);
     } finally {
       setBusy(null);
     }
@@ -768,6 +889,93 @@ export default function StudioPage() {
               )}
             </tbody>
           </table>
+
+          <h2 style={{ marginTop: 28 }}>🎙 Voices</h2>
+          <p className="studio-sub">
+            Build an ElevenLabs voice from clips on your computer — any audio format, a minute
+            or three is plenty — and, if you like, the long-read takes an actor already
+            recorded for that persona. Preview it, then make it the persona&apos;s voice: that
+            choice is stored here, ahead of the ELEVENLABS_VOICE variable, and applies to
+            improvised lines at once and to the library when you re-render it in Admin.
+          </p>
+          <div className="studio-create">
+            <select value={vPersona} onChange={(e) => setVPersona(e.target.value as PersonaId)}>
+              {PERSONA_LIST.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <input
+              value={vName}
+              onChange={(e) => setVName(e.target.value)}
+              placeholder="Voice name at ElevenLabs (optional)"
+              style={{ width: 240 }}
+            />
+            <input
+              type="file"
+              accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.webm"
+              multiple
+              onChange={(e) => setVFiles(Array.from(e.target.files ?? []))}
+            />
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={vIncludeTakes}
+                onChange={(e) => setVIncludeTakes(e.target.checked)}
+              />
+              Also use this persona&apos;s recorded long reads
+            </label>
+            <button
+              onClick={() => void createVoice()}
+              disabled={!!busy || (vFiles.length === 0 && !vIncludeTakes)}
+            >
+              Create voice{vFiles.length > 0 ? ` from ${vFiles.length} clip${vFiles.length === 1 ? "" : "s"}` : ""}
+            </button>
+          </div>
+          {vResult && (
+            <p className="studio-license">
+              New voice <code>{vResult.voiceId}</code> · {vResult.files} file
+              {vResult.files === 1 ? "" : "s"}
+              {vResult.takes > 0 ? ` (${vResult.takes} of them recorded takes)` : ""}{" "}
+              <button className="studio-link" disabled={!!busy} onClick={() => void previewVoice(vResult.voiceId, vPersona)}>
+                ▶ Preview
+              </button>{" "}
+              <button className="studio-link" disabled={!!busy} onClick={() => void useVoice(vPersona, vResult.voiceId)}>
+                ✓ Use for {PERSONA_LIST.find((p) => p.id === vPersona)?.shortName}
+              </button>{" "}
+              <button className="studio-link" onClick={() => void navigator.clipboard.writeText(vResult.voiceId)}>
+                copy id
+              </button>
+            </p>
+          )}
+          {voices && (
+            <table className="studio-table">
+              <thead>
+                <tr><th>Persona</th><th>Voice id</th><th>Source</th><th></th></tr>
+              </thead>
+              <tbody>
+                {voices.map((v) => (
+                  <tr key={v.persona}>
+                    <td>{PERSONA_LIST.find((p) => p.id === v.persona)?.name ?? v.persona}</td>
+                    <td><code>{v.voiceId}</code></td>
+                    <td>{v.source === "studio" ? "chosen here" : v.source === "env" ? "ELEVENLABS_VOICE variable" : "built-in"}</td>
+                    <td>
+                      <button className="studio-link" disabled={!!busy} onClick={() => void previewVoice(v.voiceId, v.persona)}>
+                        ▶ Preview
+                      </button>
+                      {v.source === "studio" && (
+                        <>
+                          {" "}
+                          <button className="studio-link" disabled={!!busy} onClick={() => void useVoice(v.persona, null)}>
+                            ✕ Clear
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
 
           <h2 style={{ marginTop: 28 }}>🎬 Auditions</h2>
           <p className="studio-sub">

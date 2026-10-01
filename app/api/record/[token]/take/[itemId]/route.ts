@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { blobConfigured } from "@/lib/server/library";
-import { getSession, ITEM_ID_RE, saveTake, saveTakeMp3 } from "@/lib/server/studio";
+import { getSession, ITEM_ID_RE } from "@/lib/server/studio";
+import { takeMp3Path, takePath } from "@/lib/studioPaths";
 
-// One take, uploaded as raw WAV. Overwrites are the re-record path. Long
-// reads also PUT a browser-encoded MP3 twin (Content-Type audio/mpeg) — the
-// copy the Instant Voice Clone uploads to ElevenLabs at submit time.
+// One take. The booth uploads it STRAIGHT to the store with a short-lived
+// token this route issues — the file never passes through a function, so
+// the platform's request-body ceiling (which silently cut takes off at
+// about 50 seconds of WAV) no longer applies. The token is pinned to this
+// session's two pathnames for this item, audio types only, so a leaked
+// link can overwrite nothing but its own take. Long reads also upload an
+// MP3 twin — the copy the Instant Voice Clone sends to ElevenLabs.
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 30;
 
-export async function PUT(
+const MAX_TAKE_BYTES = 60_000_000; // a 5-minute 44.1 kHz mono WAV is ~26 MB
+
+export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ token: string; itemId: string }> }
 ) {
@@ -20,15 +28,31 @@ export async function PUT(
   if (!session) return NextResponse.json({ error: "not found" }, { status: 404 });
   if (!session.license) return NextResponse.json({ error: "license first" }, { status: 403 });
 
-  const buf = Buffer.from(await req.arrayBuffer());
-  // A 90s mono 44.1kHz/16-bit read is ~8MB; anything past 40MB is a mistake.
-  if (buf.length < 1000 || buf.length > 40_000_000) {
-    return NextResponse.json({ error: "bad audio size" }, { status: 400 });
+  const body = (await req.json().catch(() => null)) as HandleUploadBody | null;
+  if (!body) return NextResponse.json({ error: "invalid JSON" }, { status: 400 });
+  const allowed = new Set([takePath(token, itemId), takeMp3Path(token, itemId)]);
+  try {
+    const result = await handleUpload({
+      body,
+      request: req,
+      onBeforeGenerateToken: async (pathname) => {
+        if (!allowed.has(pathname)) throw new Error("that is not this take's pathname");
+        return {
+          allowedContentTypes: ["audio/wav", "audio/x-wav", "audio/wave", "audio/mpeg"],
+          maximumSizeInBytes: MAX_TAKE_BYTES,
+          addRandomSuffix: false,
+          allowOverwrite: true, // re-records replace in place
+          cacheControlMaxAge: 0,
+        };
+      },
+      // Nothing to record on completion: the store listing IS the record.
+      onUploadCompleted: async () => {},
+    });
+    return NextResponse.json(result);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "upload refused" },
+      { status: 400 }
+    );
   }
-  if ((req.headers.get("content-type") ?? "").includes("audio/mpeg")) {
-    await saveTakeMp3(token, itemId, buf);
-  } else {
-    await saveTake(token, itemId, buf);
-  }
-  return NextResponse.json({ ok: true });
 }

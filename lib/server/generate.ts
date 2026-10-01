@@ -487,9 +487,27 @@ export async function generateShoutoutLine(
 }
 
 /** Voice ID resolution: env var first, then the default in lib/personas.ts. */
-export function voiceIdFor(persona: PersonaId): string {
+/**
+ * Which ElevenLabs voice speaks for a persona: a voice chosen in the studio
+ * (stored with the voice settings), else the ELEVENLABS_VOICE_* variable,
+ * else the persona's built-in id.
+ */
+export function voiceIdFor(
+  persona: PersonaId,
+  settings?: Partial<Record<PersonaId, { voiceId?: string }>>
+): string {
   const envName = `ELEVENLABS_VOICE_${persona.toUpperCase()}`;
-  return process.env[envName] || PERSONAS[persona].elevenLabsVoiceId;
+  return settings?.[persona]?.voiceId || process.env[envName] || PERSONAS[persona].elevenLabsVoiceId;
+}
+
+/** Where a persona's voice id comes from — for the studio's Voices table. */
+export function voiceIdSource(
+  persona: PersonaId,
+  settings?: Partial<Record<PersonaId, { voiceId?: string }>>
+): "studio" | "env" | "built-in" {
+  if (settings?.[persona]?.voiceId) return "studio";
+  if (process.env[`ELEVENLABS_VOICE_${persona.toUpperCase()}`]) return "env";
+  return "built-in";
 }
 
 /**
@@ -506,8 +524,8 @@ export async function renderVoiceBuffer(
 ): Promise<Buffer | null> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) return null;
-  const voiceId = voiceIdFor(persona);
   const settings = await readVoiceSettings();
+  const voiceId = voiceIdFor(persona, settings);
   const format = opts.trim ? `pcm_${TRIM_RATE}` : "mp3_44100_128";
   const res = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=${format}`,
