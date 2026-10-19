@@ -103,6 +103,13 @@ const MAX_KM_MARKER = 21;
  * The one thing that can't be pre-rendered, written out so the device voice
  * reads it as a duration rather than two bare numbers.
  */
+/**
+ * Every line about the clock being stopped or going again — pause, resume,
+ * auto-pause, auto-resume, the loitering nags — shares one topic, so a
+ * flurry of flips plays only the latest state (see say() in lib/audio).
+ */
+const PAUSE_TOPIC = "pause-state";
+
 function spokenDuration(totalSec: number): string {
   let m = Math.floor(totalSec / 60);
   let s = Math.round(totalSec % 60);
@@ -633,12 +640,12 @@ export class CoachEngine {
     return phrase;
   }
 
-  private sayFromLibrary(category: PhraseCategory) {
+  private sayFromLibrary(category: PhraseCategory, opts?: { topic?: string }) {
     const s = this.speaker();
     const phrase = this.pick(category, s.id);
     if (!phrase) return;
     this.lastLibSpeaker = s;
-    this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s);
+    this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s, opts);
   }
 
   /**
@@ -870,13 +877,13 @@ export class CoachEngine {
   onPause() {
     this.manualHold = true;
     this.beginPause();
-    this.sayFromLibrary("paused");
+    this.sayFromLibrary("paused", { topic: PAUSE_TOPIC });
   }
 
   onResume() {
     this.manualHold = false;
     this.endPause();
-    this.sayFromLibrary("resumed");
+    this.sayFromLibrary("resumed", { topic: PAUSE_TOPIC });
   }
 
   /**
@@ -887,13 +894,13 @@ export class CoachEngine {
   onAutoPause() {
     if (this.manualHold) return;
     this.beginPause();
-    this.sayFromLibrary("auto_paused");
+    this.sayFromLibrary("auto_paused", { topic: PAUSE_TOPIC });
   }
 
   onAutoResume() {
     if (this.manualHold) return;
     this.endPause();
-    this.sayFromLibrary("auto_resumed");
+    this.sayFromLibrary("auto_resumed", { topic: PAUSE_TOPIC });
   }
 
   private beginPause() {
@@ -935,10 +942,17 @@ export class CoachEngine {
     const pool = allPhrasesFor(s.id, "loitering");
     if (level < pool.length) {
       const phrase = pool[level];
-      this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s);
+      this.voice.say(phrase.text, getPhraseUrl(s.id, phrase.id), undefined, s, {
+        topic: PAUSE_TOPIC,
+      });
       return;
     }
-    void this.sayFresh("loitering", stats, { pausedSeconds: stoppedSec });
+    // A fresh nag that lands after the runner has moved off again is stale
+    // twice over — it would also supersede the resume line. Drop it then.
+    void this.sayFresh("loitering", stats, { pausedSeconds: stoppedSec }, {
+      topic: PAUSE_TOPIC,
+      unless: () => this.pausedSince === 0,
+    });
   }
 
   onFinish() {
@@ -1363,13 +1377,14 @@ export class CoachEngine {
   private async sayFresh(
     category: PhraseCategory,
     stats: RunStats,
-    extra: Record<string, unknown> = {}
+    extra: Record<string, unknown> = {},
+    opts: { topic?: string; unless?: () => boolean } = {}
   ) {
     const s = this.duo ? this.speaker() : this.persona;
     const fresh = await this.fetchFresh(category, stats, extra, s.id);
-    if (this.disposed) return;
-    if (fresh) this.voice.say(fresh.text, fresh.url, undefined, s);
-    else this.sayFromLibrary(category); // library always has our back
+    if (this.disposed || opts.unless?.()) return;
+    if (fresh) this.voice.say(fresh.text, fresh.url, undefined, s, { topic: opts.topic });
+    else this.sayFromLibrary(category, { topic: opts.topic }); // library always has our back
   }
 
   dispose() {

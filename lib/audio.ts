@@ -85,6 +85,7 @@ function makeCueUrl(freqs: number[]): string {
 
 // Built once, on first use — descending for a stop, ascending for a go.
 let pauseCueUrl: string | null = null;
+const PAUSE_CUE_TOPIC = "pause-cue";
 let resumeCueUrl: string | null = null;
 
 /**
@@ -147,6 +148,12 @@ export class VoiceEngine {
     onStart?: () => void;
     /** This item runs straight into the next one (half a sentence each). */
     joins?: boolean;
+    /**
+     * Items on the same topic replace each other while they wait: a flurry
+     * of pause/resume flips under bad sky plays only the latest truth, never
+     * a backlog of announcements about states the run has already left.
+     */
+    topic?: string;
   }[] = [];
   private playing = false;
   private persona: Persona;
@@ -315,8 +322,12 @@ export class VoiceEngine {
     audioUrl?: string,
     volume?: number,
     speaker?: Persona,
-    opts?: { joins?: boolean }
+    opts?: { joins?: boolean; topic?: string }
   ) {
+    // A newer line on the same topic makes the waiting ones stale — drop
+    // them before this one joins the queue. The line already being spoken
+    // finishes; it is seconds long, and cutting it mid-word is worse.
+    if (opts?.topic) this.queue = this.queue.filter((q) => q.topic !== opts.topic);
     // Lines never overlap: drain() plays them strictly one at a time. The cap
     // only stops a backlog building up so far that the coach ends up narrating
     // a part of the run you've already left behind.
@@ -327,8 +338,14 @@ export class VoiceEngine {
       volume: volume ?? (speaker ? getVoiceVolume(speaker.id) : undefined),
       speaker,
       joins: opts?.joins,
+      topic: opts?.topic,
     });
     void this.drain();
+  }
+
+  /** What is waiting its turn, in order — for tests and the odd diagnostic. */
+  get pendingTexts(): string[] {
+    return this.queue.map((q) => (q.cue ? `<cue>` : q.text));
   }
 
   /**
@@ -375,10 +392,14 @@ export class VoiceEngine {
   cue(kind: "pause" | "resume") {
     if (!pauseCueUrl) pauseCueUrl = makeCueUrl([880, 587]); // falling: stopped
     if (!resumeCueUrl) resumeCueUrl = makeCueUrl([587, 880]); // rising: going
+    // Only the latest transition's cue is worth hearing: a pause cue still
+    // waiting when the resume arrives would chime for a stop that is over.
+    this.queue = this.queue.filter((q) => q.topic !== PAUSE_CUE_TOPIC);
     this.queue.unshift({
       text: "",
       audioUrl: kind === "pause" ? pauseCueUrl : resumeCueUrl,
       cue: true,
+      topic: PAUSE_CUE_TOPIC,
     });
     void this.drain();
   }
