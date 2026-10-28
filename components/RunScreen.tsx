@@ -258,6 +258,7 @@ export default function RunScreen({
     setAwaitingMovement(false);
     geoRef.current?.disarmResume();
     startAtRef.current = atMs ?? Date.now();
+    geoRef.current?.clockResumed(atMs ?? Date.now());
     pausedRef.current = false;
     autoPausedRef.current = false;
     setPaused(false);
@@ -337,6 +338,7 @@ export default function RunScreen({
       geo.onAutoPause = (at) => {
         if (pausedRef.current) return; // a manual pause already owns the state
         accumulatedRef.current += Math.max(0, at - startAtRef.current);
+        geo.clockPaused(at); // pace is measured on the same clock
         pausedRef.current = true;
         autoPausedRef.current = true;
         setPaused(true);
@@ -347,6 +349,7 @@ export default function RunScreen({
       geo.onAutoResume = (at) => {
         if (!autoPausedRef.current) return; // never un-pause a manual pause
         startAtRef.current = at;
+        geo.clockResumed(at);
         pausedRef.current = false;
         autoPausedRef.current = false;
         resumeCountdownRef.current = 0;
@@ -391,6 +394,7 @@ export default function RunScreen({
       countdownRef.current = startDelaySec;
       setCountdown(startDelaySec);
       geo.paused = true;
+      geo.clockPaused(Date.now());
     } else {
       coach.onRunStart();
     }
@@ -407,6 +411,7 @@ export default function RunScreen({
           startAtRef.current = Date.now();
           wallStartRef.current = Date.now();
           geo.paused = false;
+          geo.clockResumed(Date.now());
           coach.onRunStart();
         }
         setGpsSignal(geo.signal());
@@ -492,6 +497,7 @@ export default function RunScreen({
     pausedRef.current = true;
     setPaused(true);
     if (geoRef.current) geoRef.current.paused = true;
+    geoRef.current?.clockPaused(Date.now());
     signalTransition("pause");
     coachRef.current?.onPause();
   };

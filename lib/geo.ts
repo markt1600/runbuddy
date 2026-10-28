@@ -112,8 +112,14 @@ export class GeoTracker {
   private onUpdate: () => void = () => {};
   private nativeSubs: { remove: () => void }[] = [];
   private last: GeoSample | null = null;
-  private recent: { t: number; km: number }[] = []; // cumulative distance samples for rolling pace
-  private history: { t: number; km: number }[] = []; // full-run samples for last-km moving average
+  // Cumulative distance samples: `t` is wall time (the efforts windows and the
+  // saved trace stay on it), `mt` the run's own clock with every pause taken
+  // out — what pace and the last-km speed are measured on.
+  private recent: { t: number; mt: number; km: number }[] = []; // rolling-pace window
+  private history: { t: number; mt: number; km: number }[] = []; // whole run
+  /** Wall time the run's clock has excluded so far, and when the current stop began. */
+  private excludedMs = 0;
+  private clockPausedAt: number | null = null;
   private lastFixAt = 0; // any fix, even a rejected low-accuracy one
   private lastGoodFixAt = 0; // fix accurate enough to count toward distance
   private lastAccuracy: number | null = null;
@@ -393,15 +399,50 @@ export class GeoTracker {
       }
     }
 
-    const sample = { t: now, km: this.distanceKm };
+    const sample = { t: now, mt: this.movingNow(now), km: this.distanceKm };
     this.recent.push(sample);
     this.history.push(sample);
-    const cutoff = now - 60_000;
-    while (this.recent.length > 2 && this.recent[0].t < cutoff) this.recent.shift();
+    // The window is a minute of RUNNING: samples taken during a stop share one
+    // frozen clock reading, so they neither age the window nor stretch it.
+    const cutoff = sample.mt - 60_000;
+    while (this.recent.length > 2 && this.recent[0].mt < cutoff) this.recent.shift();
     this.updateEfforts();
   }
 
-  /** Advance the rolling-effort windows with the newest history sample. */
+  /**
+   * The run's clock, as the run screen keeps it: wall time minus every
+   * pause, frozen while one is on. Pace and the last-km speed are measured on
+   * this, so a stop — by hand or auto-detected — never reads as slowness in
+   * the minute after the restart, and a kilometre with a stop in it is still
+   * reported at the speed it was actually run. The screen reports both edges
+   * back-dated the way it back-dates its own clock, so the two agree.
+   */
+  clockPaused(atMs: number) {
+    if (this.clockPausedAt !== null) return;
+    this.clockPausedAt = atMs;
+    // The detector confirms a stop a couple of seconds after it began and
+    // back-dates the edge: samples taken in between belong to the stop.
+    const frozen = this.movingNow(atMs);
+    for (let i = this.history.length - 1; i >= 0 && this.history[i].t > atMs; i--) {
+      this.history[i].mt = frozen; // the same objects sit in `recent`
+    }
+  }
+
+  clockResumed(atMs: number) {
+    if (this.clockPausedAt === null) return;
+    this.excludedMs += Math.max(0, atMs - this.clockPausedAt);
+    this.clockPausedAt = null;
+  }
+
+  private movingNow(now: number): number {
+    const at = this.clockPausedAt !== null ? Math.min(now, this.clockPausedAt) : now;
+    return at - this.excludedMs;
+  }
+
+  /** Advance the rolling-effort windows with the newest history sample.
+   *  On wall time, deliberately: the saved traces are mined for records on
+   *  wall time too, and a personal record beaten only by stopping the clock
+   *  is not one. */
   private updateEfforts() {
     const h = this.history;
     const j = h.length - 1;
@@ -686,16 +727,16 @@ export class GeoTracker {
     if (this.speedEma !== null) return this.speedEma;
     if (this.recent.length < 2) return null;
     const now = this.recent[this.recent.length - 1];
-    const targetT = now.t - seconds * 1000;
+    const targetT = now.mt - seconds * 1000;
     // Most recent sample at or before the window start
     let then = this.recent[0];
     for (let i = this.recent.length - 1; i >= 0; i--) {
-      if (this.recent[i].t <= targetT) {
+      if (this.recent[i].mt <= targetT) {
         then = this.recent[i];
         break;
       }
     }
-    const dtHrs = (now.t - then.t) / 3_600_000;
+    const dtHrs = (now.mt - then.mt) / 3_600_000;
     if (dtHrs * 3600 < seconds * 0.5) return null; // window not filled yet
     return (now.km - then.km) / dtHrs;
   }
@@ -709,7 +750,7 @@ export class GeoTracker {
     for (let i = this.history.length - 1; i >= 0; i--) {
       if (this.history[i].km <= targetKm) {
         const then = this.history[i];
-        const dtHrs = (now.t - then.t) / 3_600_000;
+        const dtHrs = (now.mt - then.mt) / 3_600_000; // running time only
         if (dtHrs <= 0) return null;
         return (now.km - then.km) / dtHrs;
       }
@@ -723,7 +764,7 @@ export class GeoTracker {
     const first = this.recent[0];
     const last = this.recent[this.recent.length - 1];
     const dKm = last.km - first.km;
-    const dSec = (last.t - first.t) / 1000;
+    const dSec = (last.mt - first.mt) / 1000; // running time only
     if (dKm < 0.02 || dSec < 15) return null; // not enough signal
     return dSec / dKm;
   }

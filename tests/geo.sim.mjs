@@ -152,6 +152,32 @@ scenario("stop → auto-pause, go → auto-resume, both back-dated", () => {
   );
 });
 
+scenario("a stop stays out of the rolling pace and the last-km speed", () => {
+  // The field complaint: after an auto-pause the trainer reacted to a "pace"
+  // that still had the stop inside it. The run screen reports both edges of
+  // its clock to the tracker; pace and the last-km speed live on that clock.
+  const t = new GeoTracker();
+  const w = makeWorld(t, mulberry32(5), { accuracy: 10 });
+  t.onAutoPause = (at) => t.clockPaused(at);
+  t.onAutoResume = (at) => t.clockResumed(at);
+  w.speedMps = 3; // 5:33 per km
+  w.advance(400); // 1.2 km in
+  w.speedMps = 0;
+  w.advance(90); // a traffic light
+  w.speedMps = 3;
+  w.advance(20); // twenty seconds back on the road
+  const pace = t.rollingPaceSecPerKm();
+  assert.ok(
+    pace !== null && Math.abs(pace - 333) / 333 < 0.15,
+    `rolling pace ${pace === null ? "null" : pace.toFixed(0)} s/km after a stop (expected ~333)`
+  );
+  const lastKm = t.lastKmSpeedKmh();
+  assert.ok(
+    lastKm !== null && Math.abs(lastKm - 10.8) / 10.8 < 0.15,
+    `last-km speed ${lastKm === null ? "null" : lastKm.toFixed(1)} km/h after a stop (expected ~10.8)`
+  );
+});
+
 scenario("tunnel: signal loss while moving neither pauses nor freezes", () => {
   const t = new GeoTracker();
   const w = makeWorld(t, mulberry32(4), { accuracy: 10 });
