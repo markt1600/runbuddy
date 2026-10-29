@@ -120,6 +120,15 @@ export class GeoTracker {
   /** Wall time the run's clock has excluded so far, and when the current stop began. */
   private excludedMs = 0;
   private clockPausedAt: number | null = null;
+  /**
+   * The smoothed speed from just before the latest stop began. Smoothing
+   * decays to zero while standing and takes several fixes to climb back, so
+   * without this the first seconds after a resume read as a crawl — and a
+   * line improvised in those seconds quoted it. Seeded back in on resume.
+   */
+  private emaBeforeFix: number | null = null;
+  private emaAtStill: number | null = null;
+  private emaBeforeStop: number | null = null;
   private lastFixAt = 0; // any fix, even a rejected low-accuracy one
   private lastGoodFixAt = 0; // fix accurate enough to count toward distance
   private lastAccuracy: number | null = null;
@@ -288,6 +297,7 @@ export class GeoTracker {
         if (s.speed !== null) {
           const mps = this.stationary ? 0 : s.speed;
           const kmh = mps * 3.6;
+          this.emaBeforeFix = this.speedEma;
           this.speedEma =
             this.speedEma === null
               ? kmh
@@ -420,6 +430,7 @@ export class GeoTracker {
   clockPaused(atMs: number) {
     if (this.clockPausedAt !== null) return;
     this.clockPausedAt = atMs;
+    this.emaBeforeStop = this.emaAtStill ?? this.emaBeforeFix ?? this.speedEma;
     // The detector confirms a stop a couple of seconds after it began and
     // back-dates the edge: samples taken in between belong to the stop.
     const frozen = this.movingNow(atMs);
@@ -432,6 +443,11 @@ export class GeoTracker {
     if (this.clockPausedAt === null) return;
     this.excludedMs += Math.max(0, atMs - this.clockPausedAt);
     this.clockPausedAt = null;
+    // Pick the speed display up where it left off; the next fixes blend in
+    // whatever pace the runner actually resumed at.
+    if (this.emaBeforeStop !== null && this.emaBeforeStop > 0) this.speedEma = this.emaBeforeStop;
+    this.emaAtStill = null;
+    this.emaBeforeStop = null;
   }
 
   private movingNow(now: number): number {
@@ -522,7 +538,10 @@ export class GeoTracker {
     }
 
     if (stopped) {
-      if (this.stillRun === 0) this.firstStillAt = now;
+      if (this.stillRun === 0) {
+        this.firstStillAt = now;
+        this.emaAtStill = this.emaBeforeFix; // the speed before this first still fix
+      }
       this.stillRun++;
       this.moveRun = 0;
     } else {

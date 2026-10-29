@@ -185,7 +185,7 @@ function contextLines(context: PhraseContext): string {
           "only occasionally, when it's genuinely funny or apt"
         : null,
     ].filter(Boolean);
-    return `\n\nLive run stats:\n${lines.join("\n")}${runnerLines(context)}${historyLines(context)}`;
+    return `\n\nLive run stats (every time and pace here is running time only — any stops are already left out, so never work a pace out from the clock):\n${lines.join("\n")}${runnerLines(context)}${historyLines(context)}`;
   }
   const lines = [
     context.locality ? `Location: running through ${context.locality}` : null,
@@ -215,7 +215,7 @@ function contextLines(context: PhraseContext): string {
         "only occasionally, when it's genuinely funny or apt"
       : null,
   ].filter(Boolean);
-  const stats = lines.length ? `\n\nLive run stats:\n${lines.join("\n")}` : "";
+  const stats = lines.length ? `\n\nLive run stats (every time and pace here is running time only — any stops are already left out, so never work a pace out from the clock):\n${lines.join("\n")}` : "";
   return `${stats}${runnerLines(context)}${historyLines(context)}${travelLines(context)}`;
 }
 

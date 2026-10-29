@@ -158,8 +158,12 @@ scenario("a stop stays out of the rolling pace and the last-km speed", () => {
   // its clock to the tracker; pace and the last-km speed live on that clock.
   const t = new GeoTracker();
   const w = makeWorld(t, mulberry32(5), { accuracy: 10 });
+  let speedAtResume = null;
   t.onAutoPause = (at) => t.clockPaused(at);
-  t.onAutoResume = (at) => t.clockResumed(at);
+  t.onAutoResume = (at) => {
+    t.clockResumed(at);
+    speedAtResume = t.speedKmhLastSeconds(10);
+  };
   w.speedMps = 3; // 5:33 per km
   w.advance(400); // 1.2 km in
   w.speedMps = 0;
@@ -175,6 +179,12 @@ scenario("a stop stays out of the rolling pace and the last-km speed", () => {
   assert.ok(
     lastKm !== null && Math.abs(lastKm - 10.8) / 10.8 < 0.15,
     `last-km speed ${lastKm === null ? "null" : lastKm.toFixed(1)} km/h after a stop (expected ~10.8)`
+  );
+  // The smoothed speed is back where it was the moment the resume fires,
+  // not crawling up from zero over the next few fixes.
+  assert.ok(
+    speedAtResume !== null && speedAtResume > 9,
+    `speed read ${speedAtResume === null ? "null" : speedAtResume.toFixed(1)} km/h at the resume (expected ~10.8)`
   );
 });
 
