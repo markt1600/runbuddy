@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatElapsed } from "@/lib/geo";
-import { coachIsSpeaking } from "@/lib/audio";
-import { getVoiceVolume } from "@/lib/voiceLibrary";
+import { VoiceEngine, coachIsSpeaking } from "@/lib/audio";
 import HealthPanel from "./HealthPanel";
 import type { SpeedUnit } from "@/lib/units";
 import { loadCardBg } from "@/lib/prefs";
@@ -171,6 +170,14 @@ export default function SummaryScreen({
   // re-written silently when a Watch conform changes the numbers, so the
   // card never quotes a pace the run no longer has.
   const disposedRef = useRef(false);
+  // The closing line goes through a voice engine, like every line of the run,
+  // never a bare <audio> element. In the shell the engine's native player is
+  // what applies the trainer's level (anything above 1 is an amplify only it
+  // can do) and ducks the music while the trainer talks; a page element gets
+  // neither, and by the time this line arrives the run's engine has already
+  // handed the music back to full — so the sum-up came out at a fraction of
+  // the run's level and got buried under the runner's playlist.
+  const voiceRef = useRef<VoiceEngine | null>(null);
   const fetchComment = useCallback(
     async (s: RunStats, speak: boolean) => {
       const avgKmh = s.elapsedMs > 0 ? s.distanceKm / (s.elapsedMs / 3_600_000) : 0;
@@ -221,10 +228,10 @@ export default function SummaryScreen({
         while (coachIsSpeaking() && Date.now() - waitStartedAt < 15_000) {
           await new Promise((r) => setTimeout(r, 250));
         }
-        if (disposedRef.current) return;
-        const closing = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
-        closing.volume = Math.min(1, getVoiceVolume(persona.id)); // element caps at 1
-        void closing.play().catch(() => {});
+        // Dismissed while the line was generating: stay quiet.
+        const voice = voiceRef.current;
+        if (disposedRef.current || !voice) return;
+        voice.say(data.text, `data:audio/mpeg;base64,${data.audioBase64}`);
       } catch {
         /* generation unavailable — the static line stays */
       }
@@ -234,9 +241,21 @@ export default function SummaryScreen({
 
   useEffect(() => {
     disposedRef.current = false;
+    // Not start()ed: that is the run engine's job (it claims background
+    // audio and registers as the one the wait above listens for). This one
+    // only needs to play a single line in the foreground.
+    const voice = new VoiceEngine(persona);
+    voiceRef.current = voice;
     void fetchComment(stats, true);
     return () => {
       disposedRef.current = true;
+      voiceRef.current = null;
+      // Done tapped mid-line: cut it here and now. Nothing is deferred past
+      // the unmount, so a run started straight after finds the native player
+      // and the background-audio claim untouched by this screen. An engine
+      // that never spoke is left alone — stopping it would silence the
+      // shared native player, which may still be on the run's sign-off.
+      if (voice.busy) voice.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

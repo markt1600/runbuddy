@@ -81,14 +81,46 @@ export async function stubLibraryRoutes(page, { renderHashes = {}, renderCalls =
       body: JSON.stringify({ url: `${BASE}/silent.mp3`, existed: false }),
     });
   });
-  await page.route("**/api/phrase", (r) =>
-    r.fulfill({
+  await page.route("**/api/phrase", (r) => {
+    // The summary's closing line comes with audio, the way the real route
+    // serves it, so the screens test can watch how that audio gets played.
+    let category = null;
+    try {
+      category = JSON.parse(r.request().postData() ?? "{}").category ?? null;
+    } catch {
+      /* not JSON — a text-only reply is fine */
+    }
+    return r.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ text: "Not bad lah. Same time tomorrow." }),
-    })
-  );
+      body: JSON.stringify({
+        text: "Not bad lah. Same time tomorrow.",
+        ...(category === "summary" ? { audioBase64: SILENT_WAV_B64 } : {}),
+      }),
+    });
+  });
 }
+
+/** A tenth of a second of silence as a WAV, for mocks that promise audio. */
+export const SILENT_WAV_B64 = (() => {
+  const rate = 8000;
+  const samples = 800;
+  const buf = Buffer.alloc(44 + samples * 2);
+  buf.write("RIFF", 0);
+  buf.writeUInt32LE(36 + samples * 2, 4);
+  buf.write("WAVE", 8);
+  buf.write("fmt ", 12);
+  buf.writeUInt32LE(16, 16);
+  buf.writeUInt16LE(1, 20); // PCM
+  buf.writeUInt16LE(1, 22); // mono
+  buf.writeUInt32LE(rate, 24);
+  buf.writeUInt32LE(rate * 2, 28);
+  buf.writeUInt16LE(2, 32);
+  buf.writeUInt16LE(16, 34);
+  buf.write("data", 36);
+  buf.writeUInt32LE(samples * 2, 40);
+  return buf.toString("base64");
+})();
 
 export async function openAdmin(page) {
   await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });

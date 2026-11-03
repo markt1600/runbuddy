@@ -298,8 +298,17 @@ export class VoiceEngine {
     void runBuddyNative()?.keepAliveStop();
     const startedAt = Date.now();
     const check = () => {
-      if (!this.busy || Date.now() - startedAt > maxWaitMs) {
-        this.stop();
+      if (!this.busy) {
+        // Idle on its own terms: the drain loop has exited and handed the
+        // music back. Only let go — never stop(). The native player and the
+        // audio session are shared, and by now the summary screen's closing
+        // line may already be on them; a stop() here cut it off a word in
+        // and brought the music back up underneath it.
+        this.release();
+        return;
+      }
+      if (Date.now() - startedAt > maxWaitMs) {
+        this.stop(); // stuck: the hard teardown is the right one
         return;
       }
       setTimeout(check, 200);
@@ -307,9 +316,28 @@ export class VoiceEngine {
     check();
   }
 
-  /** True while anything is playing OR still waiting its turn. */
+  /** Unregister and tidy without touching any audio — for an engine that has
+   *  already gone quiet by itself. */
+  private release() {
+    if (activeEngine === this) activeEngine = null;
+    document.removeEventListener("visibilitychange", this.onVisibility);
+    this.queue = [];
+    this.intentionalPause = true;
+    // The drain loop's wind-down restarts the keep-alive; that was its last.
+    this.keepAlive?.removeEventListener("pause", this.onKeepAlivePause);
+    this.keepAlive?.pause();
+    this.setSpeaking(false, null);
+  }
+
+  /**
+   * True while anything is playing OR still waiting its turn — up to the
+   * moment the drain loop has let go of the audio session, not merely the last
+   * word. Whoever speaks next (the summary's closing line) keys off this, and
+   * starting inside the trailing breath would have this engine's wind-down
+   * hand the music back underneath them.
+   */
   get busy(): boolean {
-    return this.speaking || this.queue.length > 0;
+    return this.playing || this.speaking || this.queue.length > 0;
   }
 
   /**

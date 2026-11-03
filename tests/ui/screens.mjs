@@ -15,6 +15,39 @@ mkdirSync(OUT, { recursive: true });
 const { browser, context, page } = await launchIphone();
 await stubLibraryRoutes(page);
 
+// Playback spy for the end of the run: every play() is logged with the
+// audio-session type in force at that moment, which is how the web build
+// ducks the music. The session API only appears once the test switches it
+// on (after End), so the setup and run screens render exactly as they do in
+// a browser without it and the screenshots stay comparable.
+await page.addInitScript(() => {
+  window.__plays = [];
+  let type = "auto";
+  const session = {
+    get type() {
+      return type;
+    },
+    set type(v) {
+      type = v;
+    },
+  };
+  Object.defineProperty(Navigator.prototype, "audioSession", {
+    configurable: true,
+    get() {
+      return window.__audioSessionOn ? session : undefined;
+    },
+  });
+  const play = HTMLMediaElement.prototype.play;
+  HTMLMediaElement.prototype.play = function (...args) {
+    window.__plays.push({
+      src: String(this.src).slice(0, 24),
+      session: type,
+      volume: this.volume,
+    });
+    return play.apply(this, args);
+  };
+});
+
 await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/01-setup.png`, fullPage: true });
@@ -102,6 +135,9 @@ await page.locator(".control-btn.end").click();
 // End asks first — an in-app overlay, never window.confirm (which froze the
 // WebView mid-gesture in the field).
 await page.locator(".end-confirm .cta:not(.secondary)").click();
+await page.evaluate(() => {
+  window.__audioSessionOn = true;
+});
 await page.waitForTimeout(3000);
 assert.strictEqual(await page.locator(".app.theme-ink").count(), 0, "summary still in ink theme");
 await page.screenshot({ path: `${OUT}/03-summary.png`, fullPage: true });
@@ -119,6 +155,26 @@ await page.screenshot({ path: `${OUT}/03b-summary-open.png`, fullPage: true });
 await page.locator(".sum-row-main", { hasText: "Route" }).click();
 await page.waitForTimeout(200);
 assert.strictEqual(await page.locator(".sum-row-body").count(), 0, "the Route row did not close");
+
+// The trainer's sum-up line plays through the voice engine — music ducked
+// for it ("transient"), trainer level applied — like every line of the run.
+// It used to go through a bare element after the run's engine had already
+// handed the music back, and came out quiet under the playlist. It waits
+// for the sign-off first, which in here is a synth fallback on a watchdog,
+// so give it time.
+await page.waitForFunction(
+  () => window.__plays.some((p) => p.src.startsWith("data:audio/mpeg")),
+  null,
+  { timeout: 25_000 }
+);
+const closingPlay = await page.evaluate(() =>
+  window.__plays.find((p) => p.src.startsWith("data:audio/mpeg"))
+);
+assert.strictEqual(
+  closingPlay.session,
+  "transient",
+  `the sum-up line played with the music still up: ${JSON.stringify(closingPlay)}`
+);
 
 const dataUrl = await page.evaluate(
   () => document.querySelector(".run-card-img")?.getAttribute("src") ?? null
